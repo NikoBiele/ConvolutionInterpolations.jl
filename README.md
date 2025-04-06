@@ -84,24 +84,31 @@ itp = convolution_interpolation(x, y; extrapolation_bc=Reflect())
 itp = convolution_interpolation(x, y; extrapolation_bc=Throw())
 ```
 
-### Direct Construction
+### High-Dimensional Data
 
-For even more control, use the lower-level constructors:
+ConvolutionInterpolations.jl handles data of any dimensionality with no practical limits:
+
 ```julia
-# Standard interpolation
-itp = ConvolutionInterpolation((x,), y, degree=5)
+# 4D interpolation example (time series of 3D volumes)
+x = range(0, 1, length=10)
+y = range(0, 1, length=10)
+z = range(0, 1, length=10)
+t = range(0, 1, length=5)
 
-# Fast interpolation with precomputed kernels
-itp = FastConvolutionInterpolation((x,), y, degree=5)
+# Create 4D data (e.g., time-evolving 3D scalar field)
+data_4d = [sin(2π*xi)*cos(2π*yi)*exp(-zi)*sqrt(ti) for xi in x, yi in y, zi in z, ti in t]
 
-# Separate extrapolation step
-itp = ConvolutionInterpolation((x,), y)
-etp = ConvolutionExtrapolation(itp, Line())
+# Create 4D interpolator
+itp_4d = convolution_interpolation((x, y, z, t), data_4d)
+
+# Evaluate at arbitrary 4D point
+value = itp_4d(0.42, 0.33, 0.77, 0.51)
 ```
+Works analogously for 5D, 6D, or any higher dimensionality
 
 ## Performance Tips
 
-- Use ```degree=3``` (default) for a good balance of accuracy and speed
+- Use ```degree=5``` for a good balance of accuracy and speed (default is degree=3)
 - Set ```fast=true``` (default) to use precomputed kernels for better performance
 - Adjust the ```precompute``` parameter to control the accuracy-memory tradeoff for kernel evaluation:
 ```julia

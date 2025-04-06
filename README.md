@@ -113,10 +113,10 @@ Works analogously for 5D, 6D, or any higher dimensionality
 - Adjust the ```precompute``` parameter to control the accuracy-memory tradeoff for kernel evaluation:
 ```julia
 # More precomputed points = more accurate kernel evaluation but more memory usage
-itp = convolution_interpolation(x, y, precompute=2000) # Default is 1000
+itp = convolution_interpolation(x, y; precompute=2000) # Default is 1000
 
 # Fewer points = less memory usage but slightly less accurate kernel evaluation
-itp = convolution_interpolation(x, y, precompute=500)
+itp = convolution_interpolation(x, y; precompute=500)
 ```
 - Increasing ```precompute``` improves evaluation time and increases accuracy at virtually no cost after the precompute step
 

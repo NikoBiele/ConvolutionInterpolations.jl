@@ -1,0 +1,5 @@
+include("convolution_kernel_interpolation_1d.jl")
+include("convolution_kernel_interpolation_2d.jl")
+include("convolution_kernel_interpolation_3d.jl")
+include("convolution_kernel_interpolation_nd.jl")
+include("limit_convolution_bounds.jl")

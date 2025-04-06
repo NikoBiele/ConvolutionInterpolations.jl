@@ -68,7 +68,10 @@ itp = convolution_interpolation(x, y; B=1.0)     # B controls width
 Choose from different boundary conditions for extrapolating beyond the data domain:
 
 ```julia
-# Linear extrapolation (default)
+# Error for out-of-bounds access (default)
+itp = convolution_interpolation(x, y; extrapolation_bc=Throw())
+
+# Linear extrapolation
 itp = convolution_interpolation(x, y; extrapolation_bc=Line())
 
 # Constant extrapolation at boundaries
@@ -79,9 +82,6 @@ itp = convolution_interpolation(x, y; extrapolation_bc=Periodic())
 
 # Reflection at boundaries
 itp = convolution_interpolation(x, y; extrapolation_bc=Reflect())
-
-# Error for out-of-bounds access
-itp = convolution_interpolation(x, y; extrapolation_bc=Throw())
 ```
 
 ### High-Dimensional Data

@@ -131,7 +131,7 @@ Unlike other interpolation packages, ConvolutionInterpolations.jl:
 
 ## Acknowledgments
 
-ConvolutionInterpolations.jl draws significant inspiration from [Interpolations.jl](https://github.com/JuliaMath/Interpolations.jl) in terms of API design and interface. This package originally started as a potential PR for Interpolations.jl before evolving into a standalone implementation. I'm grateful to the Interpolations.jl maintainers and contributors for their excellent work, which provided a solid foundation for the design patterns used here.
+ConvolutionInterpolations.jl draws significant inspiration from [Interpolations.jl](https://github.com/JuliaMath/Interpolations.jl) in terms of API design and interface. This package originally started as a PR for Interpolations.jl before evolving into a standalone implementation. I'm grateful to the Interpolations.jl maintainers and contributors for their excellent work, which provided a solid foundation for the design patterns used here.
 
 The implementation of the convolution kernels is based on seminal work in the field:
 

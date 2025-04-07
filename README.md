@@ -85,7 +85,7 @@ itp = convolution_interpolation(x, y; extrapolation_bc=Reflect())
 
 ### High-Dimensional Data
 
-ConvolutionInterpolations.jl handles data of any dimensionality with no practical limits:
+ConvolutionInterpolations.jl handles data of any dimensionality:
 
 ```julia
 # 4D interpolation example (time series of 3D volumes)
@@ -103,7 +103,7 @@ itp_4d = convolution_interpolation((x, y, z, t), data_4d)
 # Evaluate at arbitrary 4D point
 value = itp_4d(0.42, 0.33, 0.77, 0.51)
 ```
-Works analogously for 5D, 6D, or any higher dimensionality
+Works analogously for 5D, 6D, or higher dimensionality
 
 ## Performance Tips
 

@@ -1,7 +1,7 @@
 name = "ConvolutionInterpolations"
 uuid = "75b5ba44-29d7-490a-960d-52c835d47405"
 authors = ["Nikolaj Maack Bielefeld"]
-version = "1.0.0-DEV"
+version = "0.1.0"
 
 [compat]
 julia = "1"

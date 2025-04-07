@@ -1,6 +1,6 @@
 # ConvolutionInterpolations.jl
 
-A Julia package for smooth high-accuracy N-dimensional interpolation using separable convolution kernels.
+A Julia package for smooth N-dimensional interpolation using separable convolution kernels.
 
 [![Build Status](https://github.com/NikoBiele/ConvolutionInterpolations.jl/workflows/CI/badge.svg)](https://github.com/NikoBiele/ConvolutionInterpolations.jl/actions)
 [![Coverage](https://codecov.io/gh/NikoBiele/ConvolutionInterpolations.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/NikoBiele/ConvolutionInterpolations.jl)
@@ -8,7 +8,7 @@ A Julia package for smooth high-accuracy N-dimensional interpolation using separ
 ## Features
 
 - N-dimensional interpolation (1D to arbitrary dimensions) using separable convolution kernels
-- Multiple polynomial kernel options for different accuracy/smoothness trade-offs
+- Multiple polynomial kernel options in the same framework: Nearest neighbor, linear, cubic, quintic etc.
 - Intelligent boundary handling that adapts internally to signal characteristics (linear, quadratic or periodic)
 - Various extrapolation methods (linear, flat, periodic, reflection)
 - Zero dependencies outside core Julia

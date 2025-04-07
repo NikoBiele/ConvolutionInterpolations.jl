@@ -13,7 +13,7 @@ define that kernel across its support range.
 
 # Details
 This mapping specifies:
-- Degree 3: 3 equations with support [-3,3]
+- Degree 3: 2 equations with support [-2,2]
 - Degree 5: 5 equations with support [-5,5]
 - Degree 7: 6 equations with support [-6,6]
 - Degree 9: 7 equations with support [-7,7]
@@ -25,7 +25,9 @@ This dictionary is used internally to determine the appropriate kernel configura
 on the specified degree.
 """
 const DEGREE_TO_EQUATIONS = Dict(
-    3 => 3,
+    0 => 1,
+    1 => 1,
+    3 => 2,
     5 => 5,
     7 => 6,
     9 => 7,

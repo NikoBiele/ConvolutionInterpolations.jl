@@ -1,3 +1,5 @@
+include("convolution_kernel_0.jl")
+include("convolution_kernel_1.jl")
 include("convolution_kernel_3.jl")
 include("convolution_kernel_5.jl")
 include("convolution_kernel_7.jl")

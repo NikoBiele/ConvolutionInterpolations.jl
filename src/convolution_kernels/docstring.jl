@@ -17,10 +17,20 @@ of accuracy and smoothness properties.
 
 The following kernel degrees are supported:
 
+## Nearest Neighbor Kernel (DG=0)
+The nearest neighbor convolution kernel with 1 equation and support [-1,1]:
+- 0th order accuracy with no continuity
+- 1 piecewise equation for |s| < 0.5
+
+## Linear Kernel (DG=1)
+The linear convolution kernel with 1 equation and support [-1,1]:
+- 1st order accuracy with C0 continuity
+- 1 piecewise equation for |s| < 1.0
+
 ## Cubic Kernel (DG=3)
-The original cubic convolution kernel with 3 equations and support [-3,3]:
-- 3rd order accuracy with C² continuity
-- 3 piecewise equations for |s| < 1.0, 1.0 ≤ |s| < 2.0, and 2.0 ≤ |s| < 3.0
+The original cubic convolution kernel with 2 equations and support [-2,2]:
+- 3rd order accuracy with C¹ continuity
+- 2 piecewise equations for |s| < 1.0 and 1.0 ≤ |s| < 2.0
 
 ## Quintic Kernel (DG=5)
 Extended quintic convolution kernel with 5 equations and support [-5,5]:

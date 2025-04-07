@@ -29,7 +29,7 @@ eqs = get_equations_for_degree(3)  # Returns 3
 eqs = get_equations_for_degree(5)  # Returns 5
 ```
 """
-function get_equations_for_degree(degree::Integer)
+function get_equations_for_degree(degree::Symbol)
     haskey(DEGREE_TO_EQUATIONS, degree) || throw(ArgumentError("Degree $degree not supported. Supported degrees: $(sort(collect(keys(DEGREE_TO_EQUATIONS))))"))
     return DEGREE_TO_EQUATIONS[degree]
 end

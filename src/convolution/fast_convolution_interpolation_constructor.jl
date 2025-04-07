@@ -29,7 +29,7 @@ The `precompute` parameter controls how many positions are precomputed for the k
 Higher values may provide more accuracy but use more memory.
 """
 function FastConvolutionInterpolation(knots::NTuple{N,AbstractVector}, vs::AbstractArray{T,N};
-                                degree::Int=3, precompute::Int=1000, B=nothing) where {T,N}
+                                degree::Symbol=:a3, precompute::Int=1000, B=nothing) where {T,N}
     
     eqs = B === nothing ? get_equations_for_degree(degree) : 50
     h = map(k -> k[2] - k[1], knots)

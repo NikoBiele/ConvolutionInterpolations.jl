@@ -1,5 +1,5 @@
 # see 'docstring.jl' for documentation
-function (::ConvolutionKernel{5})(s::T) where {T} # 5 equations 7th order accurate quintic
+function (::ConvolutionKernel{:b5})(s::T) where {T} # 5 equations 7th order accurate quintic
     s_abs = abs(s)
     coef = Dict(
         # 5 equation quintic, 7th order accurate

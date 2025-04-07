@@ -2,14 +2,13 @@
 
 A Julia package for smooth N-dimensional interpolation using separable convolution kernels.
 
-[![Build Status](https://github.com/NikoBiele/ConvolutionInterpolations.jl/workflows/CI/badge.svg)](https://github.com/NikoBiele/ConvolutionInterpolations.jl/actions)
-[![Coverage](https://codecov.io/gh/NikoBiele/ConvolutionInterpolations.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/NikoBiele/ConvolutionInterpolations.jl)
+![Performance of available kernels](fig/convolution_interpolation_a_and_b.png)
 
 ## Features
 
 - N-dimensional interpolation (1D to arbitrary dimensions) using separable convolution kernels
 - Multiple polynomial kernel options in the same framework: Nearest neighbor, linear, cubic, quintic etc.
-- Intelligent boundary handling that adapts internally to signal characteristics (linear, quadratic or periodic)
+- Two options for accuracy: (1) High continuity ':a' kernels or (2) high order of accuracy ':b' kernels
 - Various extrapolation methods (linear, flat, periodic, reflection)
 - Zero dependencies outside core Julia
 - Fast implementation with precomputed kernel optimizations
@@ -48,16 +47,16 @@ itp_2d(0.5, -1.2) # Evaluate at a specific point
 Control the precision/smoothness by selecting different kernel degrees:
 ```julia
 # Default cubic interpolation (degree=3)
-itp = convolution_interpolation(x, y) # cubic (4th order accurate, C1 continuous)
+itp = convolution_interpolation(x, y) # cubic (C1 continuous)
 
 # Higher-order interpolation for enhanced smoothness
-itp = convolution_interpolation(x, y; degree=5)  # quintic (7th order accurate, C3 continuous)
-itp = convolution_interpolation(x, y; degree=7)  # septic (7th order accurate, C5 continuous)
+itp = convolution_interpolation(x, y; degree=:a5)  # quintic (C3 continuous)
+itp = convolution_interpolation(x, y; degree=:a7)  # septic (C5 continuous)
 
 # Ultra-high-precision interpolation
-itp = convolution_interpolation(x, y; degree=9)  # 9th degree (7th order accurate, C7 continuous)
-itp = convolution_interpolation(x, y; degree=11) # 11th degree (7th order accurate, C9 continuous)
-itp = convolution_interpolation(x, y; degree=13) # 13th degree (7th order accurate, C11 continuous)
+itp = convolution_interpolation(x, y; degree=:b9)  # 9th degree (7th order accurate, C7 continuous)
+itp = convolution_interpolation(x, y; degree=:b11) # 11th degree (7th order accurate, C9 continuous)
+itp = convolution_interpolation(x, y; degree=:b13) # 13th degree (7th order accurate, C11 continuous)
 
 # Gaussian convolution smoothing interpolation (does not hit data points)
 itp = convolution_interpolation(x, y; B=1.0)     # B controls width
@@ -108,25 +107,26 @@ Works analogously for 5D, 6D, or any higher dimensionality
 
 ## Performance Tips
 
-- Use ```degree=5``` for a good balance of accuracy and speed (default is degree=3)
+- Use ```degree=:a``` for high dimensional data, to minimize boundary handling
+- Use ```degree=:b``` for maximum accuracy, at the expense of more boundary coefficients
 - Set ```fast=true``` (default) to use precomputed kernels for better performance
 - Adjust the ```precompute``` parameter to control the accuracy-memory tradeoff for kernel evaluation:
 ```julia
 # More precomputed points = more accurate kernel evaluation but more memory usage
-itp = convolution_interpolation(x, y; precompute=2000) # Default is 1000
+itp = convolution_interpolation(x, y; precompute=10_000) # Default is 1000
 
 # Fewer points = less memory usage but slightly less accurate kernel evaluation
 itp = convolution_interpolation(x, y; precompute=500)
 ```
-- Increasing ```precompute``` improves evaluation time and increases accuracy at virtually no cost after the precompute step
+- Increasing ```precompute``` increases accuracy at virtually no cost after the precompute step
 
 ## Comparison with Other Packages
 
 Unlike other interpolation packages, ConvolutionInterpolations.jl:
 
-- Uses convolution kernels that adapt to the signal's characteristics
-- Provides higher-order kernels (up to 13th degree) for extreme precision
-- Combines the best of both worlds: accuracy of splines with simplicity of local methods
+- Provides a wide range of interpolation kernels (nearest neighbor up to 13th degree kernel)
+- Combines the best of both worlds: A single framework for both low and high order accuracy interpolation
+- Separable kernels extend naturally into higher dimensions
 - Requires zero dependencies outside core Julia
 
 ## Acknowledgments

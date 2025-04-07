@@ -1,5 +1,5 @@
 # see 'docstring.jl' for documentation
-function (::ConvolutionKernel{11})(s::T) where {T} # 8 equation 7th order accurate 11th degree
+function (::ConvolutionKernel{:b11})(s::T) where {T} # 8 equation 7th order accurate 11th degree
     s_abs = abs(s)
     coef = Dict(
         # 8 equation 11th degree, 7th order accurate

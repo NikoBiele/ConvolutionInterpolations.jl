@@ -25,7 +25,7 @@ If `B` is provided, a Gaussian kernel with parameter `B` is used instead of a po
 kernel, and the `eqs` parameter is set to 50 to accommodate the wider support of the Gaussian.
 """
 function ConvolutionInterpolation(knots::NTuple{N,AbstractVector}, vs::AbstractArray{T,N};
-    degree::Int=3, B=nothing) where {T,N}
+    degree::Symbol=:a3, B=nothing) where {T,N}
 
     eqs = B === nothing ? get_equations_for_degree(degree) : 50
     h = map(k -> k[2] - k[1], knots)

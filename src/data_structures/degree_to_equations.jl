@@ -25,12 +25,15 @@ This dictionary is used internally to determine the appropriate kernel configura
 on the specified degree.
 """
 const DEGREE_TO_EQUATIONS = Dict(
-    0 => 1,
-    1 => 1,
-    3 => 2,
-    5 => 5,
-    7 => 6,
-    9 => 7,
-    11 => 8,
-    13 => 9
+    :a0 => 1,
+    :a1 => 1,
+    :a3 => 2,
+    :a5 => 3,
+    :a7 => 4,
+    :b3 => 3,
+    :b5 => 5,
+    :b7 => 6,
+    :b9 => 7,
+    :b11 => 8,
+    :b13 => 9
 )

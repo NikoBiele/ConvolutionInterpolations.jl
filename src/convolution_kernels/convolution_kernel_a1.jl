@@ -1,5 +1,5 @@
 # see 'docstring.jl' for documentation
-function (::ConvolutionKernel{1})(s::T) where {T}
+function (::ConvolutionKernel{:a1})(s::T) where {T}
     s_abs = abs(s)
     coefs = Dict(
         :eq1 => [1, -1]

@@ -1,8 +1,8 @@
 # see 'docstring.jl' for documentation
-function (::ConvolutionKernel{7})(s::T) where {T} # 7th order accurate 7th degree
+function (::ConvolutionKernel{:b7})(s::T) where {T} # 7th order accurate 7th degree
     s_abs = abs(s)
     coef = Dict(
-        # 6 equation sextic, 7th order accurate
+        # 6 equation septic, 7th order accurate
         :eq1 => [1, 0, -1173431/624240, 0, 922243/749088, 0, -7587149/14981760, 258097/1664640],
         :eq2 => [106117/124848, 834167/1248480, -1709177/624240, -119839/249696, 2712769/749088, -214769/83232, 11023027/14981760, -384481/4993920], 
         :eq3 => [30587/2448, -35785081/1248480, 376423/15606, -126025/14688, 794957/1498176, 13571/27744, -796241/5992704, 105457/9987840], 

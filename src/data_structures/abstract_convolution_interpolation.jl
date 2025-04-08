@@ -13,8 +13,9 @@ Abstract supertype for all convolution-based interpolation types.
 - `DT`: The dimension type (Val{N} for N≤3, HigherDimension{N} otherwise)
 - `DG`: The degree type (Val{degree})
 - `EQ`: The equation order type
+- `KBC`: The type of the kernel boundary condition
 
 This abstract type serves as the parent type for the concrete implementations
 `ConvolutionInterpolation` and `FastConvolutionInterpolation`.
 """
-abstract type AbstractConvolutionInterpolation{T,N,TCoefs,IT<:Union{Tuple{Vararg{ConvolutionMethod}},ConvolutionMethod},Axs,KA,DT,DG,EQ} end
+abstract type AbstractConvolutionInterpolation{T,N,TCoefs,IT<:Union{Tuple{Vararg{ConvolutionMethod}},ConvolutionMethod},Axs,KA,DT,DG,EQ,KBC} end

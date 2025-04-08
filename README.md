@@ -46,7 +46,7 @@ itp_2d(0.5, -1.2) # Evaluate at a specific point
 
 Control the precision/smoothness by selecting different kernel degrees:
 ```julia
-# Default cubic interpolation (degree=3)
+# Default cubic interpolation (degree=:a3)
 itp = convolution_interpolation(x, y) # cubic (C1 continuous)
 
 # Higher-order interpolation for enhanced smoothness

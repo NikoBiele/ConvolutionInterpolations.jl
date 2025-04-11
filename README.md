@@ -71,7 +71,7 @@ Default behaviour is to attempt to detect the most appropriate kernel boundary c
 itp = convolution_interpolation(x, y; kernel_bc=:detect) # default
 
 # other options include: linear, quadratic or periodic
-itp = convolution_interpolation(x, y; kernel_bc=:linear) # good with linear interpolation (degree=:a1)
+itp = convolution_interpolation(x, y; kernel_bc=:linear) # linear boundary condition
 itp = convolution_interpolation(x, y; kernel_bc=:quadratic) # adapts to linear or quadratic signals
 itp = convolution_interpolation(x, y; kernel_bc=:periodic) # good with periodic signals
 ```

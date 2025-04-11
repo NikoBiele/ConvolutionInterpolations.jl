@@ -34,7 +34,7 @@ offering significantly faster performance than `ConvolutionInterpolation` at the
 of some additional memory usage.
 """
 struct FastConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,ConvolutionMethod},
-                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP} <: AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ}
+                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP,KBC} <: AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC}
     coefs::TCoefs
     knots::Axs
     it::IT
@@ -45,4 +45,5 @@ struct FastConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,Convo
     eqs::EQ
     pre_range::PR
     kernel_pre::KP
+    kernel_bc::KBC
 end

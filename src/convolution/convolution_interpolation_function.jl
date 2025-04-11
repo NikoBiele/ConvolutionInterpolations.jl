@@ -54,14 +54,14 @@ itp(0.5, -1.2)  # Interpolated value at (0.5, -1.2)
 ```
 """
 function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}}, values::AbstractArray{T,N}; 
-    degree::Symbol=:a3, fast::Bool=true, precompute::Int=1000, B=nothing, extrapolation_bc=Throw()) where {T,N}
+    degree::Symbol=:a3, fast::Bool=true, precompute::Int=1000, B=nothing, extrapolation_bc=Throw(), kernel_bc=:quadratic) where {T,N}
     if knots isa AbstractVector
         knots = (knots,)
     end
     if fast
-        itp = FastConvolutionInterpolation(knots, values; degree=degree, precompute=precompute, B=B)
+        itp = FastConvolutionInterpolation(knots, values; degree=degree, precompute=precompute, B=B, kernel_bc=kernel_bc)
     else
-        itp = ConvolutionInterpolation(knots, values; degree=degree, B=B)
+        itp = ConvolutionInterpolation(knots, values; degree=degree, B=B, kernel_bc=kernel_bc)
     end
     return ConvolutionExtrapolation(itp, extrapolation_bc)
 end

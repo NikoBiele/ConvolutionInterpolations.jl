@@ -20,7 +20,7 @@ This function:
 
 Boundary conditions are applied sequentially by dimension to ensure proper handling of corners and edges.
 """
-function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs::P) where {T,N,P}
+function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs::P, kernel_bc) where {T,N,P}
     new_dims = size(vs) .+ 2*(eqs-1)
     c = zeros(T, new_dims)
     inner_indices = map(d -> (1+(eqs-1)):(d-(eqs-1)), new_dims)
@@ -35,13 +35,21 @@ function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs:
                 continue
             end
 
+            kernel_boundary_condition = Vector{Symbol}(undef, 2)
+            if kernel_bc isa Symbol
+                kernel_boundary_condition[1] = kernel_bc
+                kernel_boundary_condition[2] = kernel_bc
+            else
+                kernel_boundary_condition = kernel_bc[fixed_dims]
+            end
+
             for dim in fixed_dims
 
                 if idx[dim] == 1 + (eqs - 1)
 
                     slice_offset = [CartesianIndex(ntuple(d -> d == dim ? i : 0, N)) for i = 0:size(vs, dim)-1]
                     slice = length(size(vs)) == 1 ? vs : [c[idx+slice_offset[i]] for i in 1:size(vs, dim)]
-                    coef, y_offset, y_centered = boundary_coefs(slice[1:3], h[dim])
+                    coef, y_offset, y_centered = boundary_coefs(slice[1:end], h[dim], kernel_boundary_condition[1], :left)
                     c_offset = [CartesianIndex(ntuple(d -> d == dim ? i : 0, N)) for i = 1:(eqs-1)]
                     y_extended = zeros((eqs-1)+length(y_centered))
                     y_extended[1+(eqs-1):end] .= y_centered
@@ -54,7 +62,7 @@ function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs:
 
                     slice_offset = [CartesianIndex(ntuple(d -> d == dim ? i : 0, N)) for i = 0:size(vs, dim)-1]
                     slice = length(size(vs)) == 1 ? vs : [c[idx-slice_offset[i]] for i in 1:size(vs, dim)]
-                    coef, y_offset, y_centered = boundary_coefs(slice[end-2:end], h[dim])
+                    coef, y_offset, y_centered = boundary_coefs(slice[1:end], h[dim], kernel_boundary_condition[2], :right)
                     c_offset = [CartesianIndex(ntuple(d -> d == dim ? i : 0, N)) for i = 1:eqs-1]
                     y_extended = zeros(length(y_centered)+eqs-1)
                     y_extended[1:end-(eqs-1)] .= y_centered

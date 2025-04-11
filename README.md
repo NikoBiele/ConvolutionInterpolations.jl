@@ -46,7 +46,7 @@ itp_2d(0.5, -1.2) # Evaluate at a specific point
 
 Control the precision/smoothness by selecting different kernel degrees:
 ```julia
-# Default cubic interpolation (degree=3)
+# Default cubic interpolation (degree=:a3)
 itp = convolution_interpolation(x, y) # cubic (C1 continuous)
 
 # Higher-order interpolation for enhanced smoothness
@@ -126,7 +126,7 @@ Unlike other interpolation packages, ConvolutionInterpolations.jl:
 
 - Provides a wide range of interpolation kernels (nearest neighbor up to 13th degree kernel)
 - Combines the best of both worlds: A single framework for both low and high order accuracy interpolation
-- Separable kernels extend naturally into higher dimensions
+- Uses separable convolution kernels, which extend naturally into higher dimensions
 - Requires zero dependencies outside core Julia
 
 ## Acknowledgments

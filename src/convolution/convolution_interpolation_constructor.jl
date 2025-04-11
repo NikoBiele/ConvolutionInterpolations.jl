@@ -25,19 +25,19 @@ If `B` is provided, a Gaussian kernel with parameter `B` is used instead of a po
 kernel, and the `eqs` parameter is set to 50 to accommodate the wider support of the Gaussian.
 """
 function ConvolutionInterpolation(knots::NTuple{N,AbstractVector}, vs::AbstractArray{T,N};
-    degree::Symbol=:a3, B=nothing) where {T,N}
+    degree::Symbol=:a3, B=nothing, kernel_bc=:detect) where {T,N}
 
     eqs = B === nothing ? get_equations_for_degree(degree) : 50
     h = map(k -> k[2] - k[1], knots)
     it = ntuple(_ -> ConvolutionMethod(), N)
 
     knots_new = expand_knots(knots, eqs-1) # expand boundaries
-    coefs = create_convolutional_coefs(vs, h, eqs) # create boundaries
+    coefs = create_convolutional_coefs(vs, h, eqs, kernel_bc) # create boundaries
     kernel = B === nothing ? ConvolutionKernel(Val(degree),Val(eqs)) : GaussianConvolutionKernel(Val(B))
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
     degree = Val(degree)
     
-    ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel),typeof(dimension),typeof(degree),typeof(eqs)}(
-        coefs, knots_new, it, h, kernel, dimension, degree, eqs
+    ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel),typeof(dimension),typeof(degree),typeof(eqs),typeof(kernel_bc)}(
+        coefs, knots_new, it, h, kernel, dimension, degree, eqs, kernel_bc
     )
 end

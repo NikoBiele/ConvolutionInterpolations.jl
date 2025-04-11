@@ -62,6 +62,30 @@ itp = convolution_interpolation(x, y; degree=:b13) # 13th degree (7th order accu
 itp = convolution_interpolation(x, y; B=1.0)     # B controls width
 ```
 
+### Kernel Boundary Condition
+
+Used internally to determine interpolation behaviour near boundaries (critical for high accuracy)
+
+```julia
+# Default behaviour is to attempt to detect the most appropriate kernel boundary condition (linear, quadratic or periodic)
+itp = convolution_interpolation(x, y; kernel_bc=:detect) # default
+
+# other options include: linear, quadratic or periodic
+itp = convolution_interpolation(x, y; kernel_bc=:linear) # good with linear interpolation (degree=:a1)
+itp = convolution_interpolation(x, y; kernel_bc=:quadratic) # adapts to linear or quadratic signals
+itp = convolution_interpolation(x, y; kernel_bc=:periodic) # good with periodic signals
+```
+It is possible to specify the kernel boundary condition in a more detailed way, by specifying a vector of tuples, where each vector entry is a dimension, and the two tuple entries give the boundary condition at each end of this dimension:
+
+```julia
+x = range(0, 1, length=10)
+y = range(0, 1, length=10)
+z = [sin(2π*xi) for xi in x, yi in y]
+kernel_bcs = [(:linear, :quadratic), # both ends of first dimension
+             (:periodic, :detect)] # both ends of second dimension
+itp = convolution_interpolation((x, y), z; kernel_bc=kernel_bcs)
+```
+
 ### Extrapolation
 
 Choose from different boundary conditions for extrapolating beyond the data domain:
@@ -85,7 +109,7 @@ itp = convolution_interpolation(x, y; extrapolation_bc=Reflect())
 
 ### High-Dimensional Data
 
-ConvolutionInterpolations.jl handles data of any dimensionality:
+ConvolutionInterpolations.jl handles smooth interpolation of high-dimensional data:
 
 ```julia
 # 4D interpolation example (time series of 3D volumes)
@@ -109,6 +133,7 @@ Works analogously for 5D, 6D, or higher dimensionality
 
 - Use ```degree=:a``` for high dimensional data, to minimize boundary handling
 - Use ```degree=:b``` for maximum accuracy, at the expense of more boundary coefficients
+- Use lower degrees for high dimensional data to minimize necessary boundary condition handling
 - Set ```fast=true``` (default) to use precomputed kernels for better performance
 - Adjust the ```precompute``` parameter to control the accuracy-memory tradeoff for kernel evaluation:
 ```julia

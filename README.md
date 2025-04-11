@@ -64,10 +64,10 @@ itp = convolution_interpolation(x, y; B=1.0)     # B controls width
 
 ### Kernel Boundary Condition
 
-Used internally to determine interpolation behaviour near boundaries (critical for high accuracy)
+Used internally to determine interpolation behaviour near boundaries (critical for high accuracy).
+Default behaviour is to attempt to detect the most appropriate kernel boundary condition (linear, quadratic or periodic).
 
 ```julia
-# Default behaviour is to attempt to detect the most appropriate kernel boundary condition (linear, quadratic or periodic)
 itp = convolution_interpolation(x, y; kernel_bc=:detect) # default
 
 # other options include: linear, quadratic or periodic
@@ -132,8 +132,9 @@ Works analogously for 5D, 6D, or higher dimensionality
 ## Performance Tips
 
 - Use ```degree=:a``` for high dimensional data, to minimize boundary handling
-- Use ```degree=:b``` for maximum accuracy, at the expense of more boundary coefficients
 - Use lower degrees for high dimensional data to minimize necessary boundary condition handling
+- Use ```degree=:b``` for maximum accuracy, at the expense of more boundary coefficients
+- Use ```degree=:b5``` to access the most efficient high order of accuracy kernel (quintic, C3 continuous, 7th order accurate)
 - Set ```fast=true``` (default) to use precomputed kernels for better performance
 - Adjust the ```precompute``` parameter to control the accuracy-memory tradeoff for kernel evaluation:
 ```julia
@@ -152,6 +153,7 @@ Unlike other interpolation packages, ConvolutionInterpolations.jl:
 - Provides a wide range of interpolation kernels (nearest neighbor up to 13th degree kernel)
 - Combines the best of both worlds: A single framework for both low and high order accuracy interpolation
 - Uses separable convolution kernels, which extend naturally into higher dimensions
+- Provides smooth interpolation in higher dimensions, with adjustable accuracy
 - Requires zero dependencies outside core Julia
 
 ## Acknowledgments

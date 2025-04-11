@@ -49,7 +49,7 @@ function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs:
 
                     slice_offset = [CartesianIndex(ntuple(d -> d == dim ? i : 0, N)) for i = 0:size(vs, dim)-1]
                     slice = length(size(vs)) == 1 ? vs : [c[idx+slice_offset[i]] for i in 1:size(vs, dim)]
-                    coef, y_offset, y_centered = boundary_coefs(slice[1:end], h[dim], kernel_boundary_condition[1])
+                    coef, y_offset, y_centered = boundary_coefs(slice[1:end], h[dim], kernel_boundary_condition[1], :left)
                     c_offset = [CartesianIndex(ntuple(d -> d == dim ? i : 0, N)) for i = 1:(eqs-1)]
                     y_extended = zeros((eqs-1)+length(y_centered))
                     y_extended[1+(eqs-1):end] .= y_centered
@@ -62,7 +62,7 @@ function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs:
 
                     slice_offset = [CartesianIndex(ntuple(d -> d == dim ? i : 0, N)) for i = 0:size(vs, dim)-1]
                     slice = length(size(vs)) == 1 ? vs : [c[idx-slice_offset[i]] for i in 1:size(vs, dim)]
-                    coef, y_offset, y_centered = boundary_coefs(slice[1:end], h[dim], kernel_boundary_condition[2])
+                    coef, y_offset, y_centered = boundary_coefs(slice[1:end], h[dim], kernel_boundary_condition[2], :right)
                     c_offset = [CartesianIndex(ntuple(d -> d == dim ? i : 0, N)) for i = 1:eqs-1]
                     y_extended = zeros(length(y_centered)+eqs-1)
                     y_extended[1:end-(eqs-1)] .= y_centered

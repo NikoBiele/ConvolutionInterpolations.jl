@@ -131,6 +131,6 @@ function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET,O}, x::NTup
         return itp(x_reflect...)
         
     else # if etp.et isa Throw
-        error("Extrapolation type not supported")
+        error("Unsupported extrapolation type: $(etp.et). Please set 'extrapolation_bc =' Line(), Flat(), Periodic(), or Reflect() to enable extrapolation.")
     end
 end

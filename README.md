@@ -151,7 +151,7 @@ itp = convolution_interpolation(x, y; precompute=500)
 Unlike other interpolation packages, ConvolutionInterpolations.jl:
 
 - Provides a wide range of interpolation kernels (nearest neighbor up to 13th degree kernel)
-- Combines the best of both worlds: A single framework for both low and high order accuracy interpolation
+- Combines the best of both worlds: A single framework for both low and high order of accuracy interpolation
 - Uses separable convolution kernels, which extend naturally into higher dimensions
 - Provides smooth interpolation in higher dimensions, with adjustable accuracy
 - Requires zero dependencies outside core Julia

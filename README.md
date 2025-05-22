@@ -8,10 +8,13 @@ A Julia package for smooth N-dimensional interpolation using separable convoluti
 
 - N-dimensional interpolation (1D to arbitrary dimensions) using separable convolution kernels
 - Multiple polynomial kernel options in the same framework: Nearest neighbor, linear, cubic, quintic etc.
-- Two options for accuracy: (1) High continuity ':a' kernels or (2) high order of accuracy ':b' kernels
+- Two options for accuracy:
+- (1) ':a' kernels: Published kernels from the literature (minimal boundary coefficient handling)
+- (2) ':b' kernels: New superior high order of accuracy kernels developed for this package (but more boundary coefficients)
 - Various extrapolation methods (linear, flat, periodic, reflection)
 - Zero dependencies outside core Julia
 - Fast implementation with precomputed kernel optimizations
+- Sample data must be uniformly spaced in each dimension, but spacing can vary between dimensions
 - Optional Gaussian convolution kernel for smoothing noisy data
 
 ## Installation
@@ -50,8 +53,8 @@ Control the precision/smoothness by selecting different kernel degrees:
 itp = convolution_interpolation(x, y) # cubic (C1 continuous)
 
 # Higher-order interpolation for enhanced smoothness
-itp = convolution_interpolation(x, y; degree=:a5)  # quintic (C3 continuous)
-itp = convolution_interpolation(x, y; degree=:a7)  # septic (C5 continuous)
+itp = convolution_interpolation(x, y; degree=:b5)  # quintic (7th order accurate, C3 continuous)
+itp = convolution_interpolation(x, y; degree=:b7)  # septic (7th order accurate, C5 continuous)
 
 # Ultra-high-precision interpolation
 itp = convolution_interpolation(x, y; degree=:b9)  # 9th degree (7th order accurate, C7 continuous)
@@ -61,6 +64,7 @@ itp = convolution_interpolation(x, y; degree=:b13) # 13th degree (7th order accu
 # Gaussian convolution smoothing interpolation (does not hit data points)
 itp = convolution_interpolation(x, y; B=1.0)     # B controls width
 ```
+In general the ':b' type kernels should be preferred, since they show superior performance.
 
 ### Kernel Boundary Condition
 
@@ -131,10 +135,12 @@ Works analogously for 5D, 6D, or higher dimensionality
 
 ## Performance Tips
 
-- Use ```degree=:a``` for high dimensional data, to minimize boundary handling
+- Use ```degree=:b``` type kernels whenever possible, as they perform best
+- Use the highest degree kernel possible, since a higher degree only improves interpolation quality
+- If the ```degree=:b``` constructors become too slow, switch to the ```degree=:a``` kernels
+- Use ```degree=:b5``` to access the most efficient high order of accuracy kernel (C3 continuous, 7th order accurate)
+- Use ```degree=:a``` only when the ```degree=:b``` constructors become too slow, to minimize boundary handling
 - Use lower degrees for high dimensional data to minimize necessary boundary condition handling
-- Use ```degree=:b``` for maximum accuracy, at the expense of more boundary coefficients
-- Use ```degree=:b5``` to access the most efficient high order of accuracy kernel (quintic, C3 continuous, 7th order accurate)
 - Set ```fast=true``` (default) to use precomputed kernels for better performance
 - Adjust the ```precompute``` parameter to control the accuracy-memory tradeoff for kernel evaluation:
 ```julia

@@ -1,6 +1,6 @@
 """
     ConvolutionInterpolation(knots::NTuple{N,AbstractVector}, vs::AbstractArray{T,N};
-                             degree::Int=3, eqs::Int=2, B=nothing) where {T,N}
+                             degree::Symbol=:a3, B=nothing, kernel_bc=:detect) where {T,N}
 
 Construct a convolution interpolation object for N-dimensional data.
 
@@ -9,9 +9,9 @@ Construct a convolution interpolation object for N-dimensional data.
 - `vs::AbstractArray{T,N}`: The values to be interpolated, at the knot positions
 
 # Keyword Arguments
-- `degree::Int=3`: The degree of the polynomial kernel (3=cubic, 5=quintic, etc.)
-- `eqs::Int=2`: The number of equations to use for boundary handling
+- `degree::Symbol=:a3`: The degree of the polynomial kernel (':a3' for cubic, ':a5' for quintic, etc.)
 - `B=nothing`: Parameter for Gaussian kernel (if not `nothing`, uses a Gaussian kernel instead of polynomial)
+- `kernel_bc=:detect`: The boundary condition (or boundary conditions) to use for kernel evaluation
 
 # Returns
 - A `ConvolutionInterpolation` object that can be used for interpolation

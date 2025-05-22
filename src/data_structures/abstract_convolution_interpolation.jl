@@ -1,5 +1,5 @@
 """
-    AbstractConvolutionInterpolation{T,N,TCoefs,IT<:Union{Tuple{Vararg{ConvolutionMethod}},ConvolutionMethod},Axs,KA,DT,DG,EQ}
+    AbstractConvolutionInterpolation{T,N,TCoefs,IT<:Union{Tuple{Vararg{ConvolutionMethod}},ConvolutionMethod},Axs,KA,DT,DG,EQ,KBC}
 
 Abstract supertype for all convolution-based interpolation types.
 

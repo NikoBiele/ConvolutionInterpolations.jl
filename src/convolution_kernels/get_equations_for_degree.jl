@@ -4,7 +4,7 @@
 Get the number of piecewise equations required for a convolution kernel of the specified degree.
 
 # Arguments
-- `degree::Integer`: The polynomial degree of the convolution kernel
+- `degree::Symbol`: The polynomial degree of the convolution kernel
 
 # Returns
 - The number of piecewise equations used in the kernel of the given degree
@@ -17,7 +17,19 @@ This function provides a safe interface to access the `DEGREE_TO_EQUATIONS` mapp
 with proper error handling for unsupported degree values. It returns the number of
 piecewise equations that define a convolution kernel of the requested degree.
 
-Supported degrees are 3, 5, 7, 9, 11, and 13, corresponding to cubic, quintic, septic,
+Supported degrees are:
+    :a0 => 1,
+    :a1 => 1,
+    :a3 => 2,
+    :a5 => 3,
+    :a7 => 4,
+    :b3 => 3,
+    :b5 => 5,
+    :b7 => 6,
+    :b9 => 7,
+    :b11 => 8,
+    :b13 => 9,
+corresponding to nearest neighbor, linear, cubic, quintic, septic,
 nonic, and higher-order kernels.
 
 # Examples

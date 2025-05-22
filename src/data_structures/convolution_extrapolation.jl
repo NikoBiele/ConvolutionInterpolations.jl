@@ -23,20 +23,7 @@ When called as a function, the object automatically determines whether the reque
 is within the interpolation domain. If so, it uses direct interpolation; if not, it applies
 the specified boundary condition to handle the extrapolation.
 
-# Examples
-```julia
-# Create an interpolation object
-knots = range(0, 1, length=10)
-values = sin.(2π .* knots)
-itp = ConvolutionInterpolation((knots,), values)
-
-# Extend with linear extrapolation
-etp = ConvolutionExtrapolation(itp, Line())
-
-# Evaluate inside and outside the domain
-etp(0.5)   # Uses interpolation
-etp(1.2)   # Uses extrapolation
-```
+# This struct is not simple to use manually, so it is recommended to use the `convolution_interpolation` function.
 """
 struct ConvolutionExtrapolation{T,N,ITPT<:AbstractConvolutionInterpolation,ET<:BoundaryCondition,O}
     itp::ITPT

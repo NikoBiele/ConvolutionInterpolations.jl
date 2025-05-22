@@ -16,7 +16,7 @@ The function implements different strategies based on the length of the input:
 - Length 3: Returns quadratic prediction `[3.0, -3.0, 1.0]`
 - Length 4+: Computes higher-order boundary coefficients using mathematical formulations that preserve signal characteristics
 
-The coefficients returned represent the optimal linear prediction filter for the given autocorrelation sequence.
+The coefficients returned represent the linear prediction filter for the given autocorrelation sequence.
 """
 function linear_predict(r)
     if length(r) == 1

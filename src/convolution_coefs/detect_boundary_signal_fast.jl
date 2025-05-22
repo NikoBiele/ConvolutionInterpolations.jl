@@ -8,7 +8,9 @@ This function analyzes a window of the signal to determine whether it exhibits
 periodic behavior or can be well-approximated by quadratic extrapolation.
 
 # Arguments
-- `y`: Input signal vector
+- `y_centered`: Input signal vector
+- `n`: Length of the signal
+- `h`: signal sample spacing
 - `which_end::Symbol`: Specify which end of the signal to analyze (`:left` or `:right`)
 
 # Returns
@@ -30,10 +32,10 @@ tends to use quadratic extrapolation.
 # Examples
 ```julia
 # For a left boundary condition on a signal
-coefs = detect_boundary_signal_fast(signal, which_end=:left)
+coefs = detect_boundary_signal_fast(signal, n, h; which_end=:left)
 
 # For a right boundary
-coefs = detect_boundary_signal_fast(signal, which_end=:right)
+coefs = detect_boundary_signal_fast(signal, n, h; which_end=:right)
 ```
 """
 function detect_boundary_signal_fast(y_centered, n, h; which_end::Symbol)

@@ -1,12 +1,13 @@
 """
-    create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs::Int) where {T,N}
+    create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs::P, kernel_bc) where {T,N,P}
 
 Creates an extended array with boundary conditions applied for convolution operations.
 
 # Arguments
 - `vs::AbstractArray{T,N}`: Input array of dimension N
 - `h::NTuple{N,T}`: Tuple of scaling parameters for each dimension
-- `eqs::Int`: Order of the boundary equations (extension size)
+- `eqs::P`: Order of the boundary equations (extension size)
+- `kernel_bc`: Symbol or Tuple of boundary conditions for the convolution kernel
 
 # Returns
 - Extended array with boundary conditions applied
@@ -16,7 +17,7 @@ This function:
 1. Creates a new array with dimensions expanded by `2*(eqs-1)` in each direction
 2. Copies the original data to the center of the new array
 3. Applies boundary conditions dimension by dimension
-4. Uses linear prediction to extend the signal at boundaries in a way that preserves signal characteristics
+4. Uses `kernel_bc` to extend the signal at boundaries
 
 Boundary conditions are applied sequentially by dimension to ensure proper handling of corners and edges.
 """

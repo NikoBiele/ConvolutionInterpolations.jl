@@ -1,6 +1,6 @@
 """
     convolution_interpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}}, values::AbstractArray{T,N}; 
-                             degree::Int=3, fast::Bool=true, precompute::Int=1000, B=nothing, extrapolation_bc=Throw()) where {T,N}
+        degree::Symbol=:a3, fast::Bool=true, precompute::Int=1000, B=nothing, extrapolation_bc=Throw(), kernel_bc=:detect) where {T,N}
 
 Create a convolution-based interpolation object for the given data.
 
@@ -9,7 +9,7 @@ Create a convolution-based interpolation object for the given data.
 - `values`: Array containing the values at the knot points
 
 # Keyword Arguments
-- `degree::Int=3`: The degree of the polynomial kernel (3=cubic, 5=quintic, 7=septic, etc.)
+- `degree::Symbol=:a3`: The degree of the polynomial kernel (':a3' for cubic, ':a5' for quintic, etc.)
 - `fast::Bool=true`: Whether to use `FastConvolutionInterpolation` with precomputed kernels (faster but uses more memory)
 - `precompute::Int=1000`: The number of positions to precompute for kernel evaluation (only used if fast=true)
 - `B=nothing`: Parameter for Gaussian kernel (if not `nothing`, uses a Gaussian kernel instead of polynomial)
@@ -24,12 +24,12 @@ either a `FastConvolutionInterpolation` or `ConvolutionInterpolation` object bas
 `fast` parameter, and wraps it with the specified extrapolation boundary condition.
 
 The `degree` parameter controls the accuracy and smoothness of the interpolation:
-- 3 (cubic): C1 continuity, 4th order accuracy
-- 5 (quintic): C3 continuity, 7th order accuracy
-- 7 (septic): C5 continuity, 7th order accuracy
-- 9 (nonic): C7 continuity, 7th order accuracy
-- 11 (decic): C9 continuity, 7th order accuracy
-- 13 (undecic): C11 continuity, 7th order accuracy
+- :b3 (cubic): C1 continuity, 4th order accuracy
+- :b5 (quintic): C3 continuity, 7th order accuracy
+- :b7 (septic): C5 continuity, 7th order accuracy
+- :b9 (nonic): C7 continuity, 7th order accuracy
+- :b11 (decic): C9 continuity, 7th order accuracy
+- :b13 (undecic): C11 continuity, 7th order accuracy
 
 If `B` is provided, a Gaussian smoothing kernel with parameter `B` is used instead of a polynomial kernel,
 providing infinite differentiability (C∞) but with some controlled blurring.
@@ -49,12 +49,12 @@ itp(π/3)  # Interpolated value at π/3
 xs = range(-2, 2, length=30)
 ys = range(-2, 2, length=30)
 zs = [exp(-(x^2 + y^2)) for x in xs, y in ys]
-itp = convolution_interpolation((xs, ys), zs; degree=5, extrapolation_bc=Line())
+itp = convolution_interpolation((xs, ys), zs; degree=:b5, extrapolation_bc=Line())
 itp(0.5, -1.2)  # Interpolated value at (0.5, -1.2)
 ```
 """
 function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}}, values::AbstractArray{T,N}; 
-    degree::Symbol=:a3, fast::Bool=true, precompute::Int=1000, B=nothing, extrapolation_bc=Throw(), kernel_bc=:quadratic) where {T,N}
+    degree::Symbol=:a3, fast::Bool=true, precompute::Int=1000, B=nothing, extrapolation_bc=Throw(), kernel_bc=:detect) where {T,N}
     if knots isa AbstractVector
         knots = (knots,)
     end

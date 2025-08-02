@@ -104,6 +104,9 @@ itp = convolution_interpolation(x, y; extrapolation_bc=Line())
 # Constant extrapolation at boundaries
 itp = convolution_interpolation(x, y; extrapolation_bc=Flat())
 
+# Natural extrapolation at boundaries (highest continuity, but more boundary handling)
+itp = convolution_interpolation(x, y; extrapolation_bc=Natural())
+
 # Periodic extension
 itp = convolution_interpolation(x, y; extrapolation_bc=Periodic())
 
@@ -142,6 +145,7 @@ Works analogously for 5D, 6D, or higher dimensionality
 - Use ```degree=:a``` only when the ```degree=:b``` constructors become too slow, to minimize boundary handling
 - Use lower degrees for high dimensional data to minimize necessary boundary condition handling
 - Set ```fast=true``` (default) to use precomputed kernels for better performance
+- Use the ```Natural()``` extrapolation boundary condition for high continuity in lower dimensions (not recommended for higher dimensions)
 - Adjust the ```precompute``` parameter to control the accuracy-memory tradeoff for kernel evaluation:
 ```julia
 # More precomputed points = more accurate kernel evaluation but more memory usage

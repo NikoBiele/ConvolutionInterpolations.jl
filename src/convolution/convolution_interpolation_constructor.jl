@@ -33,7 +33,7 @@ function ConvolutionInterpolation(knots::NTuple{N,AbstractVector}, vs::AbstractA
 
     knots_new = expand_knots(knots, eqs-1) # expand boundaries
     coefs = create_convolutional_coefs(vs, h, eqs, kernel_bc) # create boundaries
-    kernel = B === nothing ? ConvolutionKernel(Val(degree),Val(eqs)) : GaussianConvolutionKernel(Val(B))
+    kernel = B === nothing ? ConvolutionKernel(Val(degree)) : GaussianConvolutionKernel(Val(B))
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
     degree = Val(degree)
     

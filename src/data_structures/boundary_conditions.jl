@@ -32,6 +32,20 @@ This provides a fourth-order continuous extension beyond the boundaries.
 struct Line <: BoundaryCondition end
 
 """
+    Natural <: BoundaryCondition
+
+Extrapolation boundary condition that performs extrapolation using the precomputed
+convolution coefficients from the boundary, and then linear extrapolation.
+
+When a point outside the interpolation domain is evaluated, this boundary condition
+computes a regular interpolation outside the domain using the precomputed convolution
+coefficients and outside this it reduces to linear extrapolation. This provides a
+natural boundary condition of high continuity (as high as the kernel).
+"""
+struct Natural <: BoundaryCondition end
+
+
+"""
     Reflect <: BoundaryCondition
 
 Extrapolation boundary condition that reflects coordinates across the boundary.

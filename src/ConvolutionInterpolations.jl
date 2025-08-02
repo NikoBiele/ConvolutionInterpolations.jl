@@ -20,5 +20,5 @@ export
     ConvolutionExtrapolation,
     
     # Boundary conditions
-    BoundaryCondition, Line, Flat, Periodic, Reflect, Throw
+    BoundaryCondition, Line, Flat, Periodic, Reflect, Throw, Natural
 end

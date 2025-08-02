@@ -1,6 +1,6 @@
 """
     FastConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,ConvolutionMethod},
-                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP} <: AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ}
+                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP} <: AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC}
 
 A structure that implements convolution-based interpolation with precomputed kernel values for speed.
 

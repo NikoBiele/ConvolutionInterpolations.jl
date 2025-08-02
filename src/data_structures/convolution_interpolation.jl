@@ -1,6 +1,6 @@
 """
     ConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,ConvolutionMethod},
-                             Axs<:Tuple,KA,DT,DG,EQ} <: AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC}
+                             Axs<:Tuple,KA,DT,DG,EQ,KBC} <: AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC}
 
 A structure that implements convolution-based interpolation on N-dimensional data.
 
@@ -14,7 +14,6 @@ A structure that implements convolution-based interpolation on N-dimensional dat
 - `DT`: The dimension type (Val{N} for N≤3, HigherDimension{N} otherwise)
 - `DG`: The degree type (Val{degree})
 - `EQ`: The equation order type
-- `KBC`: The type of the kernel boundary condition
 
 # Fields
 - `coefs::TCoefs`: The coefficient array with boundary extensions

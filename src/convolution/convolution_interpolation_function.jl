@@ -58,19 +58,21 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
     if knots isa AbstractVector
         knots = (knots,)
     end
-    if fast
-        itp = FastConvolutionInterpolation(knots, values; degree=degree, precompute=precompute, B=B, kernel_bc=kernel_bc)
-    else
-        itp = ConvolutionInterpolation(knots, values; degree=degree, B=B, kernel_bc=kernel_bc)
-    end
     if extrapolation_bc isa Natural
         if fast
+            itp = ConvolutionInterpolation(knots, values; degree=degree, B=B, kernel_bc=kernel_bc)
             itp = FastConvolutionInterpolation(itp.knots, itp.coefs; degree=degree, precompute=precompute, B=B, kernel_bc=:linear)
         else
+            itp = ConvolutionInterpolation(knots, values; degree=degree, B=B, kernel_bc=kernel_bc)
             itp = ConvolutionInterpolation(itp.knots, itp.coefs; degree=degree, B=B, kernel_bc=:linear)
         end 
         return ConvolutionExtrapolation(itp, Line())
     else
+        if fast
+            itp = FastConvolutionInterpolation(knots, values; degree=degree, precompute=precompute, B=B, kernel_bc=kernel_bc)
+        else
+            itp = ConvolutionInterpolation(knots, values; degree=degree, B=B, kernel_bc=kernel_bc)
+        end
         return ConvolutionExtrapolation(itp, extrapolation_bc)
     end
 end

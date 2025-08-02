@@ -11,7 +11,7 @@ A Julia package for smooth N-dimensional interpolation using separable convoluti
 - Two options for accuracy:
 - (1) ':a' kernels: Published kernels from the literature (minimal boundary coefficient handling)
 - (2) ':b' kernels: New superior high order of accuracy kernels developed for this package (but more boundary coefficients)
-- Various extrapolation methods (linear, flat, periodic, reflection)
+- Various extrapolation methods (linear, flat, natural, periodic, reflection)
 - Zero dependencies outside core Julia
 - Fast implementation with precomputed kernel optimizations
 - Sample data must be uniformly spaced in each dimension, but spacing can vary between dimensions

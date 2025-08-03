@@ -27,21 +27,46 @@ Pkg.add("ConvolutionInterpolations")
 ## Quick Start
 
 ```julia
+# 1D interpolation (sinusoidal function)
 using ConvolutionInterpolations
+using Plots
 
-# 1D interpolation
-x = range(0, 1, length=10)
-y = sin.(2π .* x)
-itp = convolution_interpolation(x, y)
-itp(0.5) # Evaluate at a specific point
+x = range(0, 2π, length=4) # 3 samples per period
+y = sin.(x)
+itp = convolution_interpolation(x, y; degree=:b13)
+x_fine = range(0, 2π, length=200)
+p1 = plot(x_fine, sin.(x_fine), label="True function: sin(x)")
+scatter!(p1, x, y, label="3 samples per period")
+plot!(x_fine, itp.(x_fine), label="Interpolated (3 samples)")
 
-# 2D interpolation
-xs = range(-2, 2, length=20)
-ys = range(-2, 2, length=20)
-zs = [exp(-(x^2 + y^2)) for x in xs, y in ys]
-itp_2d = convolution_interpolation((xs, ys), zs)
-itp_2d(0.5, -1.2) # Evaluate at a specific point
+x = range(0, 2π, length=5) # 4 samples per period
+y = sin.(x)
+itp = convolution_interpolation(x, y; degree=:b13)
+p2 = plot(x_fine, sin.(x_fine), label="True function: sin(x)")
+scatter!(p2, x, y, label="4 samples per period")
+plot!(p2, x_fine, itp.(x_fine), label="Interpolated (4 samples)")
+plot(p1, p2, layout=(1,2), size=(800,300), dpi=1000)
 ```
+![Quick 1D demo of sine wave](fig/simple_sine_wave_1D_demonstration.png)
+
+```julia
+# 2D interpolation (random data)
+using Random
+using ConvolutionInterpolations
+using Plots
+
+Random.seed!(123)
+xs = range(-2, 2, length=10)
+ys = range(-2, 2, length=10)
+zs = rand(10, 10)
+itp_2d = convolution_interpolation((xs, ys), zs, degree=:b13)
+xs_fine = range(-2, 2, length=100)
+ys_fine = range(-2, 2, length=100)
+p1 = contourf(xs, ys, zs')
+p2 = contourf(xs_fine, ys_fine, itp_2d.(xs_fine, ys_fine')')
+plot(p1, p2, layout=(1,2), size=(800,300), dpi=1000)
+```
+![Smooth random 2d interpolation](fig/Smooth_random_2D_interpolation.png)
 
 ## Advanced Usage
 

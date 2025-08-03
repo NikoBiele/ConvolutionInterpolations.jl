@@ -37,7 +37,7 @@ itp = convolution_interpolation(x, y; degree=:b13)
 x_fine = range(0, 2π, length=200)
 p1 = plot(x_fine, sin.(x_fine), label="True function: sin(x)")
 scatter!(p1, x, y, label="3 samples per period")
-plot!(x_fine, itp.(x_fine), label="Interpolated (3 samples)")
+plot!(p1, x_fine, itp.(x_fine), label="Interpolated (3 samples)")
 
 x = range(0, 2π, length=5) # 4 samples per period
 y = sin.(x)

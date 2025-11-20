@@ -114,7 +114,7 @@ The challenging 1D Runge function demonstrates the superior convergence of the b
 
 ### Speed: Initialization and Evaluation
 
-Performance scales efficiently across dimensions:
+Performance across dimensions and available kernels:
 
 [![Kernel performance heatmap](fig/kernel_performance_comparison.png)](fig/kernel_performance_comparison.png)
 
@@ -298,7 +298,7 @@ ConvolutionInterpolations.jl offers several advantages:
 The b-series kernels (b5, b7, b9, b11, b13) represent original contributions discovered through systematic analytical search using symbolic computation. These kernels share several key properties:
 
 - **7th order convergence**: All b-series kernels achieve 7th order accuracy from a Taylor series perspective
-- **Polynomial reproduction**: b5 reproduces quintics, b7 reproduces septics (degree 7) and is the last kernel to reproduce its own degree. Higher-degree kernels (b9, b11, b13) max out at degree 7 reproduction
+- **Polynomial reproduction**: b5 reproduces quintics, b7 reproduces septics (degree 7) and is the last kernel to reproduce its own degree. Higher-degree kernels (b9, b11, b13) cannot reproduce polynomials of their own degree.
 - **High continuity**: Ranging from C³ (b5) to C¹¹ (b13), providing extremely smooth interpolated functions
 - **Optimal boundary handling**: Novel polynomial boundary condition method that solves Vandermonde systems to compute ghost point values, preserving polynomial reproduction properties at domain edges
 

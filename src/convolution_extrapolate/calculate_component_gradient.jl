@@ -37,7 +37,7 @@ dealing with nonlinear functions where the gradient may change rapidly near the 
 """
 function calculate_component_gradient(etp::ConvolutionExtrapolation{T,N,ITPT,ET,O}, x::NTuple{N,Number}, d::Int, dir::Vector{T}) where {T,N,ITPT,ET,O}
     itp = etp.itp
-    h = etp.itp.h[d]*0.01
+    h = etp.itp.h[d]*T(0.01)
 
     # Helper function to evaluate interpolator along dimension d
     function eval_along_dim(offset)
@@ -46,7 +46,7 @@ function calculate_component_gradient(etp::ConvolutionExtrapolation{T,N,ITPT,ET,
 
     if dir[d] == -1
         # Left boundary (forward difference, fourth-order)
-        return (-25*eval_along_dim(0.0) + 48*eval_along_dim(h) - 36*eval_along_dim(2h) + 16*eval_along_dim(3h) - 3*eval_along_dim(4h)) / (12h)
+        return (-25*eval_along_dim(zero(T)) + 48*eval_along_dim(h) - 36*eval_along_dim(2h) + 16*eval_along_dim(3h) - 3*eval_along_dim(4h)) / (12h)
         
     elseif dir[d] == 0
         # Interior points (central difference, fourth-order)
@@ -54,6 +54,6 @@ function calculate_component_gradient(etp::ConvolutionExtrapolation{T,N,ITPT,ET,
 
     else # if dir[d] == 1
         # Right boundary (backward difference, fourth-order)
-        return (25*eval_along_dim(0.0) - 48*eval_along_dim(-h) + 36*eval_along_dim(-2h) - 16*eval_along_dim(-3h) + 3*eval_along_dim(-4h)) / (12h)
+        return (25*eval_along_dim(zero(T)) - 48*eval_along_dim(-h) + 36*eval_along_dim(-2h) - 16*eval_along_dim(-3h) + 3*eval_along_dim(-4h)) / (12h)
     end
 end

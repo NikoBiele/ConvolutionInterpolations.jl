@@ -26,6 +26,50 @@ a value type, used for implementing specialized methods based on dimensionality.
 HigherDimension(::Val{N}) where N = HigherDimension{N}()
 
 """
+    HigherOrderKernel{DG}
+
+A type representing higher-order convolution kernels (`:a3` and above) for dispatch.
+
+This type is used to distinguish between simple kernels (`:a0` nearest, `:a1` linear)
+and higher-order kernels that require precomputed kernel values and convolution
+operations for evaluation.
+
+# Type Parameters
+- `DG`: The kernel degree symbol (`:a3`, `:b3`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`)
+
+# Details
+Higher-order kernels require:
+- Precomputed kernel values stored in `kernel_pre` matrix
+- Convolution over a support region of size `2*eqs-1`
+- Linear interpolation between precomputed kernel positions
+- Boundary condition handling via ghost points
+
+This type enables specialized dispatch for the fast evaluation methods that use
+precomputed kernels, distinguishing them from `:a0` and `:a1` which use simpler
+direct evaluation.
+
+# Usage
+Used internally for method dispatch in `FastConvolutionInterpolation` evaluation.
+Not typically constructed directly by users.
+
+See also: `ConvolutionKernel`, `FastConvolutionInterpolation`.
+"""
+
+struct HigherOrderKernel{DG} end
+
+"""
+    HigherOrderKernel(::Val{DG}) where DG
+
+Construct a `HigherOrderKernel{DG}` type from a `Val{DG}` for dispatch purposes.
+
+This is a convenience constructor that creates a `HigherOrderKernel{DG}` instance from
+a value type, used for implementing specialized kernel methods for higher-order
+convolution interpolation.
+"""
+
+HigherOrderKernel(::Val{DG}) where DG = HigherOrderKernel{DG}()
+
+"""
     ConvolutionKernel{DG}
 
 A type representing a polynomial convolution kernel of degree `DG`.

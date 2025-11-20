@@ -39,7 +39,7 @@ Note: The normalization sum θ(B) is computed using a convergent series approxim
 truncated when terms become sufficiently small (below 1e-12).
 """
 function (::GaussianConvolutionKernel{B})(s) where B # Gaussian style smoothing kernel
-    function θ(B::Float64, terms::Int=1000)
+    function θ(B::G, terms::Int=1000) where G
         q = exp(-B)
         sum = 1.0
         for n in 1:terms
@@ -51,7 +51,7 @@ function (::GaussianConvolutionKernel{B})(s) where B # Gaussian style smoothing 
         end
         return sum
     end
-    function f(x::Float64, B::Float64)
+    function f(x::T, B::G) where {G,T}
         return 1 / θ(B) * exp(-B * x^2) # 
     end
     return f(s, B)

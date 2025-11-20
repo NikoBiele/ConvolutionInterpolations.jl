@@ -26,9 +26,12 @@ result = ∑ coefs[pos_ids + offsets] * ∏ kernel((x[d] - knots[d][pos_ids[d] +
 where the sum is over all possible offset combinations in the N-dimensional neighborhood, and the product
 is across all dimensions. This generalizes to any number of dimensions efficiently.
 """
-function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},Val{DG},EQ})(x::Vararg{T,N}) where {T,N,TCoefs,IT,KA,Axs,DG,EQ}
+function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},DG,EQ})(x::Vararg{Number,N}) where {T,N,TCoefs,IT,KA,Axs,DG,EQ}
 
-    pos_ids = ntuple(d -> limit_convolution_bounds(d, ntuple(d -> searchsortedlast(itp.knots[d], x[d]), N)[d], itp), N)
+    # Compute i_float once per dimension
+    i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + 1, N)
+    # Find knot indices for each dimension
+    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs, length(itp.knots[d]) - itp.eqs), N)
 
     result = zero(T)
     for offsets in Iterators.product(ntuple(_ -> -(itp.eqs-1):itp.eqs, N)...)

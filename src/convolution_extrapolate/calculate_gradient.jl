@@ -26,8 +26,6 @@ appropriate to its position (boundary or interior), ensuring accuracy even for n
 functions.
 """
 function calculate_gradient(etp::ConvolutionExtrapolation{T,N,ITPT,ET,O}, x::NTuple{N,Number}, dir::Vector{T}) where {T,N,ITPT,ET,O} 
-    itp = etp.itp
-    knots = getknots(itp)
     grad = zeros(T, N)
 
     for d in 1:N

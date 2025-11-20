@@ -33,7 +33,7 @@ struct ConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,Convoluti
     coefs::TCoefs
     knots::Axs
     it::IT
-    h::NTuple{N,Float64}
+    h::NTuple{N,T}
     kernel::KA
     dimension::DT
     deg::DG

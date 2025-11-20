@@ -22,9 +22,11 @@ result = ∑ coefs[i+l] * kernel((x - knots[i+l])/h) for l = -(eqs-1):eqs
 
 where `i` is the index of the nearest knot point less than or equal to `x`.
 """
-function (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},Val{DG},EQ})(x::Vararg{T,1}) where {T,TCoefs,IT,Axs,KA,DG,EQ}
+@inline function (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},DG,EQ})(x::Vararg{Number,1}) where {T,TCoefs,IT,Axs,KA,DG,EQ}
 
-    i = limit_convolution_bounds(1, searchsortedlast(itp.knots[1], x[1]), itp)
+    # Direct index calculation
+    i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + 1
+    i = clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
 
     result = zero(T)
     for l = -(itp.eqs-1):itp.eqs

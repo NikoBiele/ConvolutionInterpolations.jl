@@ -18,12 +18,13 @@ respective end of the original vector.
 This is primarily used internally to extend the domain for boundary condition handling
 in convolution interpolation.
 """
-function extend_vector(x::AbstractVector, n_extra::Integer)
+function extend_vector(x::AbstractVector{T}, n_extra::Integer) where T
     step_start = x[2] - x[1]
     step_end = x[end] - x[end-1]
     
-    start_extension = range(x[1] - n_extra * step_start, step=step_start, length=n_extra)
-    end_extension = range(x[end] + step_end, step=step_end, length=n_extra)
+    # Preserve the type T throughout
+    start_extension = T[x[1] - i * step_start for i in n_extra:-1:1]
+    end_extension = T[x[end] + i * step_end for i in 1:n_extra]
     
     return vcat(start_extension, x, end_extension)
 end

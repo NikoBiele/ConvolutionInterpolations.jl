@@ -56,7 +56,7 @@ The function handles each dimension independently.
 
 function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET,O}, x::NTuple{N,Number}) where {T,N,ITPT,ET,O}
     itp = etp.itp
-    knots = getknots(itp)
+    knots = itp.knots
     
     function reflect(y, l, u)
         yr = mod(y - l, 2(u-l)) + l

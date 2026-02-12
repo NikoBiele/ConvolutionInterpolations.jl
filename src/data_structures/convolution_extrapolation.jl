@@ -25,7 +25,7 @@ the specified boundary condition to handle the extrapolation.
 
 # This struct is not simple to use manually, so it is recommended to use the `convolution_interpolation` function.
 """
-struct ConvolutionExtrapolation{T,N,ITPT<:AbstractConvolutionInterpolation,ET<:BoundaryCondition,O}
+struct ConvolutionExtrapolation{T,N,ITPT<:AbstractConvolutionInterpolation,DG,EQ,ET<:BoundaryCondition,DO}
     itp::ITPT
     et::ET
 end

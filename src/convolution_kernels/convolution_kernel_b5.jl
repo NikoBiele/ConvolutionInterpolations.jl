@@ -1,5 +1,5 @@
 # see 'docstring.jl' for documentation
-const b5_coef = Dict(
+const b5_coefs = Dict(
     # 5 equation quintic, 7th order accurate
     :eq1 => [1//1, 0//1, -731//384, 0//1, 11423//7680, -4483//7680], 
     :eq2 => [2597//3840, 16931//7680, -14371//1920, 25933//3840, -6337//2560, 313//960], 
@@ -7,18 +7,53 @@ const b5_coef = Dict(
     :eq4 => [1681//1280, -7843//15360, -1463//3840, 2071//7680, -439//7680, 21//5120],
     :eq5 => [-3625//768, 5075//1024, -1595//768, 667//1536, -29//640, 29//15360]
 )
-function (::ConvolutionKernel{:b5})(s::T) where {T} # 5 equations 7th order accurate quintic
+const b5_coefs_d1 = Dict(
+    # 5 equation quintic, 7th order accurate
+    :eq1 => [0//1*1//1, 1//1*0//1, 2//1*-731//384, 3//1*0//1, 4//1*11423//7680, 5//1*-4483//7680], 
+    :eq2 => [0//1*2597//3840, 1//1*16931//7680, 2//1*-14371//1920, 3//1*25933//3840, 4//1*-6337//2560, 5//1*313//960], 
+    :eq3 => [0//1*1211//256, 1//1*-96221//7680, 2//1*4549//384, 3//1*-20011//3840, 4//1*1675//1536, 5//1*-169//1920], 
+    :eq4 => [0//1*1681//1280, 1//1*-7843//15360, 2//1*-1463//3840, 3//1*2071//7680, 4//1*-439//7680, 5//1*21//5120],
+    :eq5 => [0//1*-3625//768, 1//1*5075//1024, 2//1*-1595//768, 3//1*667//1536, 4//1*-29//640, 5//1*29//15360]
+)
+const b5_coefs_d2 = Dict(
+    # 5 equation quintic, 7th order accurate
+    :eq1 => [0//1*1//1, 0//1*0//1, 2//1*-731//384, 6//1*0//1, 12//1*11423//7680, 20//1*-4483//7680], 
+    :eq2 => [0//1*2597//3840, 0//1*16931//7680, 2//1*-14371//1920, 6//1*25933//3840, 12//1*-6337//2560, 20//1*313//960], 
+    :eq3 => [0//1*1211//256, 0//1*-96221//7680, 2//1*4549//384, 6//1*-20011//3840, 12//1*1675//1536, 20//1*-169//1920], 
+    :eq4 => [0//1*1681//1280, 0//1*-7843//15360, 2//1*-1463//3840, 6//1*2071//7680, 12//1*-439//7680, 20//1*21//5120],
+    :eq5 => [0//1*-3625//768, 0//1*5075//1024, 2//1*-1595//768, 6//1*667//1536, 12//1*-29//640, 20//1*29//15360]
+)
+const b5_coefs_d3 = Dict(
+    # 5 equation quintic, 7th order accurate
+    :eq1 => [0//1*1//1, 0//1*0//1, 0//1*-731//384, 6//1*0//1, 24//1*11423//7680, 60//1*-4483//7680], 
+    :eq2 => [0//1*2597//3840, 0//1*16931//7680, 0//1*-14371//1920, 6//1*25933//3840, 24//1*-6337//2560, 60//1*313//960], 
+    :eq3 => [0//1*1211//256, 0//1*-96221//7680, 0//1*4549//384, 6//1*-20011//3840, 24//1*1675//1536, 60//1*-169//1920], 
+    :eq4 => [0//1*1681//1280, 0//1*-7843//15360, 0//1*-1463//3840, 6//1*2071//7680, 24//1*-439//7680, 60//1*21//5120],
+    :eq5 => [0//1*-3625//768, 0//1*5075//1024, 0//1*-1595//768, 6//1*667//1536, 24//1*-29//640, 60//1*29//15360]
+)
+function (::ConvolutionKernel{:b5,DO})(s::T) where {T,DO} # 5 equations 7th order accurate quintic
+    b5_coefs_in = if DO == 0
+        b5_coefs
+    elseif DO == 1
+        b5_coefs_d1
+    elseif DO == 2
+        b5_coefs_d2
+    elseif DO == 3
+        b5_coefs_d3
+    else
+        error("kernel :b5 supports differentiation orders 0, 1, 2, 3, but got $DO")
+    end
     s_abs = abs(s)
     if s_abs < 1.0
-        return horner(s_abs, b5_coef, :eq1, T)
+        return horner(s_abs, b5_coefs_in, :eq1, T, DO) * (isodd(DO) ? sign(s) : one(T))
     elseif s_abs < 2.0
-        return horner(s_abs, b5_coef, :eq2, T)
+        return horner(s_abs, b5_coefs_in, :eq2, T, DO) * (isodd(DO) ? sign(s) : one(T))
     elseif s_abs < 3.0
-        return horner(s_abs, b5_coef, :eq3, T)
+        return horner(s_abs, b5_coefs_in, :eq3, T, DO) * (isodd(DO) ? sign(s) : one(T))
     elseif s_abs < 4.0
-        return horner(s_abs, b5_coef, :eq4, T)
+        return horner(s_abs, b5_coefs_in, :eq4, T, DO) * (isodd(DO) ? sign(s) : one(T))
     elseif s_abs < 5.0
-        return horner(s_abs, b5_coef, :eq5, T)
+        return horner(s_abs, b5_coefs_in, :eq5, T, DO) * (isodd(DO) ? sign(s) : one(T))
     else
         return zero(T)
     end

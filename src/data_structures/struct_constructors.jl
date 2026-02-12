@@ -35,7 +35,7 @@ and higher-order kernels that require precomputed kernel values and convolution
 operations for evaluation.
 
 # Type Parameters
-- `DG`: The kernel degree symbol (`:a3`, `:b3`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`)
+- `DG`: The kernel degree symbol (`:a3`, `:a4`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`)
 
 # Details
 Higher-order kernels require:
@@ -84,7 +84,7 @@ accuracy and smoothness in the interpolated result.
 The implementation defines specific behavior for different degrees through
 method specialization.
 """
-struct ConvolutionKernel{DG} end
+struct ConvolutionKernel{DG,DO} end
 
 """
     ConvolutionKernel(::Val{DG}) where {DG}
@@ -94,7 +94,7 @@ Construct a `ConvolutionKernel{DG}` type from a `Val{DG}` for dispatch purposes.
 This is a convenience constructor that creates a `ConvolutionKernel{DG}` instance from
 a value type, used for implementing specialized kernel methods based on degree.
 """
-ConvolutionKernel(::Val{DG}) where {DG} = ConvolutionKernel{DG}()
+ConvolutionKernel(::Val{DG}, ::Val{DO}) where {DG,DO} = ConvolutionKernel{DG,DO}()
 
 """
     GaussianConvolutionKernel{B}

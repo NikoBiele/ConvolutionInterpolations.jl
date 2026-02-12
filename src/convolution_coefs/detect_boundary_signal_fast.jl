@@ -38,7 +38,7 @@ coefs = detect_boundary_signal_fast(signal, n, h; which_end=:left)
 coefs = detect_boundary_signal_fast(signal, n, h; which_end=:right)
 ```
 """
-function detect_boundary_signal_fast(y_centered, n, h; which_end::Symbol)
+function detect_boundary_signal_fast(y_centered::P, n::Int, h::T; which_end::Symbol) where {P,T}
     
     # First, check for periodicity using signs of gradients
     local_window = min(5, n)
@@ -55,6 +55,6 @@ function detect_boundary_signal_fast(y_centered, n, h; which_end::Symbol)
         return periodic_boundary(y_centered)
     else
         # For non-periodic signals, default to quadratic extrapolation
-        return [3.0, -3.0, 1.0]
+        return T[T(3), T(-3), T(1)]
     end
 end

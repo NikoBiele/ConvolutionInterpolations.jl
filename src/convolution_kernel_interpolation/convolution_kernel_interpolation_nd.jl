@@ -26,18 +26,18 @@ result = ∑ coefs[pos_ids + offsets] * ∏ kernel((x[d] - knots[d][pos_ids[d] +
 where the sum is over all possible offset combinations in the N-dimensional neighborhood, and the product
 is across all dimensions. This generalizes to any number of dimensions efficiently.
 """
-function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},DG,EQ})(x::Vararg{Number,N}) where {T,N,TCoefs,IT,KA,Axs,DG,EQ}
+function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},DG,EQ,KBC,DO})(x::Vararg{Number,N}) where {T,N,TCoefs,IT,KA,Axs,DG,EQ,KBC,DO}
 
     # Compute i_float once per dimension
-    i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + 1, N)
+    i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
     # Find knot indices for each dimension
     pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs, length(itp.knots[d]) - itp.eqs), N)
 
     result = zero(T)
-    for offsets in Iterators.product(ntuple(_ -> -(itp.eqs-1):itp.eqs, N)...)
+    @inbounds for offsets in Iterators.product(ntuple(_ -> -(itp.eqs-1):itp.eqs, N)...)
         result += itp.coefs[(pos_ids .+ offsets)...] * 
                   prod(itp.kernel((x[d] - itp.knots[d][pos_ids[d] + offsets[d]]) / itp.h[d]) for d in 1:N)
     end
     
-    return result
+    return @inbounds @fastmath result * prod((one(T)/itp.h[i])^(DO.parameters[1]) for i in 1:N)
 end

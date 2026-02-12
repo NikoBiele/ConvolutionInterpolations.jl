@@ -37,7 +37,7 @@ dealing with nonlinear functions where the gradient may change rapidly near the 
 """
 function calculate_component_gradient(etp::ConvolutionExtrapolation{T,N,ITPT,ET,O}, x::NTuple{N,Number}, d::Int, dir::Vector{T}) where {T,N,ITPT,ET,O}
     itp = etp.itp
-    h = etp.itp.h[d]*T(0.01)
+    h = etp.itp.h[d]/T(100)
 
     # Helper function to evaluate interpolator along dimension d
     function eval_along_dim(offset)

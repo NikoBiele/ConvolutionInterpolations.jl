@@ -140,7 +140,7 @@ This is the main entry point for boundary condition application.
 - No boundary processing is required since these kernels have minimal support
 - Returns the input array directly for efficiency
 
-**For higher-order kernels (`:a3`, `:b3`, `:b5`, etc.):**
+**For higher-order kernels (`:a3`, `:a4`, `:b5`, etc.):**
 1. Allocates an expanded array with space for ghost points
 2. Copies interior values to the center
 3. Applies boundary conditions dimension-by-dimension using a preallocated workspace
@@ -169,7 +169,8 @@ See also: `apply_boundary_conditions_for_dim!`, `boundary_coefs`.
 """
 
 function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs::P,
-                                kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}}}, kernel_type::Symbol) where {T,N,P}
+                                kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}}},
+                                kernel_type::Symbol) where {T,N,P}
     
     if kernel_type == :a0 || kernel_type == :a1
         return vs
@@ -348,12 +349,12 @@ function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
                                       workspace::BoundaryWorkspace{T,N}) where {T,N}
     num_interior = size(coef, 2)
     num_ghost = eqs - 1  # Always use exactly eqs-1, not the full matrix
-    
+
     if side == :left
         y_view = view(y_centered, 1:num_interior)
         ghost_vals_view = view(workspace.ghost_vals, 1:num_ghost)
-        coef_view = view(coef, 1:num_ghost, :)  # Only use first eqs-1 rows
-        
+        coef_view = view(coef, 1:num_ghost, 1:num_interior)  # Only use first eqs-1 rows
+
         mul!(ghost_vals_view, coef_view, y_view)
         
         for j in 1:num_ghost
@@ -366,10 +367,10 @@ function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
         end
         y_temp_view = view(workspace.y_temp, 1:num_interior)
         ghost_vals_view = view(workspace.ghost_vals, 1:num_ghost)
-        coef_view = view(coef, 1:num_ghost, :)  # Only use first eqs-1 rows
+        coef_view = view(coef, 1:num_ghost, 1:num_interior)  # Only use first eqs-1 rows
         
         mul!(ghost_vals_view, coef_view, y_temp_view)
-        
+            
         for j in 1:num_ghost
             c[idx + c_offset[j]] = y_offset + workspace.ghost_vals[j]
         end
@@ -431,7 +432,7 @@ function fill_ghost_points_recursive!(c::AbstractArray{T}, idx::CartesianIndex,
             c[idx - c_offset[j]] = y_offset + y_ext_view[1+(eqs-1)-j]
         end
     else  # :right
-        factor = length(vs_size) == 1 ? 1 : -1
+        factor = length(vs_size) == 1 ? one(T) : -one(T)
         y_len = length(y_centered)
         y_ext_view = view(workspace.y_extended, 1:(y_len + eqs - 1))
         y_ext_view[1:end-(eqs-1)] .= y_centered

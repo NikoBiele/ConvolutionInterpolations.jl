@@ -38,10 +38,12 @@ coefs = Dict(
 value = horner(0.5, coefs, :eq1)
 ```
 """
-function horner(x::T, coef_dict, key, ::Type{T}) where {T}
+
+function horner(x::T, coef_dict, key, ::Type{T}, DO::P) where {T,P<:Integer}
+    
     coef = coef_dict[key]
-    result = T(coef[end]) # Convert each rational coefficient to type T
-    for i in length(coef)-1:-1:1
+    result = T(coef[end])
+    for i in length(coef)-1:-1:(1+(DO>0 ? DO : 0))
         result = result * x + T(coef[i])
     end
     return result

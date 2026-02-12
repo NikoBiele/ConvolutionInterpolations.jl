@@ -22,17 +22,19 @@ result = ∑ coefs[i+l] * kernel((x - knots[i+l])/h) for l = -(eqs-1):eqs
 
 where `i` is the index of the nearest knot point less than or equal to `x`.
 """
-@inline function (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},DG,EQ})(x::Vararg{Number,1}) where {T,TCoefs,IT,Axs,KA,DG,EQ}
+
+@inline function (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
+                    DG,EQ,KBC,DO,FD,SD,SG})(x::Vararg{Number,1}) where 
+                    {T,TCoefs,IT,Axs,KA,DG,EQ,KBC,DO,FD,SD,SG}
 
     # Direct index calculation
-    i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + 1
+    i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
 
     result = zero(T)
-    for l = -(itp.eqs-1):itp.eqs
+    @inbounds for l = -(itp.eqs-1):itp.eqs
         result += itp.coefs[i+l] * 
-                  itp.kernel( (x[1] - itp.knots[1][i+l]) / itp.h[1] )
+                itp.kernel( (x[1] - itp.knots[1][i+l]) / itp.h[1] )
     end
-    
-    return result
+    return @fastmath result * one(T)/(itp.h[1])^DO.parameters[1]
 end

@@ -15,7 +15,7 @@ For a kernel of type `:kernel`, `POLYNOMIAL_GHOST_COEFFS[:kernel]` is a matrix w
 - `:a3`: Cubic reproduction, 2 ghost points, uses 4 interior points
 - `:a5`: Cubic reproduction, 3 ghost points, uses 4 interior points
 - `:a7`: Cubic reproduction, 4 ghost points, uses 4 interior points
-- `:b3`: Cubic reproduction, 3 ghost points, uses 4 interior points
+- `:a4`: Cubic reproduction, 3 ghost points, uses 4 interior points
 - `:b5`: Quintic reproduction, 5 ghost points, uses 6 interior points
 - `:b7`: Septic reproduction, 6 ghost points, uses 8 interior points
 - `:b9`: 7th-order convergence, 7 ghost points, uses 8 interior points
@@ -44,6 +44,15 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
         10  -20  15  -4;   # g_{-2}
     ],
 
+    # b3: Reproduces polynomials up to degree 3
+    # Support: [-3, 3], needs 3 ghost points
+    # Uses 4 interior points (degree + 1)
+    :a4 => [
+        4  -6  4  -1;  # g_{-1}
+        10  -20  15  -4;  # g_{-2}
+        20  -45  36  -10;   # g_{-3}
+    ],
+
     # A5 Kernel: Reproduces cubics (degree 3)
     # Support: [-3, 3], needs 3 ghost points
     # Uses 4 interior points (degree + 1)
@@ -61,15 +70,6 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
         10  -20  15  -4;  # g_{-2}
         20  -45  36  -10;  # g_{-3}
         35  -84  70  -20;   # g_{-4}
-    ],
-
-    # b3: Reproduces polynomials up to degree 3
-    # Support: [-3, 3], needs 3 ghost points
-    # Uses 4 interior points (degree + 1)
-    :b3 => [
-        4  -6  4  -1;  # g_{-1}
-        10  -20  15  -4;  # g_{-2}
-        20  -45  36  -10;   # g_{-3}
     ],
     
     # B5 Kernel: Reproduces quintics (degree 5)
@@ -135,7 +135,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
         3432  -21021  56056  -84084  76440  -42042  12936  -1716;  # g_{-7}
         6435  -40040  108108  -163800  150150  -83160  25740  -3432;  # g_{-8}
         11440  -72072  196560  -300300  277200  -154440  48048  -6435;   # g_{-9}
-    ]
+    ],
 )
 
 """
@@ -173,8 +173,8 @@ function get_polynomial_ghost_coeffs(kernel_type::Symbol)
     if !haskey(POLYNOMIAL_GHOST_COEFFS, kernel_type)
         available = join(keys(POLYNOMIAL_GHOST_COEFFS), ", ")
         throw(ArgumentError(
-            "Unknown kernel type: $kernel_type. " *
-            "Available polynomial-reproduction coefficients: $available"
+            "Unsupported kernel type: $kernel_type. " *
+            "Available kernel types: $available."
         ))
     end
     return POLYNOMIAL_GHOST_COEFFS[kernel_type]

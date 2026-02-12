@@ -66,7 +66,8 @@ coef_vec, y_mean, y_centered = boundary_coefs(y, h, :periodic, :left)
 See also: `get_polynomial_ghost_coeffs`, `detect_boundary_signal_fast`
 """
 
-function boundary_coefs(y, h::T, kernel_bc::Symbol, which_end::Symbol, kernel_type::Symbol=:unknown) where T<:Number
+function boundary_coefs(y::P, h::T, kernel_bc::Symbol, which_end::Symbol,
+                  kernel_type::Symbol=:unknown) where {P,T}
 
     n = length(y)
     y_mean = sum(y)/n
@@ -81,9 +82,9 @@ function boundary_coefs(y, h::T, kernel_bc::Symbol, which_end::Symbol, kernel_ty
         if kernel_bc == :detect
             return detect_boundary_signal_fast(y_centered, n, h; which_end=which_end), y_mean, y_centered
         elseif kernel_bc == :quadratic
-            return T[3.0, -3.0, 1.0], y_mean, y_centered
+            return T[T(3), T(-3), T(1)], y_mean, y_centered
         elseif kernel_bc == :linear
-            return T[2.0, -1.0, 0.0], y_mean, y_centered
+            return T[T(2), T(-1), T(0)], y_mean, y_centered
         elseif kernel_bc == :periodic
             return periodic_boundary(y_centered), y_mean, y_centered
         else

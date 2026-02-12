@@ -20,18 +20,18 @@ The coefficients returned represent the linear prediction filter for the given a
 """
 function linear_predict(r::Vector{G}) where G
     if length(r) == 1
-        return G.([1.0]) # constant
+        return G[one(G)] # constant
     elseif length(r) == 2
-        return G.([2.0, -1.0]) # linear
+        return G[G(2), -one(G)] # linear
     elseif length(r) == 3
-        return G.([3.0, -3.0, 1.0]) # quadratic
+        return G[G(3), G(-3), one(G)] # quadratic
     elseif length(r) == 4
         # third order boundary condition
         r0, r1, r2, r3 = r[1:4]
         coefs = zeros(G, 3)
-        coefs[1] = (r0^2*r1 - r0*r1*r2 - r0*r2*r3 - r1^3 + r1^2*r3 + r1*r2^2)/(isapprox((r0^3 - 2*r0*r1^2 - r0*r2^2 + 2*r1^2*r2), G(0.0), atol=1e-6) ? 1e-6 : (r0^3 - 2*r0*r1^2 - r0*r2^2 + 2*r1^2*r2))
-        coefs[2] = (r0*r2 - r1^2 - r1*r3 + r2^2)/(isapprox((r0^2 + r0*r2 - 2*r1^2), G(0.0), atol=1e-6) ? 1e-6 : (r0^2 + r0*r2 - 2*r1^2))
-        coefs[3] = (r0^2*r3 - 2*r0*r1*r2 + r1^3 - r1^2*r3 + r1*r2^2)/(isapprox((r0^3 - 2*r0*r1^2 - r0*r2^2 + 2*r1^2*r2), G(0.0), atol=1e-6) ? 1e-6 : (r0^3 - 2*r0*r1^2 - r0*r2^2 + 2*r1^2*r2))
+        coefs[1] = (r0^2*r1 - r0*r1*r2 - r0*r2*r3 - r1^3 + r1^2*r3 + r1*r2^2)/(isapprox((r0^3 - 2*r0*r1^2 - r0*r2^2 + 2*r1^2*r2), zero(G), atol=1e-6) ? 1e-6 : (r0^3 - 2*r0*r1^2 - r0*r2^2 + 2*r1^2*r2))
+        coefs[2] = (r0*r2 - r1^2 - r1*r3 + r2^2)/(isapprox((r0^2 + r0*r2 - 2*r1^2), zero(G), atol=1e-6) ? 1e-6 : (r0^2 + r0*r2 - 2*r1^2))
+        coefs[3] = (r0^2*r3 - 2*r0*r1*r2 + r1^3 - r1^2*r3 + r1*r2^2)/(isapprox((r0^3 - 2*r0*r1^2 - r0*r2^2 + 2*r1^2*r2), zero(G), atol=1e-6) ? 1e-6 : (r0^3 - 2*r0*r1^2 - r0*r2^2 + 2*r1^2*r2))
         return coefs
     elseif length(r) == 5
         # fourth order boundary condition

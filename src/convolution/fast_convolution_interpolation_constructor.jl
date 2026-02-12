@@ -11,7 +11,7 @@ Construct a fast convolution interpolation object with precomputed kernel values
 # Keyword Arguments
 - `degree::Symbol=:b5`: Convolution kernel to use. Available kernels:
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a5` (quintic), `:a7` (septic)
-  - `b`-series (recommended): `:b3`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
+  - `b`-series (recommended): `:a4`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
   - Default `:b5` provides quintic reproduction with 7th-order convergence (from Taylor series)
 - `precompute::Int=100_000`: Number of kernel values to precompute. Higher values increase
   accuracy of kernel interpolation at the cost of initialization time and memory
@@ -58,20 +58,78 @@ itp(0.3, 0.7)  # Fast evaluation at (x,y) = (0.3, 0.7)
 
 See also: `convolution_interpolation` for automatic extrapolation at boundaries.
 """
-function FastConvolutionInterpolation(knots::NTuple{N,AbstractVector}, vs::AbstractArray{T,N};
-            degree::Symbol=:b5, precompute::Int=100_000, B=nothing, kernel_bc=:auto) where {T,N}
-            
+function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector},AbstractRange,NTuple{N,AbstractRange}},
+                                      vs::AbstractArray{T,N};
+                                      degree::Symbol=:b5, precompute::Int=100, B=nothing,
+                                      kernel_bc=:auto,
+                                      derivative::Int=0,
+                                      subgrid::Symbol=:cubic) where {T,N}
+
+    subgrid = validate_subgrid_compatibility(degree::Symbol, derivative::Int, subgrid::Symbol)
+    if knots isa AbstractVector || knots isa AbstractRange
+        knots = (knots,) # Convert knots to tuple if needed (if called directly)
+    end
     eqs = B === nothing ? get_equations_for_degree(degree) : 50
     h = map(k -> k[2] - k[1], knots)
     it = ntuple(_ -> ConvolutionMethod(), N)
     knots_new = expand_knots(knots, eqs-1) # expand boundaries
     coefs = create_convolutional_coefs(vs, h, eqs, kernel_bc, degree) # create boundaries
-    kernel = B === nothing ? ConvolutionKernel(Val(degree)) : GaussianConvolutionKernel(Val(B))
+    kernel = B === nothing ? ConvolutionKernel(Val(degree), Val(derivative)) : GaussianConvolutionKernel(Val(B))
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
-    pre_range, kernel_pre = get_precomputed_kernel_and_range(degree; precompute=precompute, float_type=T)
+    pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre = 
+                  get_precomputed_kernel_and_range(degree; precompute=big(precompute//1), float_type=T,
+                  derivative=derivative)
     degree = degree == :a0 || degree == :a1 ? Val(degree) : HigherOrderKernel(Val(degree))
 
-    return FastConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel),typeof(dimension),typeof(degree),typeof(eqs),typeof(pre_range),typeof(kernel_pre),typeof(kernel_bc)}(
-        coefs, knots_new, it, h, kernel, dimension, degree, eqs, pre_range, kernel_pre, kernel_bc
+    return FastConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel),typeof(dimension),
+                                        typeof(degree),typeof(eqs),typeof(pre_range),typeof(kernel_pre),typeof(kernel_bc),
+                                        typeof(Val(derivative)), typeof(kernel_d1_pre),typeof(kernel_d2_pre),typeof(Val(subgrid))}(
+        coefs, knots_new, it, h, kernel, dimension, degree, eqs, pre_range, kernel_pre, kernel_bc, Val(derivative),
+        kernel_d1_pre, kernel_d2_pre, Val(subgrid)
     )
 end
+
+function validate_subgrid_compatibility(degree::Symbol, derivative::Int, subgrid::Symbol)
+    if degree == :a0 || degree == :a1
+        return :not_used
+    end 
+    max_deriv = max_smooth_derivative[degree]  # e.g., 3 for b5
+    available_derivs = max_deriv - derivative
+    
+    if required_derivs[subgrid] > available_derivs
+        throw(ArgumentError(
+            "Subgrid strategy :$subgrid requires $(required_derivs[subgrid]) additional derivatives, " *
+            "but only $available_derivs available for kernel :$degree with derivative order $derivative. " *
+            "Use :$(suggest_subgrid(available_derivs)) subgrid or lower instead."
+        ))
+    end
+    
+    return subgrid
+end
+
+function suggest_subgrid(available_derivs)
+    available_derivs >= 2 && return :quintic
+    available_derivs >= 1 && return :cubic
+    return :linear
+end
+
+const required_derivs = Dict(
+  :nearest => 0,
+  :linear => 0,
+  :cubic => 1,
+  :quintic => 2
+)
+
+const max_smooth_derivative = Dict(
+  :a0 => -1,
+  :a1 => -1,
+  :a3 => 1,
+  :a4 => 1,
+  :a5 => 1,
+  :a7 => 1,
+  :b5 => 3,
+  :b7 => 4,
+  :b9 => 5,
+  :b11 => 6,
+  :b13 => 6
+)

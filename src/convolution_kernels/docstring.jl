@@ -46,7 +46,7 @@ Septic convolution kernel with 4 equations and support [-4,4]:
 
 ## ':b' type kernels:
 
-## Cubic Kernel (DG=:b3)
+## Cubic Kernel (DG=:a4)
 3rd degree convolution kernel with 3 equations and support [-3,3]:
 - 4th order accuracy with C1 continuity
 - 3 piecewise equations for |s| < 1.0 and 1.0 ≤ |s| < 3.0

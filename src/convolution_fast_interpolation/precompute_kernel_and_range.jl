@@ -68,14 +68,105 @@ pre_range, kernel_pre = precompute_kernel_and_range(:b5, F=BigFloat)
 
 See also: `get_precomputed_kernel_and_range`, `ConvolutionKernel`, `FastConvolutionInterpolation`.
 """
-function precompute_kernel_and_range(degree::Symbol; precompute::P=100_000, F::Type{<:AbstractFloat}=Float64) where {P}
-    kernel = ConvolutionKernel(Val(degree))
+function precompute_kernel_and_range(degree::Symbol;
+          precompute::P, F::Type{T}, base::Int=0, derivative::Int=0, integral::Int=0) where {P,T}
     eqs = get_equations_for_degree(degree)
-    pre_range = degree == :a0 || degree == :a1 ? F[zero(F), one(F)] : F[zero(F) + F(i-1)/F(precompute-1) for i in 1:precompute]
-    kernel_pre = zeros(F, precompute, 2*eqs)
-    for i = 1:2*eqs
-        kernel_pre[:,i] .= kernel.(pre_range .- eqs .+ i .- 1)
-    end
+    pre_range = [big(0//1) + big(i//1-1//1)/big(precompute//1-1//1) for i in 1:precompute]
+    if degree in [:a0, :a1]
+      kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+      return pre_range, kernel_pre, [zero(F), zero(F)], [zero(F), zero(F)]
+    elseif degree in [:a3, :a4, :a5, :a7]
+      if derivative == 0
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, kernel_d1_pre, [zero(F), zero(F)]
+      elseif derivative == 1
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, [zero(F), zero(F)], [zero(F), zero(F)]
+      end
+    elseif degree == :b5
+      # b5 kernel
+      if derivative in [0, 1]
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range)
+        kernel_d2_pre = precompute_kernel(F, degree, derivative+2, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre
+      elseif derivative == 2
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, kernel_d1_pre, [zero(F), zero(F)]
+      else # derivative == 3 && degree == :b5
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, [zero(F), zero(F)], [zero(F), zero(F)]
+      end
+    elseif degree == :b7
+      # b7 kernel
+      if derivative in [0, 1, 2]
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range)
+        kernel_d2_pre = precompute_kernel(F, degree, derivative+2, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre
+      elseif derivative == 3
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, kernel_d1_pre, [zero(F), zero(F)]
+      else # derivative == 4
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, [zero(F), zero(F)], [zero(F), zero(F)]
+      end
+    elseif degree == :b9
+      # b9 kernel
+      if derivative in [0, 1, 2, 3]
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range)
+        kernel_d2_pre = precompute_kernel(F, degree, derivative+2, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre
+      elseif derivative == 4
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, kernel_d1_pre, [zero(F), zero(F)]
+      else # derivative == 5 && degree == :b9
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, [zero(F), zero(F)], [zero(F), zero(F)]
+      end
+    elseif degree == :b11
+      # b11 kernel
+      if derivative in [0, 1, 2, 3, 4]
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range)
+        kernel_d2_pre = precompute_kernel(F, degree, derivative+2, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre
+      elseif derivative == 5
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)        
+        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, kernel_d1_pre, [zero(F), zero(F)]
+      else # derivative == 6 && degree == :b11
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, [zero(F), zero(F)], [zero(F), zero(F)]
+      end
+    elseif degree == :b13
+      # b13 kernel
+      if derivative in [0, 1, 2, 3, 4]
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range)
+        kernel_d2_pre = precompute_kernel(F, degree, derivative+2, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre
+      elseif derivative == 5
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)        
+        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, kernel_d1_pre, [zero(F), zero(F)] 
+      else # derivative == 6 && degree == :b13
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+        return pre_range, kernel_pre, [zero(F), zero(F)], [zero(F), zero(F)]
+      end
+  end
+end
 
-    return pre_range, kernel_pre
+function precompute_kernel(F, degree, derivative, eqs, precompute, pre_range)
+    kernel = ConvolutionKernel(Val(degree), Val(derivative))
+    kernel_pre = zeros(F, Int64(precompute), 2*eqs)
+    for i = 1:2*eqs
+        kernel_pre[:,i] .= F.(kernel.(pre_range .- big(eqs//1) .+ big(i//1) .- big(1//1)))
+    end
+    return kernel_pre
 end

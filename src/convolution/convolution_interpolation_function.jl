@@ -12,7 +12,7 @@ Create a convolution-based interpolation object with automatic optimization and 
 # Keyword Arguments
 - `degree::Symbol=:b5`: Convolution kernel to use. Available kernels:
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a5` (quintic), `:a7` (septic)
-  - `b`-series (recommended): `:b3`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
+  - `b`-series (recommended): `:a4`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
   - Default `:b5` provides quintic reproduction with 7th-order accuracy (from Taylor series)
 - `fast::Bool=true`: Use fast mode with precomputed kernel values for O(1) evaluation
   - `true` (default): Fast mode with precomputed kernels (recommended for most cases)
@@ -36,12 +36,12 @@ Fast mode (default) provides:
 
 # Kernel Properties
 All `b`-series kernels provide 7th-order accuracy:
-- `:b3`: C¹ continuity, cubic reproduction
+- `:a4`: C¹ continuity, cubic reproduction
 - `:b5`: C³ continuity, quintic reproduction (recommended default)
-- `:b7`: C⁵ continuity, septic reproduction
-- `:b9`: C⁷ continuity, 7th-order accuracy
-- `:b11`: C⁹ continuity, 7th-order accuracy
-- `:b13`: C¹¹ continuity, 7th-order accuracy
+- `:b7`: C⁴ continuity, septic reproduction
+- `:b9`: C⁵ continuity, 7th-order accuracy
+- `:b11`: C⁶ continuity, 7th-order accuracy
+- `:b13`: C⁶ continuity, 7th-order accuracy
 
 Higher-order `b` kernels offer better accuracy on smooth functions, with `:b5` approaching
 machine precision with sufficient grid resolution (e.g., `:b5` achieves ~10⁻¹⁴ error on
@@ -78,30 +78,34 @@ itp = convolution_interpolation(x, y, B=0.1)  # Controlled smoothing
 
 See also: `FastConvolutionInterpolation`, `ConvolutionInterpolation`, `ConvolutionExtrapolation`.
 """
-function convolution_interpolation(knots::Union{NTuple{N, AbstractVector},AbstractVector}, values::AbstractArray{T,N}; 
-                    degree::Symbol=:b5, fast::Bool=true, precompute::Int=100_000,
-                    B=nothing, extrapolation_bc=Throw(), kernel_bc=:auto) where {T,N}
-    
-    # Convert knots to tuple if needed
-    if knots isa AbstractVector
-        knots = (knots,)
-    end
+function convolution_interpolation(knots::Union{NTuple{N, AbstractVector},AbstractVector,AbstractRange,NTuple{N,AbstractRange}},
+                    values::AbstractArray{T,N}; degree::Symbol=:b5, fast::Bool=true, precompute::Int=100,
+                    B=nothing, extrapolation_bc=Throw(), kernel_bc=:auto,
+                    derivative::Int=0,
+                    subgrid::Symbol=:cubic) where {T,N}
     
     # Handle Natural extrapolation boundary condition specially
     if extrapolation_bc isa Natural
-        itp = ConvolutionInterpolation(knots, values; degree=degree, B=B, kernel_bc=kernel_bc)
+        itp = ConvolutionInterpolation(knots, values;
+              degree=degree, B=B, kernel_bc=kernel_bc, derivative=derivative)
         if fast
-            itp = FastConvolutionInterpolation(itp.knots, itp.coefs; degree=degree, precompute=precompute, B=B, kernel_bc=:linear)
+            itp = FastConvolutionInterpolation(itp.knots, itp.coefs;
+                  degree=degree, precompute=precompute, B=B, kernel_bc=:linear,
+                  base=base, derivative=derivative, integral=integral, subgrid=subgrid)
         else
-            itp = ConvolutionInterpolation(itp.knots, itp.coefs; degree=degree, B=B, kernel_bc=:linear)
+            itp = ConvolutionInterpolation(itp.knots, itp.coefs;
+                  degree=degree, B=B, kernel_bc=:linear, derivative=derivative)
         end 
         return ConvolutionExtrapolation(itp, Line())
     else
         # Standard case
         if fast
-            itp = FastConvolutionInterpolation(knots, values; degree=degree, precompute=precompute, B=B, kernel_bc=kernel_bc)
+            itp = FastConvolutionInterpolation(knots, values;
+                  degree=degree, precompute=precompute, B=B, kernel_bc=kernel_bc, 
+                  derivative=derivative, subgrid=subgrid)
         else
-            itp = ConvolutionInterpolation(knots, values; degree=degree, B=B, kernel_bc=kernel_bc)
+            itp = ConvolutionInterpolation(knots, values; degree=degree, B=B,
+                  kernel_bc=kernel_bc, derivative=derivative)
         end
         return ConvolutionExtrapolation(itp, extrapolation_bc)
     end

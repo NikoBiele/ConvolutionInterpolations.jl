@@ -15,11 +15,11 @@ This function:
 2. Derives prediction coefficients from the autocorrelation values
 3. Falls back to quadratic prediction `[3.0, -3.0, 1.0]` if numerical instability is detected
 """
-function autocor_coefs(signal)
+function autocor_coefs(signal::Vector{T}) where T
     acf = autocorrelation(signal)
     coefs = linear_predict(acf)
     if occursin("NaN", string(coefs))
-        return [3.0, -3.0, 1.0] # fallback to quadratic
+        return T[T(3), T(-3), T(1)] # fallback to quadratic
     end
     return coefs
 end

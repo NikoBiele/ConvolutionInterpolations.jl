@@ -57,29 +57,43 @@ pre_range, kernel_pre = get_precomputed_kernel_and_range(:b5, float_type=BigFloa
 
 See also: `precompute_kernel_and_range`, `FastConvolutionInterpolation`.
 """
-function get_precomputed_kernel_and_range(degree::Symbol; precompute::Int=100_000, float_type::Type{T}=Float64) where T
+function get_precomputed_kernel_and_range(degree::Symbol;
+                precompute::Union{Int,Rational{P}}=1//100, float_type::Type{T}, derivative::Int=0) where {T,P}
     cache_dir = @get_scratch!("precomputed_kernels")
     degree_str = string(degree)
     precompute = degree == :a0 || degree == :a1 ? 2 : precompute
-    
+
     # Add precision info for BigFloat
     if float_type <: BigFloat
         prec = precision(BigFloat)
-        cache_file_range = joinpath(cache_dir, "$(degree_str)_$(precompute)_BigFloat$(prec)_range.jls")
-        cache_file_kernel = joinpath(cache_dir, "$(degree_str)_$(precompute)_BigFloat$(prec)_kernel.jls")
+        cache_file_range = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_BigFloat$(prec)_range.jls")
+        cache_file_d0 = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_BigFloat$(prec)_derivative_$(derivative)_kernel.jls")
+        cache_file_d1 = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_BigFloat$(prec)_derivative_$(derivative+1)_kernel.jls")
+        cache_file_d2 = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_BigFloat$(prec)_derivative_$(derivative+2)_kernel.jls")
     else
         type_str = string(float_type)  # "Float64", "Float32", etc.
-        cache_file_range = joinpath(cache_dir, "$(degree_str)_$(precompute)_$(type_str)_range.jls")
-        cache_file_kernel = joinpath(cache_dir, "$(degree_str)_$(precompute)_$(type_str)_kernel.jls")
+        cache_file_range = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_$(type_str)_range.jls")
+        cache_file_d0 = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_$(type_str)_derivative_$(derivative)_kernel.jls")
+        cache_file_d1 = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_$(type_str)_derivative_$(derivative+1)_kernel.jls")
+        cache_file_d2 = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_$(type_str)_derivative_$(derivative+2)_kernel.jls")
     end
     
-    if isfile(cache_file_range) && isfile(cache_file_kernel)
-        return deserialize(cache_file_range), deserialize(cache_file_kernel)
+    if isfile(cache_file_range) && isfile(cache_file_d0) && isfile(cache_file_d1) && isfile(cache_file_d2)
+        return deserialize(cache_file_range), deserialize(cache_file_d0), deserialize(cache_file_d1), deserialize(cache_file_d2)
     else
-        @info "Generating precomputed kernel of length $precompute for fast convolution kernel $degree with $float_type precision (first time only)..."
-        range_data, kernel_data = precompute_kernel_and_range(degree; precompute=precompute, F=float_type)
+        @info "Generating precomputed kernel of length $precompute for:\n
+                    - fast convolution kernel $degree\n
+                    - with $(float_type <: BigFloat ? "BigFloat"*"$(precision(BigFloat))" : float_type) precision\n
+                    - derivative order $derivative\n
+                    - (first time only)..."
+        range_data, kernel_data_d0, kernel_data_d1, kernel_data_d2 = 
+                            precompute_kernel_and_range(degree; precompute=precompute, F=float_type, 
+                            derivative=derivative)
         serialize(cache_file_range, range_data)
-        serialize(cache_file_kernel, kernel_data)
-        return range_data, kernel_data
+        serialize(cache_file_d0, kernel_data_d0)
+        serialize(cache_file_d1, kernel_data_d1)
+        serialize(cache_file_d2, kernel_data_d2)
+
+        return range_data, kernel_data_d0, kernel_data_d1, kernel_data_d2
     end
 end

@@ -11,7 +11,7 @@ Construct a convolution interpolation object for N-dimensional data using direct
 # Keyword Arguments
 - `degree::Symbol=:b5`: Convolution kernel to use. Available kernels:
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a5` (quintic), `:a7` (septic)
-  - `b`-series (recommended): `:b3`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
+  - `b`-series (recommended): `:a4`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
   - Default `:b5` provides quintic reproduction with 7th-order convergence (from Taylor series)
 - `B=nothing`: If provided, uses Gaussian kernel with parameter `B` instead of polynomial kernel
 - `kernel_bc=:auto`: Boundary condition for kernel evaluation at domain boundaries
@@ -30,7 +30,7 @@ The grid is automatically expanded at boundaries and coefficients are computed t
 the chosen boundary conditions. All `b`-series kernels provide 7th-order convergence with
 polynomial reproduction properties (e.g., `:b5` exactly reproduces quintic polynomials).
 
-# Examples
+Examples
 ```julia
 # 1D interpolation with quintic kernel
 knots = (range(0, 1, 100),)
@@ -47,17 +47,28 @@ itp(0.3, 0.7)  # Evaluate at (x,y) = (0.3, 0.7)
 
 See also: `convolution_interpolation` for automatic extrapolation at boundaries.
 """
-function ConvolutionInterpolation(knots::NTuple{N,AbstractVector}, vs::AbstractArray{T,N};
-                                degree::Symbol=:b5, B=nothing, kernel_bc=:auto) where {T,N}
+function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
+                                        AbstractVector,AbstractRange,NTuple{N,AbstractRange}},
+                                  vs::AbstractArray{T,N};
+                                  degree::Symbol=:b5, B=nothing, kernel_bc=:auto,
+                                  derivative::Int=0) where {T,N}
+    # Convert knots to tuple if needed (if called directly)
+    if knots isa AbstractVector || knots isa AbstractRange
+        knots = (knots,)
+    end
     eqs = B === nothing ? get_equations_for_degree(degree) : 50
     h = map(k -> k[2] - k[1], knots)
     it = ntuple(_ -> ConvolutionMethod(), N)
     knots_new = expand_knots(knots, eqs-1) # expand boundaries
     coefs = create_convolutional_coefs(vs, h, eqs, kernel_bc, degree) # create boundaries
-    kernel = B === nothing ? ConvolutionKernel(Val(degree)) : GaussianConvolutionKernel(Val(B))
+    kernel = B === nothing ? ConvolutionKernel(Val(degree), Val(derivative)) : GaussianConvolutionKernel(Val(B))
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
+    kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, nothing, nothing, :not_used)
     
-    ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel),typeof(dimension),typeof(Val(degree)),typeof(eqs),typeof(kernel_bc)}(
-        coefs, knots_new, it, h, kernel, dimension, Val(degree), eqs, kernel_bc
+    ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel),
+                            typeof(dimension),typeof(Val(degree)),typeof(eqs),typeof(kernel_bc),
+                            typeof(Val(derivative)),typeof(kernel_d1_pre),typeof(kernel_d2_pre),typeof(Val(subgrid))}(
+        coefs, knots_new, it, h, kernel, dimension, Val(degree), eqs, kernel_bc, Val(derivative),
+        kernel_d1_pre, kernel_d2_pre, Val(subgrid)
     )
 end

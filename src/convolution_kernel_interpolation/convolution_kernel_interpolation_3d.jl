@@ -25,20 +25,20 @@ result = ∑∑∑ coefs[i+l, j+m, k+n] * kernel((x₁ - knots₁[i+l])/h₁) *
 for `l, m, n = -(eqs-1):eqs`, where `i`, `j`, and `k` are the indices of the nearest knot points
 less than or equal to `x₁`, `x₂`, and `x₃` respectively.
 """
-function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},DG,EQ})(x::Vararg{Number,3}) where {T,TCoefs,IT,Axs,KA,DG,EQ}
+function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},DG,EQ,KBC,DO})(x::Vararg{Number,3}) where {T,TCoefs,IT,Axs,KA,DG,EQ,KBC,DO}
 
     # First dimension (x)
-    i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + 1
+    i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
     # Second dimension (y)
-    j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + 1
+    j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + one(T)
     j = clamp(floor(Int, j_float), itp.eqs, length(itp.knots[2]) - itp.eqs)
     # Third dimension (z)
-    k_float = (x[3] - itp.knots[3][1]) / itp.h[3] + 1
+    k_float = (x[3] - itp.knots[3][1]) / itp.h[3] + one(T)
     k = clamp(floor(Int, k_float), itp.eqs, length(itp.knots[3]) - itp.eqs)
 
     result = zero(T)
-    for l = -(itp.eqs-1):itp.eqs, 
+    @inbounds for l = -(itp.eqs-1):itp.eqs, 
         m = -(itp.eqs-1):itp.eqs, 
         n = -(itp.eqs-1):itp.eqs
         result += itp.coefs[i+l, j+m, k+n] * 
@@ -47,5 +47,5 @@ function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},DG,EQ})(x::V
                   itp.kernel((x[3] - itp.knots[3][k+n]) / itp.h[3])
     end
     
-    return result
+    return @fastmath result * (one(T)/itp.h[1])^(DO.parameters[1]) * (one(T)/itp.h[2])^(DO.parameters[1]) * (one(T)/itp.h[3])^(DO.parameters[1])
 end

@@ -4,6 +4,33 @@ A high-performance Julia package for smooth N-dimensional interpolation on unifo
 
 [![Performance Comparison](fig/convolution_interpolation_a_and_b.png)](fig/convolution_interpolation_a_and_b.png)
 
+## Table of Contents
+
+- [Why ConvolutionInterpolations.jl?](#why-convolutioninterpolationsjl)
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+  - [1D Interpolation](#1d-interpolation)
+  - [2D Interpolation](#2d-interpolation)
+- [Performance](#performance)
+  - [Accuracy: Runge Function Benchmark](#accuracy-runge-function-benchmark)
+  - [Frequency Response of Convolution Kernels](#frequency-response-of-convolution-kernels)
+  - [Speed: Initialization and Evaluation](#speed-initialization-and-evaluation)
+- [Advanced Usage](#advanced-usage)
+  - [Kernel Selection](#kernel-selection)
+  - [Kernel Boundary Conditions](#kernel-boundary-conditions)
+  - [Derivatives](#derivatives)
+  - [Extrapolation Methods](#extrapolation-methods)
+  - [High-Dimensional Interpolation](#high-dimensional-interpolation)
+- [Performance Optimization](#performance-optimization)
+  - [General Guidelines](#general-guidelines)
+  - [Subgrid Interpolation](#subgrid-interpolation)
+- [Comparison with Other Packages](#comparison-with-other-packages)
+- [Technical Background](#technical-background)
+- [Novel Contributions](#novel-contributions)
+- [Acknowledgments](#acknowledgments)
+- [License](#license)
+
 ## Why ConvolutionInterpolations.jl?
 
 **Uniform Grids**: Designed specifically for uniformly-spaced data. Grid spacing can vary between dimensions, but must be uniform within each dimension.
@@ -26,6 +53,7 @@ A high-performance Julia package for smooth N-dimensional interpolation on unifo
 - **Performance optimized**: Precomputed kernels eliminate polynomial evaluation overhead
 - **Uniform grids**: Sample data must be uniformly spaced in each dimension (spacing can vary between dimensions)
 - **Optional smoothing**: Gaussian convolution kernel for noisy data
+- **Accurate higher order derivatives**: Convolution kernels offer up to 5 smooth derivatives
 
 ## Installation
 
@@ -102,15 +130,21 @@ ConvolutionInterpolations.jl delivers exceptional performance across dimensions 
 
 The challenging 1D Runge function demonstrates the superior convergence of the b-series kernels:
 
-[![Runge function convergence](fig/interpolation_1d_runge_64_bit.png)](fig/interpolation_1d_runge_64_bit.png)
+[![Runge function convergence](fig/interpolation_1d_runge.png)](fig/interpolation_1d_runge.png)
 
 **Key observations:**
 - **b5 (fast)** achieves machine precision (~10⁻¹⁴) by 1000 sample points
 - All b-series kernels significantly outperform cubic splines
-- The "fast" implementation (with discretized kernels) matches or exceeds the "slow" (direct polynomial evaluation) in accuracy
-- **7th order convergence verified**: The b-series kernels show a slope of approximately -7 on this log-log plot in their linear convergence region (20-100 points), confirming the 7th order accuracy derived from Taylor series analysis
+- The "fast" implementation (with discretized kernels) exceeds the "slow" (direct polynomial evaluation) in accuracy
+- **7th order convergence verified**: The b-series kernels show a slope of approximately -7 on this log-log plot in their linear convergence region, confirming the 7th order accuracy derived from Taylor series analysis
 - Cubic splines show the expected 4th order convergence (slope ~-4)
 - Chebyshev interpolation shown for reference (requires non-uniform grid points)
+
+### Frequency Response of Convolution Kernels
+
+The b-series kernels are significantly more sinc-like than previously published convolution kernels, with flatter passbands and steeper stopband rolloff. This more faithful approximation of the ideal interpolation kernel explains their 7th order convergence.
+
+[![Kernels spectra](fig/FFT_kernels_spectra.png)](fig/FFT_kernels_spectra.png)
 
 ### Speed: Initialization and Evaluation
 
@@ -148,7 +182,7 @@ itp = convolution_interpolation(x, y)  # degree=:b5, C3 continuous, 7th order ac
 itp = convolution_interpolation(x, y; degree=:a0)  # Nearest neighbor
 itp = convolution_interpolation(x, y; degree=:a1)  # Linear (C0 continuous)
 itp = convolution_interpolation(x, y; degree=:a3)  # Cubic (C1 continuous)
-itp = convolution_interpolation(x, y; degree=:b3)  # Cubic (C1 continuous)
+itp = convolution_interpolation(x, y; degree=:a4)  # Cubic (C1 continuous)
 
 # Higher-order a-series kernels (less boundary handling than b-series)
 itp = convolution_interpolation(x, y; degree=:a5)  # Quintic
@@ -204,6 +238,49 @@ kernel_bcs = [
 itp = convolution_interpolation((x, y), z; kernel_bc=kernel_bcs)
 ```
 
+### Derivatives
+
+Compute derivatives of interpolated functions using predifferentiated convolution kernels.
+Unlike finite difference methods, derivatives are computed through analytically differentiated kernel coefficients, providing stable and accurate results without step-size tuning.
+
+```julia
+# 1D first derivative
+x = range(0, 2π, length=100)
+y = sin.(x)
+itp_d1 = convolution_interpolation(x, y; derivative=1)
+itp_d1(1.0)  # Returns cos(1.0) ≈ 0.5403
+
+# Higher-order derivatives
+itp_d2 = convolution_interpolation(x, y; derivative=2)  # -sin(x)
+itp_d3 = convolution_interpolation(x, y; derivative=3)  # -cos(x)
+```
+
+The maximum supported derivative order depends on the kernel's continuity class:
+
+| Kernel | Continuity | Max derivative |
+|--------|-----------|----------------|
+| `:b5`  | C³        | 3              |
+| `:b7`  | C⁴        | 4              |
+| `:b9`  | C⁵        | 5              |
+| `:b11` | C⁶        | 6              |
+| `:b13` | C⁶        | 6              |
+
+In multiple dimensions, `derivative=1` applies the derivative kernel along all dimensions simultaneously, producing the mixed partial derivative:
+
+```julia
+# 2D mixed partial derivative ∂²f/∂x∂y
+x = range(0, 2π, length=100)
+y = range(0, 2π, length=100)
+data = [sin(xi) * sin(yi) for xi in x, yi in y]
+itp_d1 = convolution_interpolation((x, y), data; derivative=1)
+itp_d1(1.0, 2.0)  # Returns cos(1.0) * cos(2.0)
+```
+
+[![Derivative convergence](fig/kernel_derivatives_1d_runge.png)](fig/kernel_derivatives_1d_runge.png)
+
+Approximately 1 order of convergence rate is lost per derivative, allowing the 7th order b-kernels to converge reliably for higher derivatives.
+The predifferentiated kernel approach means derivative accuracy is limited only by the grid resolution, not by any finite difference approximation.
+
 ### Extrapolation Methods
 
 Define behavior outside the data domain:
@@ -218,15 +295,136 @@ itp = convolution_interpolation(x, y; extrapolation_bc=Line())
 # Constant (flat) extrapolation
 itp = convolution_interpolation(x, y; extrapolation_bc=Flat())
 
-# Natural extrapolation (highest continuity)
-itp = convolution_interpolation(x, y; extrapolation_bc=Natural())
-
 # Periodic extension
 itp = convolution_interpolation(x, y; extrapolation_bc=Periodic())
 
 # Reflection at boundaries
 itp = convolution_interpolation(x, y; extrapolation_bc=Reflect())
 ```
+
+#### Natural Extrapolation: High-Order Boundary Preservation
+
+The `Natural()` extrapolation mode provides the smoothest boundary behavior by leveraging your chosen kernel's boundary coefficients. Rather than abruptly transitioning to linear extrapolation at the domain edge, it:
+
+1. Applies your kernel's boundary condition (e.g., `:polynomial`) to the original domain
+2. Takes the resulting coefficients and wraps them in a new interpolator with `:linear` boundary conditions
+3. Finally applies `Line()` extrapolation to the expanded domain
+
+This approach transforms extrapolation into interpolation. The key insight: your original kernel's smoothness is fully preserved because you're interpolating through the boundary region rather than extrapolating across it. A b5 kernel maintains its C³ continuity, a b7 kernel maintains C⁵, and so on - all the way through what would traditionally be considered the "extrapolation" region.
+```julia
+# Compare extrapolation quality
+using ConvolutionInterpolations
+x = range(0, 2π, length=20)
+y = sin.(x)
+
+# Standard linear extrapolation - kernel smoothness lost at boundary
+itp_linear = convolution_interpolation(x, y; extrapolation_bc=Line())
+
+# Natural extrapolation - kernel smoothness preserved across boundary
+itp_natural = convolution_interpolation(x, y; extrapolation_bc=Natural())
+
+# Evaluate beyond original domain edge
+x_test = 2π + 0.1
+itp_natural(x_test)  # Maintains full kernel smoothness (C³ for b5, C⁵ for b7, etc.)
+```
+
+#### Advanced: Manual Extrapolation Nesting
+
+For complete control over boundary behavior, you can manually nest multiple interpolators using the package's compositional design. Each nesting layer expands the domain according to its kernel's equation count (eqs), but only the final kernel is used for actual evaluation.
+
+**Note**: Manual nesting uses the struct constructors (`ConvolutionInterpolation`, `ConvolutionExtrapolation`) directly, not the convenience function `convolution_interpolation`.
+
+**Domain expansion by kernel degree:**
+```julia
+:a0  => eqs=1  → expands by 0 nodes per side (nearest neighbor)
+:a1  => eqs=1  → expands by 0 nodes per side (linear)
+:a3  => eqs=2  → expands by 1 node per side (cubic)
+:a5  => eqs=3  → expands by 2 nodes per side (quintic)
+:a7  => eqs=4  → expands by 3 nodes per side (septic)
+:a4  => eqs=3  → expands by 2 nodes per side (cubic)
+:b5  => eqs=5  → expands by 4 nodes per side (quintic)
+:b7  => eqs=6  → expands by 5 nodes per side (septic)
+:b9  => eqs=7  → expands by 6 nodes per side (nonic)
+:b11 => eqs=8  → expands by 7 nodes per side (11th degree)
+:b13 => eqs=9  → expands by 8 nodes per side (13th degree)
+```
+
+Each layer adds (eqs-1) boundary nodes per side, where the `kernel_bc` parameter controls how those coefficient values are computed:
+```julia
+# Start with your data
+x = range(0, 1, length=20)
+y = sin.(2π * x)
+
+# Layer 1: Add 4 boundary nodes per side using b5 with polynomial boundary conditions
+itp1 = ConvolutionInterpolation(x, y; degree=:b5, kernel_bc=:polynomial)
+
+# Layer 2: Add 2 boundary nodes per side using b3 with quadratic boundary conditions
+# Uses itp1.coefs (which now includes the first layer's boundary nodes)
+itp2 = ConvolutionInterpolation(itp1.knots, itp1.coefs; degree=:a4, kernel_bc=:quadratic)
+
+# Layer 3: Add 5 boundary nodes per side using b7 with linear boundary conditions
+itp3 = ConvolutionInterpolation(itp2.knots, itp2.coefs; degree=:b7, kernel_bc=:linear)
+
+# Final extrapolation layer
+extrap = ConvolutionExtrapolation(itp3, Line())
+
+# Alternatively, call itp3 directly without the extrapolation wrapper
+value = itp3(1.5)  # Evaluates using only the final (b7) kernel
+```
+
+**Key principle**: 
+
+- **Intermediate kernels** (`degree`) determine how many boundary nodes are added at each layer (eqs-1 per side)
+- **Intermediate boundary conditions** (`kernel_bc`) determine the coefficient values for those added nodes
+- **Final kernel** performs all actual interpolation evaluation across the expanded domain
+- **Final extrapolation** (optional) defines behavior beyond the fully-expanded domain
+
+#### Per-Dimension and Per-Direction Boundary Control
+
+The `kernel_bc` parameter accepts either:
+- A single `Symbol` applied to all dimensions and boundaries: `:polynomial`, `:linear`, `:quadratic`, `:periodic`, `:detect`, `:auto`
+- A `Vector` of tuples, one per dimension, each tuple specifying `(left_bc, right_bc)` for that dimension's boundaries
+```julia
+x = range(0, 1, length=20)
+y = range(0, 1, length=20)
+z = [sin(2π*xi) * cos(2π*yi) for xi in x, yi in y]
+
+# Different boundary conditions per dimension and direction
+kernel_bcs = [
+    (:periodic, :linear),     # X-dimension: periodic at left, linear at right
+    (:polynomial, :quadratic) # Y-dimension: polynomial at left, quadratic at right
+]
+
+itp = ConvolutionInterpolation((x, y), z; degree=:b5, kernel_bc=kernel_bcs)
+```
+
+Multi-stage nesting with per-dimension control:
+```julia
+# Stage 1: X-dimension gets periodic boundaries (adds 4 nodes per side with b5)
+itp1 = ConvolutionInterpolation((x, y), z; degree=:b5, 
+                                 kernel_bc=[(:periodic, :periodic), (:polynomial, :polynomial)])
+
+# Stage 2: Expand further with asymmetric boundaries (adds 2 nodes per side with b3)
+itp2 = ConvolutionInterpolation(itp1.knots, itp1.coefs; degree=:a4,
+                                 kernel_bc=[(:linear, :quadratic), (:periodic, :linear)])
+
+# Stage 3: Final high-order kernel for smooth evaluation (adds 5 nodes per side with b7)
+itp3 = ConvolutionInterpolation(itp2.knots, itp2.coefs; degree=:b7,
+                                 kernel_bc=:polynomial)
+
+# Optional final extrapolation wrapper
+extrap = ConvolutionExtrapolation(itp3, Line())
+```
+
+This composability allows you to craft extrapolation strategies that match your problem's physics:
+
+- **Periodic systems**: Use `:periodic` boundaries with seamless wrapping
+- **Symmetric problems**: Stage multiple layers to build symmetric transition zones
+- **Far-field behavior**: Stage transitions from `:polynomial` → `:linear` → `Line()` for smooth far-field decay, where the linear extrapolation naturally continues the linear boundary layer
+- **Anisotropic domains**: Different strategies per dimension for problems with distinct behavior in each direction
+- **Staged expansion**: Build up boundary zones layer by layer, each with its own expansion size and coefficient behavior
+
+**Performance note**: The `Natural()` extrapolation mode is a pre-packaged version of this nesting strategy (original `kernel_bc` → `:linear` → `Line()`), optimized for the common case where you want smooth boundary preservation without manual configuration. Manual nesting adds even more boundary nodes through multiple expansion stages, making both approaches most practical in lower dimensions (1D-3D) where boundary node counts remain manageable. In higher dimensions (4D+), simpler extrapolation modes like `Line()` or `Flat()` are preferred to avoid the exponential growth in boundary handling overhead.
 
 ### High-Dimensional Interpolation
 
@@ -255,33 +453,58 @@ The separable kernel approach scales naturally to 5D, 6D, and beyond.
 ### General Guidelines
 
 1. **Default to `:b5`**: Optimal balance of accuracy and computational cost with 7th order convergence
-2. **Higher `:b` kernels offer smoothness**: b7 (C⁵), b9 (C⁷), b11 (C⁹), b13 (C¹¹) all maintain 7th order convergence while providing increasingly smooth derivatives
+2. **Higher `:b` kernels offer smoothness**: b5 (C³), b7 (C⁴), b9 (C⁵), b11 (C⁶), b13 (C⁶) all maintain 7th order convergence while providing increasingly smooth derivatives
 3. **All kernels scale O(1)**: Interpolation time is independent of grid size thanks to elimination of binary search operations
 4. **Switch to `:a` if needed**: Use `:a` kernels only if `:b` construction becomes too slow for very fine grids
 5. **Lower degrees for high dimensions**: Minimize boundary handling overhead in 4D+ applications
 
-### Fine-Tuning
+### Subgrid Interpolation
 
-The default settings are optimized for accuracy and performance:
+The fast evaluation mode works by convolving the data with precomputed kernel values at discrete positions, then interpolating between the convolution results. The `subgrid` parameter controls how this interpolation between convolution results is performed — essentially, it is interpolation of the interpolation itself.
 
 ```julia
-# Default: fast mode with 100,000 precomputed kernel points
-itp = convolution_interpolation(x, y)
+# Cubic Hermite interpolation (default for :b5, uses kernel first derivative)
+itp = convolution_interpolation(x, y; subgrid=:cubic)
 
-# Disable fast mode (uses direct polynomial evaluation, slower but less memory)
-itp = convolution_interpolation(x, y; fast=false)
+# Quintic Hermite interpolation (uses kernel first and second derivatives)
+itp = convolution_interpolation(x, y; subgrid=:quintic)
 
-# Reduce precompute resolution (rarely needed, O(1) lookup cost regardless)
-itp = convolution_interpolation(x, y; precompute=10_000)
+# Linear interpolation between precomputed kernel values
+itp = convolution_interpolation(x, y; subgrid=:linear, precompute=10_000)
 ```
 
-**Note**: The default `precompute=100_000` provides maximum accuracy. Lower values degrade interpolation quality with no performance benefit, so adjustment is rarely needed.
+This is a form of **multilevel interpolation**: the outer level convolves your data with kernel values, while the inner level interpolates the kernel values themselves between precomputed points. Higher subgrid orders use the analytically predifferentiated kernels to perform Hermite interpolation, producing a smoother and more accurate kernel lookup.
 
-### Extrapolation Performance
+Using derivative information at the subgrid level drastically reduces the number of precomputed points needed to achieve a given accuracy. The cubic subgrid (using first derivative information) and quintic subgrid (using first and second derivatives) not only require far fewer precomputed points but also improve accuracy beyond what linear subgrid can achieve at comparable resolution. This means you can simultaneously reduce memory usage and improve interpolation quality. The default `precompute=100` with cubic subgrid achieves excellent accuracy with minimal memory.
 
-- Use `Natural()` for maximum continuity in lower dimensions (1D-3D)
-- Avoid `Natural()` in higher dimensions due to increased boundary handling
-- `Line()` and `Flat()` are available alternatives
+| Subgrid    | Method                  | Kernel derivatives used | Tensor products (2D) |
+|------------|-------------------------|------------------------|----------------------|
+| `:linear`  | Linear interpolation    | 0                      | 4                    |
+| `:cubic`   | Cubic Hermite           | 1                      | 16                   |
+| `:quintic` | Quintic Hermite         | 2                      | 36                   |
+
+The available subgrid strategy depends on how many smooth derivatives remain after accounting for the requested derivative order:
+
+```
+available = max_smooth_derivative[kernel] - derivative
+```
+
+For example, `:b5` (C³) with `derivative=0` has 3 remaining derivatives, supporting up to `:quintic` subgrid. With `derivative=1`, 2 remain, still supporting `:quintic`. With `derivative=3`, no derivatives remain, so only `:linear` is available.
+
+**Dimension availability**: Cubic and quintic subgrid modes are implemented for 1D and 2D. Higher dimensions (3D+) use `:linear` subgrid, as the number of tensor products grows as `(order+1)^N` per cell, making higher-order subgrids impractical.
+
+**Practical guidance**: The default cubic subgrid with `precompute=100` provides excellent accuracy for most applications. Quintic subgrid offers even higher accuracy at the same precompute resolution. If using `:linear` subgrid, increase `precompute` to at least 10,000 to maintain accuracy.
+
+```julia
+# Default settings — cubic subgrid with 100 precomputed points
+itp = convolution_interpolation(x, y)
+
+# Maximum accuracy — quintic subgrid
+itp = convolution_interpolation(x, y; subgrid=:quintic)
+
+# Linear subgrid requires more precomputed points to compensate
+itp = convolution_interpolation(x, y; subgrid=:linear, precompute=10_000)
+```
 
 ## Comparison with Other Packages
 
@@ -289,7 +512,7 @@ ConvolutionInterpolations.jl offers several advantages:
 
 - **Novel b-series kernels**: Discovered through systematic analytical search, these kernels achieve 7th order convergence. The b7 kernel is optimal for polynomial reproduction (reproducing its own degree 7), while higher-degree kernels (b9-b13) provide increased smoothness without additional polynomial reproduction capability
 - **Persistent kernel caching**: Discretized kernels are computed once and cached to disk using Scratch.jl, making subsequent loads nearly instantaneous
-- **Kernel discretization with linear interpolation**: Novel approach that is both faster and more numerically stable than direct polynomial evaluation
+- **Hermite multilevel interpolation**: Novel approach using cubic/quintic Hermite subgrid interpolation of precomputed kernel convolutions
 - **Unified framework**: Single interface from nearest-neighbor to 13th-degree interpolation
 - **Minimal dependencies**: Built primarily on Julia standard library (LinearAlgebra, Serialization) plus Scratch.jl for caching
 
@@ -306,16 +529,21 @@ The b5 kernel is the default due to its excellent balance of computational effic
 
 **Extended precision**: For applications requiring accuracy beyond Float64 machine precision (~10⁻¹⁵), all kernels support BigFloat arithmetic. The analytical kernel coefficients are stored as exact rational numbers, enabling convergence well beyond standard machine precision when using extended precision types.
 
-### Novel Implementation Approach
+## Novel Contributions
 
-The implementation features a unique kernel evaluation strategy: rather than computing kernel polynomials directly via Horner's method, kernels are discretized at high resolution (default 100,000 points) and stored in a persistent cache. During interpolation, results are obtained through linear interpolation between the nearest convolutions of the data with these precomputed points. This approach offers several advantages:
+This package introduces three main technical contributions beyond the implementation itself:
 
-- **Numerically superior**: Linear interpolation is more stable than polynomial evaluation
-- **Persistent caching**: Computed once per kernel/precision combination using Scratch.jl, then reused across all sessions
-- **Grid-agnostic**: Precomputed kernels are completely independent of user data or grid specifications
-- **Fast initialization**: After first use, kernel loading from cache is nearly instantaneous
+**1. B-series kernel family**
 
-The implementation also achieves O(1) interpolation time through elimination of binary search operations, using direct index calculation on uniform grids.
+A new family of high-order convolution kernels (b5, b7, b9, b11, b13) discovered through systematic analytical search using symbolic computation, generalizing the approach of R. G. Keys (1981). All b-series kernels achieve 7th order convergence from Taylor series analysis, with continuity classes ranging from C³ (b5) to C⁶ (b13). The b5 kernel provides dramatically better accuracy than cubic splines at comparable computational cost, while higher-degree kernels offer increasingly smooth derivatives. Kernel coefficients are stored as exact rational numbers, enabling extended precision arithmetic with BigFloat for convergence beyond machine precision.
+
+**2. Hermite multilevel interpolation**
+
+Rather than evaluating kernel polynomials directly via Horner's method, kernels are discretized at a small number of points (default 100) and stored in a persistent disk cache via Scratch.jl. During interpolation, data is convolved with these precomputed kernel values, and the results are interpolated using cubic or quintic Hermite subgrid interpolation. This multilevel approach — interpolation of the interpolation — leverages analytically predifferentiated kernel coefficients to achieve high accuracy with very few precomputed points. The result is both faster and more numerically stable than direct polynomial evaluation, while the persistent cache makes subsequent initialization nearly instantaneous.
+
+**3. Polynomial boundary conditions via Vandermonde systems**
+
+A novel boundary handling method that computes optimal ghost point values by solving Vandermonde systems, preserving each kernel's polynomial reproduction properties at domain edges. This ensures b-series kernels maintain their 7th order convergence all the way to domain boundaries, enabling convergence to machine precision across the entire domain rather than degrading near edges as is typical with simpler boundary treatments.
 
 ## Acknowledgments
 

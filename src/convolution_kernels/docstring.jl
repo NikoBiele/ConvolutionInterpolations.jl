@@ -34,22 +34,22 @@ The original cubic convolution kernel with 2 equations and support [-2,2]:
 - 3rd order accuracy with C1 continuity
 - 2 piecewise equations for |s| < 1.0 and 1.0 ≤ |s| < 2.0
 
-## Quintic Kernel (DG=:a5)
-Quintic convolution kernel with 3 equations and support [-3,3]:
-- Order of accuracy unknown (but less than the :b5 kernel) with C3 continuity
-- 3 piecewise equations covering ranges from |s| < 1.0 to |s| < 3.0
-
-## Septic Kernel (DG=:a7)
-Septic convolution kernel with 4 equations and support [-4,4]:
-- Order of accuracy unknown (but less than the :b7 kernel) with C5 continuity
-- 4 piecewise equations covering ranges from |s| < 1.0 to |s| < 4.0
-
-## ':b' type kernels:
-
 ## Cubic Kernel (DG=:a4)
 3rd degree convolution kernel with 3 equations and support [-3,3]:
 - 4th order accuracy with C1 continuity
 - 3 piecewise equations for |s| < 1.0 and 1.0 ≤ |s| < 3.0
+
+## Quintic Kernel (DG=:a5)
+Quintic convolution kernel with 3 equations and support [-3,3]:
+- Order of accuracy unknown (but less than the :b5 kernel) with C1 continuity
+- 3 piecewise equations covering ranges from |s| < 1.0 to |s| < 3.0
+
+## Septic Kernel (DG=:a7)
+Septic convolution kernel with 4 equations and support [-4,4]:
+- Order of accuracy unknown (but less than the :b7 kernel) with C1 continuity
+- 4 piecewise equations covering ranges from |s| < 1.0 to |s| < 4.0
+
+## ':b' type kernels:
 
 ## Quintic Kernel (DG=:b5)
 Quintic convolution kernel with 5 equations and support [-5,5]:
@@ -58,22 +58,22 @@ Quintic convolution kernel with 5 equations and support [-5,5]:
 
 ## Septic Kernel (DG=:b7)
 Septic convolution kernel with 6 equations and support [-6,6]:
-- 7th order accuracy with C5 continuity
+- 7th order accuracy with C4 continuity
 - 6 piecewise equations for |s| < 1.0 and 1.0 ≤ |s| < 6.0
 
 ## Nonic Kernel (DG=:b9)
 Nonic convolution kernel with 7 equations and support [-7,7]:
-- 7th order accuracy with C7 continuity
+- 7th order accuracy with C5 continuity
 - 7 piecewise equations covering ranges from |s| < 1.0 to |s| < 7.0
 
 ## 11th Degree Kernel (DG=:b11)
 11th degree convolution kernel with 8 equations and support [-8,8]:
-- 7th order accuracy with C9 continuity
+- 7th order accuracy with C6 continuity
 - 8 piecewise equations covering ranges from |s| < 1.0 to |s| < 8.0
 
 ## 13th Degree Kernel (DG=13)
 13th degree convolution kernel with 9 equations and support [-9,9]:
-- 7th order accuracy with C11 continuity
+- 7th order accuracy with C6 continuity
 - 9 piecewise equations covering ranges from |s| < 1.0 to |s| < 9.0
 
 For all kernels, the support range equals [-E,E] where E is the number of equations.

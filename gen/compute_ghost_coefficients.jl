@@ -338,17 +338,5 @@ function example_usage()
     return result
 end
 
-# Run example if script is executed directly
-if abspath(PROGRAM_FILE) == @__FILE__
-    example_usage()
-end
-
-println("\n" * "="^80)
-println("READY TO USE!")
-println("="^80)
-println("\nTo compute ghost coefficients for a kernel:")
-println("  1. Define the kernel function")
-println("  2. Call: result = compute_kernel_ghost_coeffs(kernel, support_radius)")
-println("  3. Call: print_julia_code(result, kernel_name=\"kernel_name\")")
-println("  4. Copy-paste the output into polynomial_boundary.jl")
-println()
+# Run example if script
+example_usage()

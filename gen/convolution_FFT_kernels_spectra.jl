@@ -30,7 +30,7 @@ ax = Axis(fig[1, 1],
 # Define degrees
 degrees = [:a0, :a1, :a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11, :b13]
 
-# Darker colors for b-kernels (the important ones)
+# Darker colors for b-kernels
 b_colors = [:darkblue, :darkred, :darkgreen, :purple, :black]
 b_markers = [:circle, :rect, :diamond, :utriangle, :cross]
 # Lighter colors for a-kernels

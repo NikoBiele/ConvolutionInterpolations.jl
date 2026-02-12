@@ -77,70 +77,37 @@ const b9_coefs_i1 = Dict(
 )
 
 function (::ConvolutionKernel{:b9,DO})(s::T) where {T,DO} # 7 equation 7th order accurate 9th degree
-    s_abs = abs(s)
-    if DO >= 0
-        b9_coefs_in = if DO == 0
-            b9_coefs
-        elseif DO == 1
-            b9_coefs_d1
-        elseif DO == 2
-            b9_coefs_d2
-        elseif DO == 3
-            b9_coefs_d3
-        elseif DO == 4
-            b9_coefs_d4
-        elseif DO == 5
-            b9_coefs_d5
-        else
-            error("kernel :b9 supports differentiation orders 0, 1, 2, 3, 4, 5, but got $DO")
-        end
-        if s_abs < 1.0
-            return horner(s_abs, b9_coefs_in, :eq1, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
-        elseif s_abs < 2.0
-            return horner(s_abs, b9_coefs_in, :eq2, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
-        elseif s_abs < 3.0
-            return horner(s_abs, b9_coefs_in, :eq3, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
-        elseif s_abs < 4.0
-            return horner(s_abs, b9_coefs_in, :eq4, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
-        elseif s_abs < 5.0
-            return horner(s_abs, b9_coefs_in, :eq5, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
-        elseif s_abs < 6.0
-            return horner(s_abs, b9_coefs_in, :eq6, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
-        elseif s_abs < 7.0
-            return horner(s_abs, b9_coefs_in, :eq7, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
-        else
-            return zero(T)
-        end
+    b9_coefs_in = if DO == 0
+        b9_coefs
+    elseif DO == 1
+        b9_coefs_d1
+    elseif DO == 2
+        b9_coefs_d2
+    elseif DO == 3
+        b9_coefs_d3
+    elseif DO == 4
+        b9_coefs_d4
+    elseif DO == 5
+        b9_coefs_d5
     else
-        b9_coefs_in = if DO == -1
-            b9_coefs_i1
-        # elseif DO == -2
-        #     b9_coefs_d4
-        # elseif DO == -3
-        #     b9_coefs_d3
-        # elseif DO == -4
-        #     b9_coefs_d2
-        # elseif DO == -5
-        #     b9_coefs_d1
-        else
-            error("kernel :b9 supports integration orders 1, but got $DO")
-        end
-        if s_abs < 1.0
-            return horner(s_abs, b9_coefs_in, :eq1, T, DO) * sign(s) #* (isodd(DO) ? T(sign(s)) : one(T))
-        elseif s_abs < 2.0
-            return horner(s_abs, b9_coefs_in, :eq2, T, DO) * sign(s) #* (isodd(DO) ? T(sign(s)) : one(T))
-        elseif s_abs < 3.0
-            return horner(s_abs, b9_coefs_in, :eq3, T, DO) * sign(s) #* (isodd(DO) ? T(sign(s)) : one(T))
-        elseif s_abs < 4.0
-            return horner(s_abs, b9_coefs_in, :eq4, T, DO) * sign(s) #* (isodd(DO) ? T(sign(s)) : one(T))
-        elseif s_abs < 5.0
-            return horner(s_abs, b9_coefs_in, :eq5, T, DO) * sign(s) #* (isodd(DO) ? T(sign(s)) : one(T))
-        elseif s_abs < 6.0
-            return horner(s_abs, b9_coefs_in, :eq6, T, DO) * sign(s) #* (isodd(DO) ? T(sign(s)) : one(T))
-        elseif s_abs < 7.0
-            return horner(s_abs, b9_coefs_in, :eq7, T, DO) * sign(s) #* (isodd(DO) ? T(sign(s)) : one(T))
-        else
-            return zero(T)
-        end
+        error("kernel :b9 supports differentiation orders 0, 1, 2, 3, 4, 5, but got $DO")
+    end
+    s_abs = abs(s)
+    if s_abs < 1.0
+        return horner(s_abs, b9_coefs_in, :eq1, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
+    elseif s_abs < 2.0
+        return horner(s_abs, b9_coefs_in, :eq2, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
+    elseif s_abs < 3.0
+        return horner(s_abs, b9_coefs_in, :eq3, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
+    elseif s_abs < 4.0
+        return horner(s_abs, b9_coefs_in, :eq4, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
+    elseif s_abs < 5.0
+        return horner(s_abs, b9_coefs_in, :eq5, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
+    elseif s_abs < 6.0
+        return horner(s_abs, b9_coefs_in, :eq6, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
+    elseif s_abs < 7.0
+        return horner(s_abs, b9_coefs_in, :eq7, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
+    else
+        return zero(T)
     end
 end

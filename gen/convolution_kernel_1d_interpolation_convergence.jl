@@ -21,13 +21,7 @@ itpb7_fast_errors = zeros(G, length(ns))
 itpb9_fast_errors = zeros(G, length(ns))
 itpb11_fast_errors = zeros(G, length(ns))
 itpb13_fast_errors = zeros(G, length(ns))
-# itpb3_slow_errors = zeros(G, length(ns))
-# itpb5_slow_errors = zeros(G, length(ns))
-# itpb7_slow_errors = zeros(G, length(ns))
-# itpb9_slow_errors = zeros(G, length(ns))
-# itpb11_slow_errors = zeros(G, length(ns))
-# itpb11_slow_errors = zeros(G, length(ns))
-# itpb13_slow_errors = zeros(G, length(ns))
+
 count = 0
 for n in ns
     count += 1
@@ -43,12 +37,6 @@ for n in ns
     itpb9_fast = convolution_interpolation(xr, runge.(xr); degree=:b9, fast=true, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
     itpb11_fast = convolution_interpolation(xr, runge.(xr); degree=:b11, fast=true, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
     itpb13_fast = convolution_interpolation(xr, runge.(xr); degree=:b13, fast=true, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
-    # itpb3_slow = convolution_interpolation(xr, runge.(xr); degree=:a4, fast=false, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
-    # itpb5_slow = convolution_interpolation(xr, runge.(xr); degree=:b5, fast=false, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
-    # itpb7_slow = convolution_interpolation(xr, runge.(xr); degree=:b7, fast=false, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
-    # itpb9_slow = convolution_interpolation(xr, runge.(xr); degree=:b9, fast=false, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
-    # itpb11_slow = convolution_interpolation(xr, runge.(xr); degree=:b11, fast=false, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
-    # itpb13_slow = convolution_interpolation(xr, runge.(xr); degree=:b13, fast=false, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
 
     cerrors[count] = maximum(abs.(c.(xf) - yf))
     cubic_spline_errors[count] = maximum(abs.(cubic_spline.(xf) - yf))
@@ -58,12 +46,6 @@ for n in ns
     itpb9_fast_errors[count] = maximum(abs.(itpb9_fast.(xf) - yf))
     itpb11_fast_errors[count] = maximum(abs.(itpb11_fast.(xf) - yf))
     itpb13_fast_errors[count] = maximum(abs.(itpb13_fast.(xf) - yf))
-    # itpb3_slow_errors[count] = maximum(abs.(itpb3_slow.(xf) - yf))
-    # itpb5_slow_errors[count] = maximum(abs.(itpb5_slow.(xf) - yf))
-    # itpb7_slow_errors[count] = maximum(abs.(itpb7_slow.(xf) - yf))
-    # itpb9_slow_errors[count] = maximum(abs.(itpb9_slow.(xf) - yf))
-    # itpb11_slow_errors[count] = maximum(abs.(itpb11_slow.(xf) - yf))
-    # itpb13_slow_errors[count] = maximum(abs.(itpb13_slow.(xf) - yf))
 end
 
 fig = Makie.Figure(; size=(1200, 800))
@@ -81,13 +63,6 @@ ax = Makie.Axis(fig[1, 1],
 
 # Plot the lines
 # thicker lines with markers
-# Makie.lines!(ax, ns, itpb3_slow_errors, label="Convolution 3rd (b) (slow)", linestyle=:dash)
-# Makie.lines!(ax, ns, itpb5_slow_errors, label="Convolution 5th (b) (slow)", linestyle=:dash)
-# Makie.lines!(ax, ns, itpb7_slow_errors, label="Convolution 7th (b) (slow)", linestyle=:dash)
-# Makie.lines!(ax, ns, itpb9_slow_errors, label="Convolution 9th (b) (slow)", linestyle=:dash)
-# Makie.lines!(ax, ns, itpb11_slow_errors, label="Convolution 11th (b) (slow)", linestyle=:dash)
-# Makie.lines!(ax, ns, itpb13_slow_errors, label="Convolution 13th (b) (slow)", linestyle=:dash)
-
 Makie.lines!(ax, ns, cubic_spline_errors, label="Cubic Spline", linewidth=3, color=:orange)
 Makie.lines!(ax, ns, cerrors, label="Chebyshev", linewidth=3, color=:blue)
 Makie.lines!(ax, ns, itpb3_fast_errors, label="Convolution 3rd (b) (fast)", linestyle=:solid)

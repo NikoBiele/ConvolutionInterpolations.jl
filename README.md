@@ -190,10 +190,10 @@ itp = convolution_interpolation(x, y; degree=:a7)  # Septic
 
 # b-series kernels (superior accuracy, 7th order convergence)
 itp = convolution_interpolation(x, y; degree=:b5)  # Quintic (C3 continuous, 7th order accurate)
-itp = convolution_interpolation(x, y; degree=:b7)  # Septic (C5 continuous, 7th order accurate, optimal polynomial reproduction)
-itp = convolution_interpolation(x, y; degree=:b9)  # 9th degree (C7 continuous, 7th order accurate)
-itp = convolution_interpolation(x, y; degree=:b11) # 11th degree (C9 continuous, 7th order accurate)
-itp = convolution_interpolation(x, y; degree=:b13) # 13th degree (C11 continuous, 7th order accurate)
+itp = convolution_interpolation(x, y; degree=:b7)  # Septic (C4 continuous, 7th order accurate)
+itp = convolution_interpolation(x, y; degree=:b9)  # 9th degree (C5 continuous, 7th order accurate)
+itp = convolution_interpolation(x, y; degree=:b11) # 11th degree (C6 continuous, 7th order accurate)
+itp = convolution_interpolation(x, y; degree=:b13) # 13th degree (C6 continuous, 7th order accurate)
 
 # Gaussian smoothing (does not hit data points exactly)
 itp = convolution_interpolation(x, y; B=1.0)  # B controls smoothing width
@@ -522,7 +522,7 @@ The b-series kernels (b5, b7, b9, b11, b13) represent original contributions dis
 
 - **7th order convergence**: All b-series kernels achieve 7th order accuracy from a Taylor series perspective
 - **Polynomial reproduction**: b5 reproduces quintics, b7 reproduces septics (degree 7) and is the last kernel to reproduce its own degree. Higher-degree kernels (b9, b11, b13) cannot reproduce polynomials of their own degree.
-- **High continuity**: Ranging from C³ (b5) to C¹¹ (b13), providing extremely smooth interpolated functions
+- **High continuity**: Ranging from C³ (b5) to C⁶ (b13), providing extremely smooth interpolated functions
 - **Optimal boundary handling**: Novel polynomial boundary condition method that solves Vandermonde systems to compute ghost point values, preserving polynomial reproduction properties at domain edges
 
 The b5 kernel is the default due to its excellent balance of computational efficiency and accuracy. Higher-degree kernels offer increased smoothness while maintaining 7th order convergence.

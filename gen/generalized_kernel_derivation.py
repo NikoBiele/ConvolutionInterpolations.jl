@@ -22,7 +22,7 @@ domain characteristics.
 
 Novel Contributions
 -------------------
-- Automated discovery of kernels up to 13th degree (b13 kernel: 7 equations, degree 13, C11)
+- Automated discovery of kernels up to 13th degree (b13 kernel: 9 equations, degree 13, C6)
 - Systematic exploration of boundary condition combinations
 - Frequency domain optimization via FFT analysis during search
 - Taylor series analysis to ensure desired order of accuracy
@@ -54,10 +54,10 @@ Discovery Process
 Key Kernels Discovered
 ----------------------
 - b5: 3 equations, degree 5, C3 continuous, reproduces quintics
-- b7: 4 equations, degree 7, C5 continuous, reproduces septics (optimal polynomial reproduction)
-- b9: 5 equations, degree 9, C7 continuous, 7th order accurate
-- b11: 6 equations, degree 11, C9 continuous, 7th order accurate  
-- b13: 7 equations, degree 13, C11 continuous, 7th order accurate
+- b7: 4 equations, degree 7, C4 continuous, reproduces septics (optimal polynomial reproduction)
+- b9: 5 equations, degree 9, C5 continuous, 7th order accurate
+- b11: 6 equations, degree 11, C6 continuous, 7th order accurate  
+- b13: 7 equations, degree 13, C6 continuous, 7th order accurate
 
 All discovered kernels achieve 7th order convergence and are stored with exact rational
 coefficients, enabling extended precision evaluation beyond Float64 machine precision.

@@ -107,7 +107,7 @@ itp_2d = convolution_interpolation((kx, ky), data)
 itp_2d(1.5, 2.5)
 ```
 
-**Adaptive refinement**: Unlike Chebyshev (which requires recalculating all samples) or uniform grids (which require roughly doubling samples), nonuniform grids allow adding a single sample exactly where needed — all existing samples are reused.
+**Adaptive refinement**: Unlike Chebyshev (which requires recalculating all samples) or uniform grids (which require roughly doubling samples), non-uniform grids allow adding a single sample exactly where needed — all existing samples are reused.
 
 ## Accuracy
 

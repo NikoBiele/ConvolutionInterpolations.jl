@@ -83,7 +83,7 @@ The 1D Runge function demonstrates convergence behavior across kernel families:
 
 [![Runge function convergence](fig/interpolation_1d_runge.png)](fig/interpolation_1d_runge.png)
 
-- b5 reaches machine precision (~10⁻¹⁴) by 1000 sample points
+- `:b` kernels reach machine precision (~10⁻¹⁴) by 1000 sample points
 - All b-series kernels show 7th order convergence (slope ≈ -7 on the log-log plot), compared to 4th order for cubic splines
 - The discretized kernel approach is both faster and more numerically stable than direct polynomial evaluation
 - Chebyshev interpolation shown for reference (requires non-uniform grid points)
@@ -115,21 +115,21 @@ Benchmarks use linear subgrid interpolation. Cubic and quintic subgrids improve 
 
 ### Available Kernels
 
-| Kernel | Degree | Continuity | Max derivative | Convergence | Poly. reproduction | eqs |
-|--------|--------|------------|----------------|-------------|--------------------|-----|
-| `:a0`  | 0      | —          | —              | 1st order   | 0th                | 1   |
-| `:a1`  | 1      | C⁰         | —              | 2nd order   | 1st                | 1   |
-| `:a3`  | 3      | C¹         | —              | ~3rd order  | 2nd                | 2   |
-| `:a4`  | 3      | C¹         | —              | ~4th order  | 3rd                | 3   |
-| `:a5`  | 5      | C¹         | —              | ~3rd order  | 2nd                | 3   |
-| `:a7`  | 7      | C¹         | —              | ~3rd order  | 2nd                | 4   |
-| `:b5`  | 5      | C²         | 2              | 7th order   | 14th               | 5   |
-| `:b7`  | 7      | C³         | 3              | 7th order   | 16th               | 6   |
-| `:b9`  | 9      | C⁴         | 4              | 7th order   | 17th               | 7   |
-| `:b11` | 11     | C⁵         | 5              | 7th order   | 19th               | 8   |
-| `:b13` | 13     | C⁵         | 5              | 7th order   | 20th               | 9   |
+| Kernel | Degree | Continuity | Max derivative | Convergence | eqs |
+|--------|--------|------------|----------------|-------------|-----|
+| `:a0`  | 0      | —          | —              | 1st order   | 1   |
+| `:a1`  | 1      | C⁰         | —              | 2nd order   | 1   |
+| `:a3`  | 3      | C¹         | 1              | ~3rd order  | 2   |
+| `:a4`  | 3      | C¹         | 1              | ~4th order  | 3   |
+| `:a5`  | 5      | C¹         | 1              | ~3rd order  | 3   |
+| `:a7`  | 7      | C¹         | 1              | ~3rd order  | 4   |
+| `:b5`  | 5      | C³         | 3              | 7th order   | 5   |
+| `:b7`  | 7      | C⁴         | 4              | 7th order   | 6   |
+| `:b9`  | 9      | C⁵         | 5              | 7th order   | 7   |
+| `:b11` | 11     | C⁶         | 6              | 7th order   | 8   |
+| `:b13` | 13     | C⁶         | 6              | 7th order   | 9   |
 
-The b5 kernel is the default. Higher-degree b-series kernels provide additional smoothness while maintaining 7th order convergence. All b-series kernels reproduce polynomials far beyond their own degree.
+The b5 kernel is the default. Higher-degree b-series kernels provide additional smoothness while maintaining 7th order convergence.
 
 Gaussian smoothing is also available via the `B` parameter, which does not interpolate data points exactly:
 ```julia
@@ -186,6 +186,8 @@ itp_d1(1.0, 2.0)  # Returns cos(1.0) * cos(2.0)
 
 Approximately one order of convergence is lost per derivative order.
 
+Switching from `subgrid=:cubic` (default) to `subgrid=:linear` makes one additional derivative order available.
+
 ### Extrapolation
 
 Define behavior outside the data domain:
@@ -234,7 +236,7 @@ itp = convolution_interpolation(x, y; subgrid=:linear, precompute=10_000) # Fast
 
 Cubic and quintic subgrids use analytically predifferentiated kernels for Hermite interpolation, achieving high accuracy with far fewer precomputed points than linear subgrid requires. The default `:cubic` with `precompute=100` is a good starting point. For linear subgrid, increase `precompute` to at least 10,000.
 
-The available subgrid order depends on remaining smooth derivatives: `max_derivative[kernel] - derivative`. For example, b5 with `derivative=2` has no remaining derivatives, so only `:linear` is available.
+The available subgrid order depends on remaining smooth derivatives: `max_derivative[kernel] - derivative`. For example, b5 with `derivative=3` has no remaining derivatives, so only `:linear` is available.
 
 Cubic and quintic subgrids are implemented for 1D and 2D. Higher dimensions use `:linear` subgrid, as tensor products per cell grow as `(order+1)ᴺ`.
 

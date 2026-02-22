@@ -7,34 +7,6 @@ using Printf
 
 kernels = [:a0, :a1, :a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11, :b13]
 
-println("="^80)
-println("POLYNOMIAL REPRODUCTION TEST")
-println("="^80)
-println()
-
-N = 200
-x = range(-1.0, 1.0, length=N)
-x_test = range(-0.9, 0.9, length=500)
-
-for kernel in kernels
-    @printf("%-6s |  ", kernel)
-    max_repro = -1
-    for deg in 0:25
-        y = x .^ deg
-        try
-            itp = convolution_interpolation(x, y; degree=kernel)
-            maxerr = maximum(abs.(itp.(x_test) .- x_test .^ deg))
-            if maxerr < 1e-10
-                max_repro = deg
-            end
-            @printf("d%d:%.0e ", deg, maxerr)
-        catch e
-            @printf("d%d:ERR ", deg)
-        end
-    end
-    @printf(" → repro≤%d\n", max_repro)
-end
-
 println()
 println("="^80)
 println("CONVERGENCE ORDER TEST (Runge function)")
@@ -82,7 +54,7 @@ for kernel in kernels
     max_deriv = 0
     for d in 1:8
         try
-            itp = convolution_interpolation(x_sin, y_sin; degree=kernel, derivative=d)
+            itp = convolution_interpolation(x_sin, y_sin; degree=kernel, derivative=d, subgrid=:linear)
             itp(1.0)  # just test it works
             max_deriv = d
             @printf("d%d:OK ", d)

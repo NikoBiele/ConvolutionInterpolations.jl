@@ -1,6 +1,6 @@
 # ConvolutionInterpolations.jl
 
-High-performance smooth N-dimensional interpolation on uniform grids using separable convolution kernels.
+High-performance smooth N-dimensional interpolation using separable convolution kernels. Supports both uniform and non-uniform grids.
 
 [![Performance Comparison](fig/convolution_interpolation_kernels.png)](fig/convolution_interpolation_kernels.png)
 
@@ -8,7 +8,7 @@ High-performance smooth N-dimensional interpolation on uniform grids using separ
 
 - **O(1) evaluation**: Interpolation time is independent of grid size, with allocation-free evaluation
 - **7th order convergence**: The default `:b5` kernel significantly exceeds cubic spline accuracy at comparable cost
-- **Uniform grids**: Spacing can differ between dimensions but must be uniform within each
+- **Uniform and non-uniform grids**: Uniform grids use optimized precomputed kernels; non-uniform grids are detected automatically
 - **N-dimensional**: Separable kernel design scales naturally from 1D to arbitrary dimensions
 - **Simple API**: A single interface covers nearest-neighbor through 13th-degree polynomial kernels
 
@@ -75,6 +75,40 @@ plot(p1, p2, layout=(1,2), size=(800,300), dpi=1000)
 
 [![2D random interpolation](fig/Smooth_random_2D_interpolation.png)](fig/Smooth_random_2D_interpolation.png)
 
+### Non-uniform Grid Interpolation
+
+Non-uniform grids are detected automatically — the same API works without changes:
+```julia
+using ConvolutionInterpolations
+using Plots
+
+# Non-uniform grid — cluster samples where accuracy is needed
+x_coarse = [0.0, 0.15, 0.4, 0.7, 1.5, 2.5, 3.8, 4.2, 4.6, 4.8, 5.0]
+y_coarse = sin.(2x_coarse) .* exp.(-x_coarse/3)
+scatter(x_coarse, y_coarse, label="Non-uniform samples", dpi=500)
+itp = convolution_interpolation(x_coarse, y_coarse)
+x_fine = range(0.0, 5.0, length=100)
+y_fine = sin.(2x_fine) .* exp.(-x_fine/3)
+plot!(x_fine, y_fine, label="True function")
+y_itp = itp.(x_fine)
+plot!(x_fine, y_itp, label="Interpolation", linestyle=:dash)
+savefig("fig/nonuniform_interpolation.png")
+```
+
+[![Non-uniform interpolation](fig/nonuniform_interpolation.png)](fig/nonuniform_interpolation.png)
+
+Nonuniform interpolation uses cubic weights (equivalent to non-uniform Catmull-Rom) with 3rd order convergence and quadratic polynomial reproduction. It works in any number of dimensions via tensor products:
+```julia
+# 2D with nonuniform grids in both dimensions
+kx = [0.0, 0.3, 1.0, 1.8, 3.0, 4.0]
+ky = [0.0, 0.5, 1.2, 2.0, 3.5, 5.0]
+data = [sin(x) * cos(y) for x in kx, y in ky]
+itp_2d = convolution_interpolation((kx, ky), data)
+itp_2d(1.5, 2.5)
+```
+
+**Adaptive refinement**: Unlike Chebyshev (which requires recalculating all samples) or uniform grids (which require roughly doubling samples), nonuniform grids allow adding a single sample exactly where needed — all existing samples are reused.
+
 ## Accuracy
 
 ### Runge Function Benchmark
@@ -119,6 +153,7 @@ Benchmarks use linear subgrid interpolation. Cubic and quintic subgrids improve 
 |--------|--------|------------|----------------|-------------|-----|
 | `:a0`  | 0      | —          | —              | 1st order   | 1   |
 | `:a1`  | 1      | C⁰         | —              | 2nd order   | 1   |
+| `:nonuniform` | 3 | C⁰       | —              | 3rd order   | 2   |
 | `:a3`  | 3      | C¹         | 1              | ~3rd order  | 2   |
 | `:a4`  | 3      | C¹         | 1              | ~4th order  | 3   |
 | `:a5`  | 5      | C¹         | 1              | ~3rd order  | 3   |
@@ -263,7 +298,8 @@ This package introduces three main contributions:
 
 Key differences from existing interpolation packages:
 
-- B-series kernels with 7th order convergence on uniform grids
+- `:b`-series kernels with 7th order convergence on uniform grids
+- Automatic non-uniform grid support in arbitrary dimensions
 - Persistent kernel caching for near-instant subsequent initialization
 - Hermite multilevel interpolation for combined speed and stability
 - Single interface from nearest-neighbor to 13th-degree kernels

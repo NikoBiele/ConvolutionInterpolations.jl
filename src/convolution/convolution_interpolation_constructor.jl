@@ -45,6 +45,9 @@ itp = ConvolutionInterpolation(knots, data, degree=:a3)
 itp(0.3, 0.7)  # Evaluate at (x,y) = (0.3, 0.7)
 ```
 
+For nonuniform grids, automatically detects non-equal spacing and
+uses nonuniform cubic weights (Catmull-Rom equivalent).
+
 See also: `convolution_interpolation` for automatic extrapolation at boundaries.
 """
 function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
@@ -56,6 +59,27 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
     if knots isa AbstractVector || knots isa AbstractRange
         knots = (knots,)
     end
+
+    # === Nonuniform path: if ANY dimension is nonuniform ===
+    if any(d -> !is_uniform_grid(knots[d]), 1:N)
+        eqs = 2  # 4-point stencil
+        h = ntuple(d -> one(T), N)  # nominal, not used in evaluation
+        it = ntuple(_ -> ConvolutionMethod(), N)
+        knots_new = ntuple(d -> collect(T, knots[d]), N)
+        coefs = collect(T, vs)  # raw values, no boundary processing
+        kernel = ConvolutionKernel(Val(:nonuniform), Val(derivative))
+        dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
+        kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, :not_used)
+
+        return ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel),
+                                typeof(dimension),typeof(Val(:nonuniform)),typeof(eqs),typeof(kernel_bc),
+                                typeof(Val(derivative)),typeof(kernel_d1_pre),typeof(kernel_d2_pre),typeof(Val(subgrid))}(
+            coefs, knots_new, it, h, kernel, dimension, Val(:nonuniform), eqs, kernel_bc, Val(derivative),
+            kernel_d1_pre, kernel_d2_pre, Val(subgrid)
+        )
+    end
+
+    # === Existing uniform path ===
     eqs = B === nothing ? get_equations_for_degree(degree) : 50
     h = map(k -> k[2] - k[1], knots)
     it = ntuple(_ -> ConvolutionMethod(), N)

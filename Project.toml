@@ -1,6 +1,6 @@
 name = "ConvolutionInterpolations"
 uuid = "75b5ba44-29d7-490a-960d-52c835d47405"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Nikolaj Maack Bielefeld"]
 
 [deps]

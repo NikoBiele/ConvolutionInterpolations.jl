@@ -84,6 +84,13 @@ function convolution_interpolation(knots::Union{NTuple{N, AbstractVector},Abstra
                     derivative::Int=0,
                     subgrid::Symbol=:cubic) where {T,N}
     
+    # Force non-fast path for nonuniform grids
+    knots_tuple = knots isa AbstractVector || knots isa AbstractRange ? (knots,) : knots
+    if any(d -> !is_uniform_grid(knots_tuple[d]), 1:N)
+        fast = false
+        extrapolation_bc = Line()
+    end
+
     # Handle Natural extrapolation boundary condition specially
     if extrapolation_bc isa Natural
         itp = ConvolutionInterpolation(knots, values;

@@ -33,5 +33,5 @@ for (k, c) in zip(b_kernels, b_colors)
 end
 plot!(p2, title="Higher order kernels", xlabel="x", ylabel="y")
 
-plot(p1, p2, layout=(1, 2), size=(1200, 400), dpi=500)
+plot(p1, p2, layout=(1, 2), size=(1200, 400), dpi=500, tickfontsize=12, legendfontsize=11, titlefontsize=14)
 savefig("fig/convolution_interpolation_kernels.png")

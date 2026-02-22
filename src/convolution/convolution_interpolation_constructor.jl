@@ -60,7 +60,7 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
     h = map(k -> k[2] - k[1], knots)
     it = ntuple(_ -> ConvolutionMethod(), N)
     knots_new = expand_knots(knots, eqs-1) # expand boundaries
-    coefs = create_convolutional_coefs(vs, h, eqs, kernel_bc, degree) # create boundaries
+    coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree) # create boundaries
     kernel = B === nothing ? ConvolutionKernel(Val(degree), Val(derivative)) : GaussianConvolutionKernel(Val(B))
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
     kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, nothing, nothing, :not_used)

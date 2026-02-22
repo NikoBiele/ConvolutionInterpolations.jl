@@ -100,12 +100,12 @@ Performance across dimensions and kernel families:
 
 [![Kernel performance heatmap](fig/kernel_performance_comparison.png)](fig/kernel_performance_comparison.png)
 
-**Initialization** (left panel): One-time setup cost, dominated by boundary condition computation. Ranges from ~76 μs for linear kernels to ~91 ms for 4D `:b13`.
+**Initialization** (left panel): One-time setup cost, dominated by boundary condition computation. Ranges from ~80 μs for linear kernels to ~475 ms for 4D `:b13`.
 
 **Evaluation** (right panel): Cost per interpolation call. Representative `:b5` timings:
-- 1D: 15 ns
-- 2D: 88 ns
-- 3D: 1.8 μs
+- 1D: 12 ns
+- 2D: 68 ns
+- 3D: 525 ns
 
 Evaluation cost scales as (2×eqs)ᴺ across dimensions due to tensor product structure.
 
@@ -223,7 +223,7 @@ The separable kernel design scales to arbitrary dimensions.
 
 The fast evaluation mode convolves data with precomputed kernel values, then interpolates between convolution results. The `subgrid` parameter controls this inner interpolation:
 ```julia
-itp = convolution_interpolation(x, y; subgrid=:cubic)                    # Default, highest accuracy
+itp = convolution_interpolation(x, y; subgrid=:cubic)                    # Default, high accuracy
 itp = convolution_interpolation(x, y; subgrid=:quintic)                  # Even higher accuracy
 itp = convolution_interpolation(x, y; subgrid=:linear, precompute=10_000) # Fastest evaluation
 ```

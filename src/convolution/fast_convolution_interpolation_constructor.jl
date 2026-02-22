@@ -73,12 +73,12 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
     h = map(k -> k[2] - k[1], knots)
     it = ntuple(_ -> ConvolutionMethod(), N)
     knots_new = expand_knots(knots, eqs-1) # expand boundaries
-    coefs = create_convolutional_coefs(vs, h, eqs, kernel_bc, degree) # create boundaries
+    coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree) # create boundaries
     kernel = B === nothing ? ConvolutionKernel(Val(degree), Val(derivative)) : GaussianConvolutionKernel(Val(B))
-    dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
+    dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))    
     pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre = 
                   get_precomputed_kernel_and_range(degree; precompute=big(precompute//1), float_type=T,
-                  derivative=derivative)
+                  derivative=derivative, subgrid=subgrid)
     degree = degree == :a0 || degree == :a1 ? Val(degree) : HigherOrderKernel(Val(degree))
 
     return FastConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel),typeof(dimension),

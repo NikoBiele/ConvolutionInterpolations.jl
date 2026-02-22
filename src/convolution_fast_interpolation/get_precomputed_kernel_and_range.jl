@@ -58,7 +58,7 @@ pre_range, kernel_pre = get_precomputed_kernel_and_range(:b5, float_type=BigFloa
 See also: `precompute_kernel_and_range`, `FastConvolutionInterpolation`.
 """
 function get_precomputed_kernel_and_range(degree::Symbol;
-                precompute::Union{Int,Rational{P}}=1//100, float_type::Type{T}, derivative::Int=0) where {T,P}
+                precompute::Union{Int,Rational{P}}=1//100, float_type::Type{T}, derivative::Int=0, subgrid::Symbol=:cubic) where {T,P}
     cache_dir = @get_scratch!("precomputed_kernels")
     degree_str = string(degree)
     precompute = degree == :a0 || degree == :a1 ? 2 : precompute
@@ -78,7 +78,13 @@ function get_precomputed_kernel_and_range(degree::Symbol;
         cache_file_d2 = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_$(type_str)_derivative_$(derivative+2)_kernel.jls")
     end
     
-    if isfile(cache_file_range) && isfile(cache_file_d0) && isfile(cache_file_d1) && isfile(cache_file_d2)
+    if (degree == :a0 || degree == :a1) && isfile(cache_file_range) && isfile(cache_file_d0)
+        return deserialize(cache_file_range), deserialize(cache_file_d0), nothing, nothing
+    elseif subgrid == :linear && isfile(cache_file_range) && isfile(cache_file_d0)
+        return deserialize(cache_file_range), deserialize(cache_file_d0), nothing, nothing
+    elseif subgrid == :cubic && isfile(cache_file_range) && isfile(cache_file_d0) && isfile(cache_file_d1)
+        return deserialize(cache_file_range), deserialize(cache_file_d0), deserialize(cache_file_d1), nothing
+    elseif subgrid == :quintic && isfile(cache_file_range) && isfile(cache_file_d0) && isfile(cache_file_d1) && isfile(cache_file_d2)
         return deserialize(cache_file_range), deserialize(cache_file_d0), deserialize(cache_file_d1), deserialize(cache_file_d2)
     else
         @info "Generating precomputed kernel of length $precompute for:\n

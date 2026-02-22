@@ -171,10 +171,6 @@ See also: `apply_boundary_conditions_for_dim!`, `boundary_coefs`.
 function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs::P,
                                 kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}}},
                                 kernel_type::Symbol) where {T,N,P}
-    
-    if kernel_type == :a0 || kernel_type == :a1
-        return vs
-    end
        
     new_dims = size(vs) .+ 2*(eqs-1)
     c = zeros(T, new_dims)

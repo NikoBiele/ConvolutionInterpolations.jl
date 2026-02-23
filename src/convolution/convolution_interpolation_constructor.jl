@@ -66,15 +66,15 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
         h = ntuple(d -> one(T), N)  # nominal, not used in evaluation
         it = ntuple(_ -> ConvolutionMethod(), N)
         knots_new = ntuple(d -> collect(T, knots[d]), N)
-        coefs = collect(T, vs)  # raw values, no boundary processing
+        coefs, knots_expanded = create_nonuniform_coefs(vs, knots_new)
         kernel = ConvolutionKernel(Val(:nonuniform), Val(derivative))
         dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
         kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, :not_used)
 
-        return ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel),
+        return ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_expanded),typeof(kernel),
                                 typeof(dimension),typeof(Val(:nonuniform)),typeof(eqs),typeof(kernel_bc),
                                 typeof(Val(derivative)),typeof(kernel_d1_pre),typeof(kernel_d2_pre),typeof(Val(subgrid))}(
-            coefs, knots_new, it, h, kernel, dimension, Val(:nonuniform), eqs, kernel_bc, Val(derivative),
+            coefs, knots_expanded, it, h, kernel, dimension, Val(:nonuniform), eqs, kernel_bc, Val(derivative),
             kernel_d1_pre, kernel_d2_pre, Val(subgrid)
         )
     end

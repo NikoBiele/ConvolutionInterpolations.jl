@@ -160,6 +160,8 @@ Uniform grid kernels
 
 Non-uniform grid kernels
 
+| Kernel | Degree | Continuity | Max derivative | Convergence | eqs |
+|--------|--------|------------|----------------|-------------|-----|
 | `:n3`  | 3      | C¹         | 0              | ~3rd order  | 4   |
 | `:b5`  | 5      | C³         | 3              | 7th order   | 5   |
 | `:b7`  | 7      | C⁴         | 4              | 7th order   | 6   |

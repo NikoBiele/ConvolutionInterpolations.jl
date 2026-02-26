@@ -14,6 +14,7 @@ A structure that implements convolution-based interpolation on N-dimensional dat
 - `DT`: The dimension type (Val{N} for N≤3, HigherDimension{N} otherwise)
 - `DG`: The degree type (Val{degree})
 - `EQ`: The equation order type
+- `NB`: The type of nonuniform b-kernel precomputed weight coefficients
 
 # Fields
 - `coefs::TCoefs`: The coefficient array with boundary extensions
@@ -24,13 +25,17 @@ A structure that implements convolution-based interpolation on N-dimensional dat
 - `dimension::DT`: Type for dimension-specific dispatch
 - `deg::DG`: The degree of the interpolation
 - `eqs::EQ`: The number of equations used in the boundary conditions
+- `nb_weight_coeffs::NB`: Precomputed polynomial weight coefficients for nonuniform
+  b-kernel interpolation (per dimension). `nothing` for uniform grids and non-b kernels.
+  When active, is an `NTuple{N, Vector{Matrix{Float64}}}` where each element holds
+  per-interval polynomial coefficients for one dimension.
 
 This implementation evaluates the convolution kernel at each point directly,
 providing accurate results but potentially slower performance than `FastConvolutionInterpolation`.
 """
 
 struct ConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,ConvolutionMethod},
-                                Axs<:Tuple,KA,DT,DG,EQ,KBC,DO,FD,SD,SG} <: 
+                                Axs<:Tuple,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,NB} <: 
                                 AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG}
     coefs::TCoefs
     knots::Axs
@@ -45,4 +50,5 @@ struct ConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,Convoluti
     kernel_d1_pre::FD
     kernel_d2_pre::SD
     subgrid::SG
+    nb_weight_coeffs::NB
 end

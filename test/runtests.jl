@@ -93,12 +93,17 @@ fast test execution (~seconds for full suite).
 
 function convolution_test()
 
+    ###############################################################################
+    ### TEST UNIFORM GRID INTERPOLATIONS IN 1D, 2D, 3D, 4D ########################
+    ###############################################################################
+
     N = 4 # number of samples in each dimension
     tolerance = 1e-4 # tight tolerance
     # test all kernels
     kernels = [:a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11] #, :b13] :a0, :a1, # only test kernels with cubic subgrid
     kernel_bc = :linear # control kernel boundary conditions
 
+    println("Testing uniform grid interpolations for direct and fast kernels for 1D, 2D, 3D, 4D...")
     ### 1D
     @testset "1D direct kernels" begin
         for kernel in kernels
@@ -368,12 +373,17 @@ function convolution_test()
         end
     end
 
+    #################################################################
+    ### TEST UNIFORM GRID DERIVATIVES ###############################
+    #################################################################
+
     ### Derivative test settings
     deriv_kernels = [:b5, :b7, :b9, :b11] #, :b13] # :a3, :a4, :a5, :a7, # drop lower order kernels (slow convergence)
     N_deriv = 10 # number of test points
     kernel_bc_deriv = :polynomial # control kernel boundary conditions for derivatives
     tolerance_deriv = 0.1 # tolerance for derivative tests
 
+    println("Testing uniform grid derivatives for 1D, 2D, 3D, 4D...")
     @testset "1D derivative direct" begin
         for kernel in deriv_kernels
             println("Testing 1D derivative direct: ", kernel)
@@ -476,6 +486,334 @@ function convolution_test()
             analytical = [cos(x) * cos(y) * cos(z) * cos(w) for x in test_points, y in test_points, z in test_points, w in test_points]
             interpolated = [itp_d1(x, y, z, w) for x in test_points, y in test_points, z in test_points, w in test_points]
             @test interpolated ≈ analytical atol=tolerance_deriv
+        end
+    end
+
+    #######################################################################
+    ### TEST UNIFORM CONVERGENCE ##########################################
+    #######################################################################
+
+    convergence_kernels = [:a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11]
+    convergence_deriv_kernels = [:b5, :b7, :b9, :b11]
+    kernel_bc_deriv = :polynomial # control kernel boundary conditions for derivatives
+
+    println("Testing uniform grid convergence in 1D for direct and fast kernels for 0th, 1st and 2nd derivatives...")
+    # function value convergence
+    @testset "1D uniform convergence d0 fast" begin
+        for kernel in convergence_kernels
+            println("Testing 1D uniform convergence d0 fast: ", kernel)
+            errs = Float64[]
+            for n in [12, 24, 48]
+                r = range(0.0, 1.0, length=n)
+                vals = sin.(2π .* collect(r))
+                itp = convolution_interpolation(r, vals; degree=kernel, fast=true, kernel_bc=kernel_bc_deriv)
+                test_pts = range(collect(r)[5], collect(r)[end-4], length=100)
+                err = maximum(abs.(itp.itp.(test_pts) .- sin.(2π .* test_pts)))
+                push!(errs, err)
+            end
+            @test errs[2] / errs[3] > 2.0
+            @test errs[1] / errs[2] > 2.0
+        end
+    end
+
+    @testset "1D uniform convergence d0 direct" begin
+        for kernel in convergence_kernels
+            println("Testing 1D uniform convergence d0 direct: ", kernel)
+            errs = Float64[]
+            for n in [12, 24, 48]
+                r = range(0.0, 1.0, length=n)
+                vals = sin.(2π .* collect(r))
+                itp = convolution_interpolation(r, vals; degree=kernel, fast=false, kernel_bc=kernel_bc_deriv)
+                test_pts = range(collect(r)[5], collect(r)[end-4], length=100)
+                err = maximum(abs.(itp.itp.(test_pts) .- sin.(2π .* test_pts)))
+                push!(errs, err)
+            end
+            @test errs[2] / errs[3] > 2.0
+            @test errs[1] / errs[2] > 2.0
+        end
+    end
+
+    # first derivative convergence
+    @testset "1D uniform convergence d1 fast" begin
+        for kernel in convergence_deriv_kernels
+            println("Testing 1D uniform convergence d1 fast: ", kernel)
+            errs = Float64[]
+            for n in [12, 24, 48]
+                r = range(0.0, 2π, length=n)
+                vals = sin.(collect(r))
+                itp_d1 = convolution_interpolation(r, vals; degree=kernel, fast=true, kernel_bc=kernel_bc_deriv, derivative=1)
+                test_pts = range(collect(r)[6], collect(r)[end-5], length=100)
+                err = maximum(abs.(Float64[itp_d1(x) for x in test_pts] .- cos.(test_pts)))
+                push!(errs, err)
+            end
+            @test errs[2] / errs[3] > 2.0
+            @test errs[1] / errs[2] > 2.0
+        end
+    end
+
+    @testset "1D uniform convergence d1 direct" begin
+        for kernel in convergence_deriv_kernels
+            println("Testing 1D uniform convergence d1 direct: ", kernel)
+            errs = Float64[]
+            for n in [12, 24, 48]
+                r = range(0.0, 2π, length=n)
+                vals = sin.(collect(r))
+                itp_d1 = convolution_interpolation(r, vals; degree=kernel, fast=false, kernel_bc=kernel_bc_deriv, derivative=1)
+                test_pts = range(collect(r)[6], collect(r)[end-5], length=100)
+                err = maximum(abs.(Float64[itp_d1(x) for x in test_pts] .- cos.(test_pts)))
+                push!(errs, err)
+            end
+            @test errs[2] / errs[3] > 2.0
+            @test errs[1] / errs[2] > 2.0
+        end
+    end
+
+    # second derivative convergence
+    @testset "1D uniform convergence d2 fast" begin
+        for kernel in convergence_deriv_kernels
+            println("Testing 1D uniform convergence d2 fast: ", kernel)
+            errs = Float64[]
+            for n in [12, 24, 48]
+                r = range(0.0, 2π, length=n)
+                vals = sin.(collect(r))
+                itp_d2 = convolution_interpolation(r, vals; degree=kernel, fast=true, kernel_bc=kernel_bc_deriv, derivative=2)
+                test_pts = range(collect(r)[6], collect(r)[end-5], length=100)
+                err = maximum(abs.(Float64[itp_d2(x) for x in test_pts] .- (-sin.(test_pts))))
+                push!(errs, err)
+            end
+            @test errs[2] / errs[3] > 2.0
+            @test errs[1] / errs[2] > 2.0
+        end
+    end
+
+    @testset "1D uniform convergence d2 direct" begin
+        for kernel in convergence_deriv_kernels
+            println("Testing 1D uniform convergence d2 direct: ", kernel)
+            errs = Float64[]
+            for n in [12, 24, 48]
+                r = range(0.0, 2π, length=n)
+                vals = sin.(collect(r))
+                itp_d2 = convolution_interpolation(r, vals; degree=kernel, fast=false, kernel_bc=kernel_bc_deriv, derivative=2)
+                test_pts = range(collect(r)[6], collect(r)[end-5], length=100)
+                err = maximum(abs.(Float64[itp_d2(x) for x in test_pts] .- (-sin.(test_pts))))
+                push!(errs, err)
+            end
+            @test errs[2] / errs[3] > 2.0
+            @test errs[1] / errs[2] > 2.0
+        end
+    end
+    
+    ###########################################################################
+    ### NONUNIFORM TESTS ######################################################
+    ###########################################################################
+
+    # ── Nonuniform grid helper ──────────────────────────────────
+    function make_nonuniform_grid(n; a=0.0, b=1.0, strength=0.3)
+        x = collect(range(a, b, length=n))
+        h = (b - a) / (n - 1)
+        for i in 2:n-1
+            x[i] += strength * h * sin(3π * (x[i] - a) / (b - a))
+        end
+        sort!(x)
+        return x
+    end
+
+    ### Nonuniform b-kernel interpolation
+    nu_kernels = [:a3, :b5, :b7, :b9, :b11] # :a3 kernel triggers nonuniform lower order kernel
+    N_nu = 12
+    tolerance_nu = 1e-4
+
+    println("Testing nonuniform kernel interpolation in 1D, 2D, and 3D...")
+    @testset "1D nonuniform kernels" begin
+        for kernel in nu_kernels
+            println("Testing 1D nonuniform kernel: ", kernel)
+            # grid point reproduction with random data
+            x_nu = make_nonuniform_grid(N_nu)
+            vals_rand = rand(N_nu)
+            itp_rand = convolution_interpolation(x_nu, vals_rand; degree=kernel)
+            @test itp_rand.itp.(x_nu) ≈ vals_rand atol=tolerance_nu
+
+            # linear midpoint reproduction
+            vals_linear = x_nu
+            itp_linear = convolution_interpolation(x_nu, vals_linear; degree=kernel)
+            midpoints = [(x_nu[i] + x_nu[i+1]) / 2 for i in 3:N_nu-3]
+            @test itp_linear.itp.(midpoints) ≈ midpoints atol=tolerance_nu
+        end
+    end
+
+    @testset "2D nonuniform kernels" begin
+        for kernel in nu_kernels
+            println("Testing 2D nonuniform kernel: ", kernel)
+            x_nu = make_nonuniform_grid(N_nu)
+            y_nu = make_nonuniform_grid(N_nu; strength=0.2)
+
+            # grid point reproduction with random data
+            vals_rand = rand(N_nu, N_nu)
+            itp_rand = convolution_interpolation((x_nu, y_nu), vals_rand; degree=kernel)
+            @test [itp_rand.itp(x_nu[i], y_nu[j]) for i in 1:N_nu for j in 1:N_nu] ≈ 
+                  [vals_rand[i,j] for i in 1:N_nu for j in 1:N_nu] atol=tolerance_nu
+
+            # bilinear midpoint reproduction
+            vals_linear = [x_nu[i] + y_nu[j] for i in 1:N_nu, j in 1:N_nu]
+            itp_linear = convolution_interpolation((x_nu, y_nu), vals_linear; degree=kernel)
+            test_x = [(x_nu[i] + x_nu[i+1]) / 2 for i in 3:N_nu-3]
+            test_y = [(y_nu[i] + y_nu[i+1]) / 2 for i in 3:N_nu-3]
+            analytical = [tx + ty for tx in test_x, ty in test_y]
+            interpolated = [itp_linear.itp(tx, ty) for tx in test_x, ty in test_y]
+            @test interpolated ≈ analytical atol=tolerance_nu
+        end
+    end
+
+    @testset "3D nonuniform kernels" begin
+        for kernel in nu_kernels
+            println("Testing 3D nonuniform kernel: ", kernel)
+            x_nu = make_nonuniform_grid(N_nu)
+            y_nu = make_nonuniform_grid(N_nu; strength=0.2)
+            z_nu = make_nonuniform_grid(N_nu; strength=0.25)
+
+            # grid point reproduction with random data
+            vals_rand = rand(N_nu, N_nu, N_nu)
+            itp_rand = convolution_interpolation((x_nu, y_nu, z_nu), vals_rand; degree=kernel)
+            interpolated = [itp_rand.itp(x_nu[i], y_nu[j], z_nu[k]) for i in 1:N_nu for j in 1:N_nu for k in 1:N_nu]
+            true_vals = [vals_rand[i,j,k] for i in 1:N_nu for j in 1:N_nu for k in 1:N_nu]
+            @test interpolated ≈ true_vals atol=tolerance_nu
+        end
+    end
+
+    ###########################################################################
+    ### NONUNIFORM DERIVATIVES ################################################
+    ###########################################################################
+
+    ### Nonuniform b-kernel derivatives
+    nu_deriv_kernels = [:b5, :b7, :b9, :b11]
+    N_nu_deriv = 12
+    tolerance_nu_deriv = 0.1
+
+    println("Testing nonuniform derivative kernel interpolation in 1D, 2D...")
+    @testset "1D nonuniform derivative d1" begin
+        for kernel in nu_deriv_kernels
+            println("Testing 1D nonuniform derivative d1: ", kernel)
+            x_nu = make_nonuniform_grid(N_nu_deriv; a=0.0, b=2π)
+            vals = sin.(x_nu)
+            itp_d1 = convolution_interpolation(x_nu, vals; degree=kernel, derivative=1)
+
+            test_points = [(x_nu[i] + x_nu[i+1]) / 2 for i in 4:N_nu_deriv-4]
+            analytical = cos.(test_points)
+            interpolated = Float64[itp_d1(x) for x in test_points]
+            @test interpolated ≈ analytical atol=tolerance_nu_deriv
+        end
+    end
+
+    @testset "1D nonuniform derivative d2" begin
+        for kernel in nu_deriv_kernels
+            println("Testing 1D nonuniform derivative d2: ", kernel)
+            x_nu = make_nonuniform_grid(N_nu_deriv; a=0.0, b=2π)
+            vals = sin.(x_nu)
+            itp_d2 = convolution_interpolation(x_nu, vals; degree=kernel, derivative=2)
+
+            test_points = [(x_nu[i] + x_nu[i+1]) / 2 for i in 4:N_nu_deriv-4]
+            analytical = -sin.(test_points)
+            interpolated = Float64[itp_d2(x) for x in test_points]
+            @test interpolated ≈ analytical atol=tolerance_nu_deriv
+        end
+    end
+
+    @testset "2D nonuniform derivative d1" begin
+        for kernel in nu_deriv_kernels
+            println("Testing 2D nonuniform derivative d1: ", kernel)
+            x_nu = make_nonuniform_grid(N_nu_deriv; a=0.0, b=2π)
+            y_nu = make_nonuniform_grid(N_nu_deriv; a=0.0, b=2π, strength=0.2)
+            vals = [sin(x) * sin(y) for x in x_nu, y in y_nu]
+            itp_d1 = convolution_interpolation((x_nu, y_nu), vals; degree=kernel, derivative=1)
+
+            test_x = [(x_nu[i] + x_nu[i+1]) / 2 for i in 5:N_nu_deriv-5]
+            test_y = [(y_nu[i] + y_nu[i+1]) / 2 for i in 5:N_nu_deriv-5]
+            analytical = [cos(x) * cos(y) for x in test_x, y in test_y]
+            interpolated = Float64[itp_d1(x, y) for x in test_x, y in test_y]
+            @test interpolated ≈ analytical atol=tolerance_nu_deriv
+        end
+    end
+
+    ###########################################################################
+    ### NONUNIFORM CONVERGENCE ################################################
+    ###########################################################################
+
+    convergence_nu_kernels = [:b5, :b7, :b9, :b11]
+
+    println("Testing nonuniform convergence of 0th, 1st, and 2nd derivatives in 1D and 2D...")
+    @testset "1D nonuniform convergence d0" begin
+        for kernel in convergence_nu_kernels
+            println("Testing 1D nonuniform convergence d0: ", kernel)
+            errs = Float64[]
+            for n in [20, 40, 80]
+                x_nu = make_nonuniform_grid(n)
+                vals = sin.(2π .* x_nu)
+                itp = convolution_interpolation(x_nu, vals; degree=kernel)
+                test_pts = range(x_nu[5], x_nu[end-4], length=100)
+                err = maximum(abs.(itp.itp.(test_pts) .- sin.(2π .* test_pts)))
+                push!(errs, err)
+            end
+            @test errs[2] / errs[3] > 2.0
+            @test errs[1] / errs[2] > 2.0
+        end
+    end
+
+    @testset "1D nonuniform convergence d1" begin
+        for kernel in convergence_nu_kernels
+            println("Testing 1D nonuniform convergence d1: ", kernel)
+            errs = Float64[]
+            for n in [20, 40, 80]
+                x_nu = make_nonuniform_grid(n; a=0.0, b=2π)
+                vals = sin.(x_nu)
+                itp_d1 = convolution_interpolation(x_nu, vals; degree=kernel, derivative=1)
+                test_pts = range(x_nu[6], x_nu[end-5], length=100)
+                err = maximum(abs.(Float64[itp_d1(x) for x in test_pts] .- cos.(test_pts)))
+                push!(errs, err)
+            end
+            # error should decrease at least 2× per doubling
+            @test errs[2] / errs[3] > 2.0
+            @test errs[1] / errs[2] > 2.0
+        end
+    end
+
+    @testset "1D nonuniform convergence d2" begin
+        for kernel in convergence_nu_kernels
+            println("Testing 1D nonuniform convergence d2: ", kernel)
+            errs = Float64[]
+            for n in [20, 40, 80]
+                x_nu = make_nonuniform_grid(n; a=0.0, b=2π)
+                vals = sin.(x_nu)
+                itp_d2 = convolution_interpolation(x_nu, vals; degree=kernel, derivative=2)
+                test_pts = range(x_nu[6], x_nu[end-5], length=100)
+                err = maximum(abs.(Float64[itp_d2(x) for x in test_pts] .- (-sin.(test_pts))))
+                push!(errs, err)
+            end
+            # error should decrease at least 2× per doubling
+            @test errs[2] / errs[3] > 2.0
+            @test errs[1] / errs[2] > 2.0
+        end
+    end
+
+    #########################################################################
+    ### TEST NEARLY UNIFORM VIA NONUNIFORM PATH #############################
+    #########################################################################
+
+    nu_regression_kernels = [:a3, :b5, :b7, :b9, :b11] # :a3 kernel triggers nonuniform lower order kernel
+
+    println("Testing nearly-uniform via nonuniform path in 1D...")
+    @testset "1D nearly-uniform via nonuniform matches fast" begin
+        for kernel in nu_regression_kernels
+            println("Testing nearly-uniform via nonuniform path: ", kernel)
+            x_nu = make_nonuniform_grid(N_nu; strength=1e-8)
+            vals_nu = sin.(2π .* x_nu)
+
+            range_u = range(0.0, 1.0, length=N_nu)
+            vals_u = sin.(2π .* collect(range_u))
+            itp_fast = convolution_interpolation(range_u, vals_u; degree=kernel, fast=true)
+            itp_nu = convolution_interpolation(x_nu, vals_nu; degree=kernel)
+
+            test_pts = range(x_nu[5], x_nu[end-4], length=50)
+            @test itp_nu.itp.(test_pts) ≈ itp_fast.itp.(test_pts) atol=0.1
         end
     end
 end

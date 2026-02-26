@@ -77,37 +77,30 @@ plot(p1, p2, layout=(1,2), size=(800,300), dpi=1000)
 
 ### Non-uniform Grid Interpolation
 
-Non-uniform grids are detected automatically — the same API works without changes:
-```julia
-using ConvolutionInterpolations
-using Plots
+Non-uniform grids are detected automatically — the same API works without changes.
+All `:a` kernels (`:a0` through `:a7`) fall back to the `:n3` kernel on nonuniform grids, which uses cubic weights equivalent to non-uniform Catmull-Rom splines with 3rd order convergence.
 
-# Non-uniform grid — cluster samples where accuracy is needed
-x_coarse = [0.0, 0.15, 0.4, 0.7, 1.5, 2.5, 3.8, 4.2, 4.6, 4.8, 5.0]
-y_coarse = sin.(2x_coarse) .* exp.(-x_coarse/3)
-scatter(x_coarse, y_coarse, label="Non-uniform samples", dpi=500)
-itp = convolution_interpolation(x_coarse, y_coarse)
-x_fine = range(0.0, 5.0, length=100)
-y_fine = sin.(2x_fine) .* exp.(-x_fine/3)
-plot!(x_fine, y_fine, label="True function")
-y_itp = itp.(x_fine)
-plot!(x_fine, y_itp, label="Interpolation", linestyle=:dash)
-savefig("fig/nonuniform_interpolation.png")
+For higher accuracy and derivatives, the `:b` kernels (`:b5` through `:b13`) can be used.
+The maximum derivative order depends on the kernel's continuity class (see [Available Kernels](#available-kernels)).
+Per-interval weight polynomials are precomputed using exact rational arithmetic.
+
+```julia
+x = [0.0, 0.15, 0.4, 0.7, 1.5, 2.5, 3.8, 4.2, 4.6, 4.8, 5.0,
+     5.3, 5.6, 6.0, 6.5, 7.0, 7.3, 7.8, 8.2, 8.5, 9.0, 9.5, 10.0]
+y = sin.(x) .* exp.(-x/5)
+
+itp   = convolution_interpolation(x, y; degree=:b11)                # f(x)
+itp_d1 = convolution_interpolation(x, y; degree=:b11, derivative=1)  # f'(x)
+itp_d2 = convolution_interpolation(x, y; degree=:b11, derivative=2)  # f''(x)
+itp_d3 = convolution_interpolation(x, y; degree=:b11, derivative=3)  # f'''(x)
+itp_d4 = convolution_interpolation(x, y; degree=:b11, derivative=4)  # f⁴(x)
+itp_d5 = convolution_interpolation(x, y; degree=:b11, derivative=5)  # f⁵(x)
 ```
 
-[![Non-uniform interpolation](fig/nonuniform_interpolation.png)](fig/nonuniform_interpolation.png)
+[![Nonuniform derivatives](fig/nonuniform_derivatives.png)](fig/nonuniform_derivatives.png)
 
-Nonuniform interpolation uses cubic weights (equivalent to non-uniform Catmull-Rom) with 3rd order convergence and quadratic polynomial reproduction. It works in any number of dimensions via tensor products:
-```julia
-# 2D with nonuniform grids in both dimensions
-kx = [0.0, 0.3, 1.0, 1.8, 3.0, 4.0]
-ky = [0.0, 0.5, 1.2, 2.0, 3.5, 5.0]
-data = [sin(x) * cos(y) for x in kx, y in ky]
-itp_2d = convolution_interpolation((kx, ky), data)
-itp_2d(1.5, 2.5)
-```
-
-**Adaptive refinement**: Unlike Chebyshev (which requires recalculating all samples) or uniform grids (which require roughly doubling samples), non-uniform grids allow adding a single sample exactly where needed — all existing samples are reused.
+Dots are analytical values, solid lines are the b11 interpolant.
+Non-uniform interpolation works in any number of dimensions via tensor products.
 
 ## Accuracy
 
@@ -149,15 +142,25 @@ Benchmarks use linear subgrid interpolation. Cubic and quintic subgrids improve 
 
 ### Available Kernels
 
+Uniform grid kernels
+
 | Kernel | Degree | Continuity | Max derivative | Convergence | eqs |
 |--------|--------|------------|----------------|-------------|-----|
 | `:a0`  | 0      | —          | —              | 1st order   | 1   |
 | `:a1`  | 1      | C⁰         | —              | 2nd order   | 1   |
-| `:nonuniform` | 3 | C⁰       | —              | 3rd order   | 2   |
 | `:a3`  | 3      | C¹         | 1              | ~3rd order  | 2   |
 | `:a4`  | 3      | C¹         | 1              | ~4th order  | 3   |
 | `:a5`  | 5      | C¹         | 1              | ~3rd order  | 3   |
 | `:a7`  | 7      | C¹         | 1              | ~3rd order  | 4   |
+| `:b5`  | 5      | C³         | 3              | 7th order   | 5   |
+| `:b7`  | 7      | C⁴         | 4              | 7th order   | 6   |
+| `:b9`  | 9      | C⁵         | 5              | 7th order   | 7   |
+| `:b11` | 11     | C⁶         | 6              | 7th order   | 8   |
+| `:b13` | 13     | C⁶         | 6              | 7th order   | 9   |
+
+Non-uniform grid kernels
+
+| `:n3`  | 3      | C¹         | 0              | ~3rd order  | 4   |
 | `:b5`  | 5      | C³         | 3              | 7th order   | 5   |
 | `:b7`  | 7      | C⁴         | 4              | 7th order   | 6   |
 | `:b9`  | 9      | C⁵         | 5              | 7th order   | 7   |

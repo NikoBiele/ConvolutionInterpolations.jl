@@ -1,14 +1,14 @@
 # ConvolutionInterpolations.jl
 
-High-performance smooth N-dimensional interpolation using separable convolution kernels. Supports both uniform and non-uniform grids.
+Smooth interpolation and derivatives from a discrete grid of samples.
 
 [![Performance Comparison](fig/convolution_interpolation_kernels.png)](fig/convolution_interpolation_kernels.png)
 
 ## Why ConvolutionInterpolations.jl?
 
-- **O(1) evaluation**: Interpolation time is independent of grid size, with allocation-free evaluation
 - **7th order convergence**: The default `:b5` kernel significantly exceeds cubic spline accuracy at comparable cost
 - **Uniform and non-uniform grids**: Uniform grids use optimized precomputed kernels; non-uniform grids are detected automatically
+- **O(1) evaluation**: Interpolation time is independent of grid size (for uniform), with allocation-free evaluation
 - **N-dimensional**: Separable kernel design scales naturally from 1D to arbitrary dimensions
 - **Simple API**: A single interface covers nearest-neighbor through 13th-degree polynomial kernels
 

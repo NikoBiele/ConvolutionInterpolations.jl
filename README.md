@@ -77,7 +77,7 @@ plot(p1, p2, layout=(1,2), size=(800,300), dpi=1000)
 
 ### Non-uniform Grid Interpolation
 
-Non-uniform grids are detected automatically — the same API works without changes.
+Non-uniform grids are detected automatically.
 All `:a` kernels (`:a0` through `:a7`) fall back to the `:n3` kernel on nonuniform grids, which uses cubic weights equivalent to non-uniform Catmull-Rom splines with 3rd order convergence.
 
 For higher accuracy and derivatives, the `:b` kernels (`:b5` through `:b13`) can be used.

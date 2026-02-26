@@ -110,7 +110,7 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             )
         else
             # ── Legacy nonuniform path: a-series → :n3, or explicit :n3 ──
-            nu_degree = if degree in (:a0, :a1, :a3, :a4, :a5, :a7)
+            nu_degree = if degree in (:n3, :a0, :a1, :a3, :a4, :a5, :a7)
                 :n3   # fall back to nonuniform cubic for all a-series kernels
             else
                 error("Nonuniform interpolation not supported for degree=$degree. " *

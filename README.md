@@ -78,7 +78,7 @@ plot(p1, p2, layout=(1,2), size=(800,300), dpi=1000)
 ### Non-uniform Grid Interpolation
 
 Non-uniform grids are detected automatically.
-All `:a` kernels (`:a0` through `:a7`) fall back to the `:n3` kernel on nonuniform grids, which uses cubic weights equivalent to non-uniform Catmull-Rom splines with 3rd order convergence.
+All `:a` kernels (`:a0` through `:a7`) fall back to the `:n3` kernel on non-uniform grids, which uses cubic weights equivalent to non-uniform Catmull-Rom splines with 3rd order convergence.
 
 For higher accuracy and derivatives, the `:b` kernels (`:b5` through `:b13`) can be used.
 The maximum derivative order depends on the kernel's continuity class (see [Available Kernels](#available-kernels)).
@@ -101,6 +101,7 @@ itp_d5 = convolution_interpolation(x, y; degree=:b11, derivative=5)  # f⁵(x)
 
 Dots are analytical values, solid lines are the b11 interpolant.
 Non-uniform interpolation works in any number of dimensions via tensor products.
+Non-uniform precomputation scales with the number of intervals; for performance-critical applications, non-uniform kernels can be used once to resample data onto a uniform grid, then efficient uniform kernels can be used for repeated evaluation.
 
 ## Accuracy
 
@@ -291,13 +292,15 @@ Benchmarks in the [Speed](#speed) section use `:linear` subgrid.
 
 ## Technical Background
 
-This package introduces three main contributions:
+This package introduces four main contributions:
 
-**B-series kernel family.** A new family of high-order convolution kernels (b5, b7, b9, b11, b13) discovered through systematic analytical search using symbolic computation (SymPy), generalizing the approach of R. G. Keys (1981). All b-series kernels achieve 7th order convergence with polynomial reproduction far exceeding their own degree. Kernel coefficients are stored as exact rational numbers, enabling extended precision arithmetic with BigFloat.
+**b-series kernel family.** A new family of high-order convolution kernels (b5, b7, b9, b11, b13) discovered through systematic analytical search using symbolic computation (SymPy), generalizing the approach of R. G. Keys (1981). All b-series kernels achieve 7th order convergence with polynomial reproduction far exceeding their own degree. Kernel coefficients are stored as exact rational numbers, enabling extended precision arithmetic with BigFloat.
 
 **Hermite multilevel interpolation.** Rather than evaluating kernel polynomials directly, kernels are discretized at a small number of points (default 100) and cached to disk via Scratch.jl. During evaluation, data is convolved with these precomputed values, and the results are interpolated using cubic or quintic Hermite subgrid interpolation. This approach is both faster and more numerically stable than direct polynomial evaluation.
 
 **Polynomial boundary conditions.** A boundary handling method that computes optimal ghost point values that preserve each kernel's polynomial reproduction properties. This maintains convergence order across the entire domain rather than degrading near boundaries.
+
+**Non-uniform b-kernel extension.** On uniform grids, kernel weights are identical for every interval. On non-uniform grids, each interval requires its own weights adapted to the local grid geometry. This is achieved by expanding the kernel in a binomial series around each interval's local coordinate, then projecting through a Vandermonde system to enforce polynomial reproduction up to the kernel's design order. The result is a compact set of polynomial coefficients per interval, evaluated via Horner's method at query time. All weight generation uses exact Rational{BigInt} arithmetic to avoid floating-point contamination, with conversion to Float64 only at the final storage step. The same framework extends to derivatives by applying the binomial expansion to analytically differentiated kernel coefficients.
 
 ## Comparison with Other Packages
 

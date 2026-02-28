@@ -73,7 +73,8 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
     end
 
     # === Nonuniform path: if ANY dimension is nonuniform ===
-    if any(d -> !is_uniform_grid(knots[d]), 1:N)
+    nonuniform_dims = [!is_uniform_grid(knots[d]) for d in 1:N]
+    if any(nonuniform_dims)
 
         is_b_kernel = degree in (:b5, :b7, :b9, :b11, :b13)
 
@@ -88,7 +89,11 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             # Precompute weight coefficients for each dimension
             # Uses the derivative order to select the appropriate kernel coefficients
             nb_data = ntuple(N) do d
-                precompute_nonuniform_b_all(knots_new[d], degree, derivative)
+                if nonuniform_dims[d]
+                    precompute_nonuniform_b_all(knots_new[d], degree, derivative)
+                else
+                    precompute_uniform_b_all(knots_new[d], degree, derivative)
+                end
             end
 
             knots_expanded = ntuple(d -> nb_data[d][2], N)

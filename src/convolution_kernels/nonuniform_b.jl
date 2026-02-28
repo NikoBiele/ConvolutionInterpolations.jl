@@ -270,3 +270,116 @@ function precompute_nonuniform_b_all(knots::AbstractVector{T}, degree::Symbol,
 
     return weight_coeffs, knots_expanded
 end
+
+"""
+    precompute_uniform_b_all(knots, degree, derivative=0)
+
+Precompute weight polynomial coefficients for uniform b-kernel interpolation.
+
+For uniform grids, the kernel piece polynomials are converted from |t|-space to
+s-space (local interval coordinate) via binomial expansion. No Vandermonde projection
+is needed because the uniform kernel has exact polynomial reproduction built in.
+
+All intervals produce identical weight matrices, so we compute once and copy.
+
+# How it works
+The kernel evaluates `K(|t|)` where `|t| = offset ± s` and offset is an integer.
+The binomial theorem expands `(offset ± s)^k` to convert the kernel piece polynomial
+from |t|-coordinates to s-coordinates suitable for Horner evaluation.
+
+Piece selection uses the midpoint `|t(s=1/2)|` to avoid ambiguity at integer
+boundaries where the kernel is zero.
+"""
+function precompute_uniform_b_all(knots::AbstractVector{T}, degree::Symbol,
+                                      derivative::Int=0) where T
+    M_eqs, p_deg = nonuniform_b_params(degree)
+    n = length(knots)
+    n_intervals = n - 1
+
+    R = Rational{BigInt}
+    h = R(knots[2] - knots[1])
+
+    # Expand with ghost points
+    knots_r = Rational{BigInt}.(knots)
+    knots_exp_r = copy(knots_r)
+    for _ in 1:M_eqs
+        pushfirst!(knots_exp_r, knots_exp_r[1] - h)
+        push!(knots_exp_r, knots_exp_r[end] + h)
+    end
+
+    kernel_coefs = _get_kernel_rational_coefs(degree, derivative)
+
+    n_stencil = 2 * M_eqs
+    n_poly = p_deg + 1
+
+    # Representative interval: index M_eqs+1 in expanded knots
+    i_ref = M_eqs + 1
+
+    target = zeros(R, n_stencil, n_poly)
+
+    for j in 1:n_stencil
+        # Node position relative to interval start, normalized by h
+        d_j = (knots_exp_r[i_ref - M_eqs + j] - knots_exp_r[i_ref]) // h
+
+        # The kernel evaluates at |t| where t = (x - knot_j)/h
+        # At position s ∈ [0,1] within interval: x = knot_i + s·h
+        # So t_j = s - d_j, and |t_j| = |s - d_j|
+        #
+        # For d_j <= 0 (nodes to the left): |t_j| = s - d_j = s + |d_j|
+        #   offset = |d_j|, sgn = +1, |t| = offset + s
+        # For d_j >= 1 (nodes to the right): |t_j| = d_j - s
+        #   offset = d_j, sgn = -1, |t| = offset - s
+
+        if d_j >= 1
+            offset = d_j
+            sgn = R(-1)
+        else
+            offset = -d_j
+            sgn = R(1)
+        end
+
+        # Find which kernel piece covers this range using midpoint
+        # to avoid ambiguity at integer boundaries where kernel is zero.
+        # Kernel pieces: eq_p covers |t| ∈ [p-1, p), with |t| >= M_eqs → zero
+        t_mid = abs(offset + sgn * R(1//2))
+        piece = 0
+        for p in 1:M_eqs
+            if t_mid >= p - 1 && t_mid < p
+                piece = p
+                break
+            end
+        end
+
+        piece == 0 && continue
+
+        c = kernel_coefs[piece]
+
+        # Kernel evaluates: Σ_{k=0}^{deg} c[k+1] · |t|^k
+        # With |t| = offset + sgn·s, expand via binomial theorem:
+        # (offset + sgn·s)^k = Σ_{m=0}^{k} C(k,m) · offset^(k-m) · (sgn·s)^m
+        #
+        # So coeff of s^m = Σ_{k=m}^{deg} c[k+1] · C(k,m) · offset^(k-m) · sgn^m
+
+        for k in 0:(length(c)-1)
+            c_k = c[k+1]
+            c_k == 0 && continue
+            for m in 0:k
+                binom = R(binomial(BigInt(k), BigInt(m)))
+                target[j, m+1] += c_k * binom * offset^(k-m) * sgn^m
+            end
+        end
+
+        # Sign correction for odd derivatives: kernel uses sign(t) factor
+        if isodd(derivative)
+            sgn_sign = (d_j >= 0) ? R(1) : R(-1)
+            for m in 1:n_poly
+                target[j, m] *= sgn_sign
+            end
+        end
+    end
+
+    ref = Float64.(target)
+    weight_coeffs = [ref for _ in 1:n_intervals]
+    knots_expanded = T.(knots_exp_r)
+    return weight_coeffs, knots_expanded
+end

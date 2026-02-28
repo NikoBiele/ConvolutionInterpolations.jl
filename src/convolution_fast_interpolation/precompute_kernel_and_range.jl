@@ -69,7 +69,7 @@ pre_range, kernel_pre = precompute_kernel_and_range(:b5, F=BigFloat)
 See also: `get_precomputed_kernel_and_range`, `ConvolutionKernel`, `FastConvolutionInterpolation`.
 """
 function precompute_kernel_and_range(degree::Symbol;
-          precompute::P, F::Type{T}, base::Int=0, derivative::Int=0, integral::Int=0) where {P,T}
+          precompute::P, F::Type{T}, derivative::Int=0) where {P,T}
     eqs = get_equations_for_degree(degree)
     pre_range_exact = [big(0//1) + big(i//1-1//1)/big(precompute//1-1//1) for i in 1:precompute]
     pre_range = F.(pre_range_exact)

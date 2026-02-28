@@ -364,11 +364,12 @@ function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
         y_temp_view = view(workspace.y_temp, 1:num_interior)
         ghost_vals_view = view(workspace.ghost_vals, 1:num_ghost)
         coef_view = view(coef, 1:num_ghost, 1:num_interior)  # Only use first eqs-1 rows
+        factor = length(size(c)) == 1 ? one(T) : -one(T)
         
         mul!(ghost_vals_view, coef_view, y_temp_view)
             
         for j in 1:num_ghost
-            c[idx + c_offset[j]] = y_offset + workspace.ghost_vals[j]
+            c[idx + c_offset[j]] = y_offset + factor * workspace.ghost_vals[j]
         end
     end
 end

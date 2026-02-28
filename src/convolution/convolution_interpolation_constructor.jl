@@ -78,10 +78,10 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
         is_b_kernel = degree in (:b5, :b7, :b9, :b11, :b13)
 
         if is_b_kernel
-            # ── Nonuniform b-kernel path: precomputed polynomial weights ──
+            # Nonuniform b-kernel path: precomputed polynomial weights
             M_eqs, p_deg = nonuniform_b_params(degree)
             eqs = M_eqs
-            h = ntuple(d -> one(T), N)
+            h = ntuple(d -> one(T), N) # dummy
             it = ntuple(_ -> ConvolutionMethod(), N)
             knots_new = ntuple(d -> collect(T, knots[d]), N)
 
@@ -109,7 +109,7 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
                 kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc
             )
         else
-            # ── Legacy nonuniform path: a-series → :n3, or explicit :n3 ──
+            # nonuniform path: a-series → :n3, or explicit :n3
             nu_degree = if degree in (:n3, :a0, :a1, :a3, :a4, :a5, :a7)
                 :n3   # fall back to nonuniform cubic for all a-series kernels
             else

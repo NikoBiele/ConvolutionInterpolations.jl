@@ -381,7 +381,7 @@ function convolution_test()
     deriv_kernels = [:b5, :b7, :b9, :b11] #, :b13] # :a3, :a4, :a5, :a7, # drop lower order kernels (slow convergence)
     N_deriv = 10 # number of test points
     kernel_bc_deriv = :polynomial # control kernel boundary conditions for derivatives
-    tolerance_deriv = 0.1 # tolerance for derivative tests
+    tolerance_deriv = 0.01 # tolerance for derivative tests
 
     println("Testing uniform grid derivatives for 1D, 2D, 3D, 4D...")
     @testset "1D derivative direct" begin

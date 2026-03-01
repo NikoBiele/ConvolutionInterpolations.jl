@@ -1,45 +1,49 @@
 """
-    FastConvolutionInterpolation(knots::NTuple{N,AbstractVector}, vs::AbstractArray{T,N};
-                                degree::Symbol=:b5, precompute::Int=100_000, B=nothing, kernel_bc=:auto) where {T,N}
+    FastConvolutionInterpolation(knots, vs::AbstractArray{T,N};
+        degree::Symbol=:b5, precompute::Int=101, B=nothing, kernel_bc=:auto,
+        derivative::Int=0, subgrid::Symbol=:cubic) where {T,N}
 
 Construct a fast convolution interpolation object with precomputed kernel values for O(1) evaluation.
 
 # Arguments
-- `knots::NTuple{N,AbstractVector}`: Tuple of vectors containing the grid points in each dimension
+- `knots`: Vector, range, or tuple of vectors/ranges containing the grid points in each dimension
 - `vs::AbstractArray{T,N}`: Values to interpolate at the grid points
 
 # Keyword Arguments
 - `degree::Symbol=:b5`: Convolution kernel to use. Available kernels:
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a5` (quintic), `:a7` (septic)
   - `b`-series (recommended): `:a4`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
-  - Default `:b5` provides quintic reproduction with 7th-order convergence (from Taylor series)
-- `precompute::Int=100_000`: Number of kernel values to precompute. Higher values increase
-  accuracy of kernel interpolation at the cost of initialization time and memory
+  - Default `:b5` provides quintic reproduction with 7th-order convergence
+- `precompute::Int=101`: Resolution of the precomputed kernel table. The default (101) uses
+  pre-shipped tables requiring zero computation. Higher values (e.g. 10_000) trigger on-demand
+  computation and disk caching, useful for the `:linear` subgrid mode
 - `B=nothing`: If provided, uses Gaussian kernel with parameter `B` instead of polynomial kernel
-- `kernel_bc=:auto`: Boundary condition for kernel evaluation at domain boundaries
+- `kernel_bc=:auto`: Boundary condition for kernel evaluation at domain boundaries.
+  Options: `:auto`, `:polynomial`, `:linear`, `:quadratic`, `:periodic`, `:detect`
+- `derivative::Int=0`: Order of derivative to evaluate (0 for interpolation, up to 6 for b-series)
+- `subgrid::Symbol=:cubic`: Subgrid interpolation mode for precomputed kernel tables.
+  Options: `:linear` (fastest, needs high precompute), `:cubic` (default), `:quintic` (most accurate).
+  Availability depends on remaining smooth derivatives: `max_smooth_derivative[kernel] - derivative`
 
 # Returns
-`FastConvolutionInterpolation` object with O(1) evaluation time, independent of grid size
+`FastConvolutionInterpolation` object with O(1) evaluation time, independent of grid size.
 
 # Performance
-Fast mode provides significant speedup over direct evaluation:
-- Uses precomputed kernel values with linear interpolation for O(1) lookup
-- Allocation-free evaluation across all dimensions
-- Typical speedup: 3-10× faster than direct evaluation, especially for higher-order kernels
+- Construction: ~5μs for 1D with 100 grid points (b5 kernel), using pre-shipped kernel tables
+- Evaluation: allocation-free, O(1). Typical 1D timings: `:a0`/`:a1` ~6ns, `:b5` ~20ns
 - Performance scales with dimensionality but not with grid size
-- Example timings (1D, 100-point grid): `:a1` ~4ns, `:b5` ~14ns per evaluation
 
 # Details
-This constructor creates an optimized convolution interpolator that precomputes kernel values
-at regularly spaced positions, enabling constant-time interpolation regardless of grid size.
-During evaluation, kernel values are obtained via fast linear interpolation of precomputed data.
+The constructor expands the grid at boundaries, computes ghost point coefficients using
+polynomial boundary conditions, and loads precomputed kernel tables. For the default
+`precompute=101`, kernel tables are shipped with the package and loaded as constants
+(no disk I/O). For higher resolutions or BigFloat precision, tables are computed on first
+use and cached to disk via Scratch.jl.
 
-The grid is automatically expanded at boundaries and coefficients are computed to satisfy
-the chosen boundary conditions. All `b`-series kernels provide 7th-order convergence with
-polynomial reproduction properties (e.g., `:b5` exactly reproduces quintic polynomials).
-
-The `precompute` parameter controls the resolution of the precomputed kernel grid. The default
-value (100,000) provides excellent accuracy while keeping initialization time reasonable.
+The subgrid mode controls how kernel values between precomputed points are interpolated:
+`:cubic` uses Hermite interpolation with analytically predifferentiated kernels (default),
+`:quintic` adds second derivatives for higher accuracy, and `:linear` uses simple linear
+interpolation requiring higher table resolution for equivalent accuracy.
 
 # Examples
 ```julia
@@ -49,18 +53,22 @@ data = sin.(2π .* knots[1])
 itp = FastConvolutionInterpolation(knots, data)
 itp(0.5)  # O(1) evaluation at x=0.5
 
-# 2D fast interpolation with custom precompute resolution
+# 2D fast interpolation
 knots = (range(0, 1, 50), range(0, 1, 50))
 data = [sin(x) * cos(y) for x in knots[1], y in knots[2]]
-itp = FastConvolutionInterpolation(knots, data, degree=:b5, precompute=50_000)
-itp(0.3, 0.7)  # Fast evaluation at (x,y) = (0.3, 0.7)
+itp = FastConvolutionInterpolation(knots, data, degree=:b7)
+itp(0.3, 0.7)
+
+# First derivative evaluation
+itp = FastConvolutionInterpolation((range(0, 2π, 100),), sin.(range(0, 2π, 100)), derivative=1)
 ```
 
-See also: `convolution_interpolation` for automatic extrapolation at boundaries.
+See also: `convolution_interpolation` for the recommended high-level interface with extrapolation.
 """
+
 function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector},AbstractRange,NTuple{N,AbstractRange}},
                                       vs::AbstractArray{T,N};
-                                      degree::Symbol=:b5, precompute::Int=100, B=nothing,
+                                      degree::Symbol=:b5, precompute::Int=101, B=nothing,
                                       kernel_bc=:auto,
                                       derivative::Int=0,
                                       subgrid::Symbol=:cubic) where {T,N}
@@ -77,7 +85,7 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
     kernel = B === nothing ? ConvolutionKernel(Val(degree), Val(derivative)) : GaussianConvolutionKernel(Val(B))
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))    
     pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre = 
-                  get_precomputed_kernel_and_range(degree; precompute=big(precompute//1), float_type=T,
+                  get_precomputed_kernel_and_range(degree; precompute=precompute, float_type=T,
                   derivative=derivative, subgrid=subgrid)
     degree = degree == :a0 || degree == :a1 ? Val(degree) : HigherOrderKernel(Val(degree))
 

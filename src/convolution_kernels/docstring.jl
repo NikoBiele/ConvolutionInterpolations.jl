@@ -1,8 +1,8 @@
 # docstring for polynomial convolution kernels
 """
-    (::ConvolutionKernel{DG})(s::T) where {T,DG}
+    (::ConvolutionKernel{DG,DO})(s::T) where {T,DG,D0}
 
-Evaluate a polynomial convolution kernel of degree `DG` at position `s`.
+Evaluate the `DO`th derivative of a polynomial convolution kernel of degree `DG` at position `s`.
 
 # Arguments
 - `s::T`: The position at which to evaluate the kernel
@@ -71,7 +71,7 @@ Nonic convolution kernel with 7 equations and support [-7,7]:
 - 7th order accuracy with C6 continuity
 - 8 piecewise equations covering ranges from |s| < 1.0 to |s| < 8.0
 
-## 13th Degree Kernel (DG=13)
+## 13th Degree Kernel (DG=:b13)
 13th degree convolution kernel with 9 equations and support [-9,9]:
 - 7th order accuracy with C6 continuity
 - 9 piecewise equations covering ranges from |s| < 1.0 to |s| < 9.0

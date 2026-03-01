@@ -68,46 +68,16 @@ end
 """
     get_boundary_indices(c_size::NTuple{N,Int}, dim::Int, eqs::Int) where N
 
-Compute CartesianIndex ranges for left and right boundary regions in a given dimension.
+Compute CartesianIndex ranges for left and right boundary positions in a given dimension.
+Returns a tuple `(left_indices, right_indices)` of `CartesianIndices` objects.
 
-# Arguments
-- `c_size::NTuple{N,Int}`: Size of the coefficient array (including ghost points)
-- `dim::Int`: Dimension along which to extract boundary indices (1 to N)
-- `eqs::Int`: Number of equations (kernel support size)
-
-# Returns
-Tuple of `(left_indices, right_indices)` where each is a `CartesianIndices` object
-spanning the (N-1)-dimensional boundary hyperplane at the fixed boundary position.
-
-# Details
-The boundary indices correspond to the first and last interior grid points along the
-specified dimension, extended across all other dimensions. These indices are used to
-iterate over all points where boundary conditions must be applied.
-
-# Examples
-```julia
-# For a 3D array of size (50, 60, 70) with eqs=5
-left_idx, right_idx = get_boundary_indices((50, 60, 70), 1, 5)
-# left_idx: all points at x[1] = 5 (the left interior boundary)
-# right_idx: all points at x[1] = 46 (the right interior boundary)
-```
+Uses `ntuple` with `Val(N)` for compile-time specialization — zero allocations.
 """
 
 function get_boundary_indices(c_size::NTuple{N,Int}, dim::Int, eqs::Int) where N
-    # Create ranges for all dimensions
-    ranges = [1:s for s in c_size]
-    
-    # Left boundary: fix dim to left boundary position
-    left_ranges = copy(ranges)
-    left_ranges[dim] = (1 + (eqs-1)):(1 + (eqs-1))
-    left_indices = CartesianIndices(Tuple(left_ranges))
-    
-    # Right boundary: fix dim to right boundary position  
-    right_ranges = copy(ranges)
-    right_ranges[dim] = (c_size[dim] - (eqs-1)):(c_size[dim] - (eqs-1))
-    right_indices = CartesianIndices(Tuple(right_ranges))
-    
-    return left_indices, right_indices
+    left_ranges = ntuple(d -> d == dim ? ((eqs):(eqs)) : (1:c_size[d]), Val(N))
+    right_ranges = ntuple(d -> d == dim ? ((c_size[d] - (eqs-1)):(c_size[d] - (eqs-1))) : (1:c_size[d]), Val(N))
+    return CartesianIndices(left_ranges), CartesianIndices(right_ranges)
 end
 
 """
@@ -183,59 +153,49 @@ function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs:
 
     # Apply boundary conditions in order
     for fixed_dim in 1:N
-        apply_boundary_conditions_for_dim!(c, vs, fixed_dim, h, eqs, kernel_bc, kernel_type, N, workspace)
+        apply_boundary_conditions_for_dim!(c, vs, fixed_dim, h, eqs, kernel_bc, kernel_type, workspace)
     end
 
     return c
 end
 
 """
-    apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractArray, dim::Int, 
-                                       h::NTuple{N,T}, eqs::Int,
-                                       kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}}}, 
-                                       kernel_type::Symbol, ndims::Int,
-                                       workspace::BoundaryWorkspace{T,N}) where {T,N}
+    apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractArray, dim::Int,
+        h::NTuple{N,T}, eqs::Int,
+        kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}}},
+        kernel_type::Symbol,
+        workspace::BoundaryWorkspace{T,N}) where {T,N}
 
-Apply boundary conditions along a single dimension of the coefficient array.
+Apply boundary conditions along a single dimension of the coefficient array. Fills ghost
+points on both left and right boundaries.
 
 # Arguments
-- `c::AbstractArray{T,N}`: Coefficient array to modify (with ghost points)
-- `vs::AbstractArray`: Original interior data values
-- `dim::Int`: Dimension to process (1 to N)
-- `h::NTuple{N,T}`: Grid spacing in each dimension
-- `eqs::Int`: Number of equations (kernel support size)
-- `kernel_bc`: Boundary condition specification
-- `kernel_type::Symbol`: Kernel degree (`:a3`, `:b5`, etc.)
-- `ndims::Int`: Total number of dimensions
-- `workspace::BoundaryWorkspace{T,N}`: Preallocated workspace for temporary arrays
-
-# Details
-This function processes one dimension at a time, filling ghost points on both the left
-and right boundaries. For each boundary point on the (N-1)-dimensional hyperplane:
-
-1. Extracts a 1D slice along the specified dimension
-2. Computes boundary coefficients using `boundary_coefs`
-3. Fills ghost points using either polynomial or recursive method
-4. Repeats for all points on the boundary hyperplane
-
-The workspace enables allocation-free computation by reusing temporary arrays across
-all boundary points and dimensions.
+- `c`: Coefficient array to modify (expanded with ghost point slots)
+- `vs`: Original interior data values
+- `dim`: Dimension to process (1 to N)
+- `h`: Grid spacing tuple
+- `eqs`: Number of equations (kernel support size)
+- `kernel_bc`: Boundary condition specification (Symbol or per-dimension tuple vector)
+- `kernel_type`: Kernel degree (`:a3`, `:b5`, etc.)
+- `workspace`: Preallocated `BoundaryWorkspace` for temporary arrays
 
 # Algorithm
-For each boundary (left and right):
-- Extract 1D slices perpendicular to the boundary
-- Compute ghost point values from interior points
-- Write ghost values into the coefficient array
+1. Fetches the polynomial ghost coefficient matrix once (shared across all boundary points)
+2. Determines polynomial vs recursive path per side based on grid size vs matrix requirements
+3. Precomputes `CartesianIndex` offsets using `ntuple(Val(N))` (zero allocations)
+4. For each boundary point: extracts a 1D slice into the workspace, computes mean-centering
+   in-place, then fills ghost points via polynomial (`mul!`) or recursive fallback
 
-Boundary conditions can be different for left vs. right sides of each dimension.
+The polynomial path (default for grids with sufficient points) is fully allocation-free.
+The recursive fallback path may allocate for signal analysis.
 
-See also: `fill_ghost_points_polynomial!`, `fill_ghost_points_recursive!`
+See also: `fill_ghost_points_polynomial!`, `fill_ghost_points_recursive!`, `get_recursive_coefs`.
 """
 
 function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractArray, dim::Int, 
                                            h::NTuple{N,T}, eqs::Int,
                                            kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}}}, 
-                                           kernel_type::Symbol, ndims::Int,
+                                           kernel_type::Symbol,
                                            workspace::BoundaryWorkspace{T,N}) where {T,N}
     
     kernel_boundary_condition = if kernel_bc isa Symbol
@@ -248,99 +208,94 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
     
     # Precompute slice_offset and c_offset once (reuse workspace arrays)
     for j in 0:size(vs, dim)-1
-        workspace.slice_offset[j+1] = CartesianIndex(ntuple(d -> d == dim ? j : 0, ndims))
+        workspace.slice_offset[j+1] = CartesianIndex(ntuple(d -> d == dim ? j : 0, Val(N)))
     end
     
     for j in 1:(eqs-1)
-        workspace.c_offset[j] = CartesianIndex(ntuple(d -> d == dim ? j : 0, ndims))
+        workspace.c_offset[j] = CartesianIndex(ntuple(d -> d == dim ? j : 0, Val(N)))
     end
+
+    # Fetch ghost matrix once (same for all boundary points)
+    ghost_matrix = get_polynomial_ghost_coeffs(kernel_type)
+    n_dim = size(vs, dim)
+    n_interior = size(ghost_matrix, 2)
+    use_polynomial_left = kernel_boundary_condition[1] == :polynomial || 
+                          (kernel_boundary_condition[1] == :auto && n_dim >= n_interior)
+    use_polynomial_right = kernel_boundary_condition[2] == :polynomial || 
+                           (kernel_boundary_condition[2] == :auto && n_dim >= n_interior)
+    
+    c_offset_view = view(workspace.c_offset, 1:(eqs-1))
     
     # Process left boundary
     for idx in left_indices
-        # Extract slice using preallocated array
-        if length(size(vs)) == 1
+        if N == 1
             workspace.slice[1:length(vs)] .= vs
         else
-            for j in 1:size(vs, dim)
+            for j in 1:n_dim
                 workspace.slice[j] = c[idx + workspace.slice_offset[j]]
             end
         end
         
-        slice_view = view(workspace.slice, 1:size(vs, dim))
-        coef, y_offset, y_centered = boundary_coefs(slice_view, h[dim], kernel_boundary_condition[1], :left, kernel_type)
+        slice_view = view(workspace.slice, 1:n_dim)
+        y_mean = sum(slice_view) / n_dim
+        for k in 1:n_dim
+            workspace.slice[k] -= y_mean
+        end
         
-        c_offset_view = view(workspace.c_offset, 1:(eqs-1))
-        
-        if coef isa Matrix
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, coef, y_offset, y_centered, :left, eqs, workspace)
+        if use_polynomial_left
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :left, eqs, workspace)
         else
-            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_offset, y_centered, :left, eqs, size(vs), workspace)
+            coef = get_recursive_coefs(slice_view, h[dim], kernel_boundary_condition[1], :left)
+            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :left, eqs, size(vs), workspace)
         end
     end
     
     # Process right boundary
     for idx in right_indices
-        # Extract slice using preallocated array
-        if length(size(vs)) == 1
+        if N == 1
             workspace.slice[1:length(vs)] .= vs
         else
-            for j in 1:size(vs, dim)
+            for j in 1:n_dim
                 workspace.slice[j] = c[idx - workspace.slice_offset[j]]
             end
         end
         
-        slice_view = view(workspace.slice, 1:size(vs, dim))
-        coef, y_offset, y_centered = boundary_coefs(slice_view, h[dim], kernel_boundary_condition[2], :right, kernel_type)
+        slice_view = view(workspace.slice, 1:n_dim)
+        y_mean = sum(slice_view) / n_dim
+        for k in 1:n_dim
+            workspace.slice[k] -= y_mean
+        end
         
-        c_offset_view = view(workspace.c_offset, 1:(eqs-1))
-        
-        if coef isa Matrix
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, coef, y_offset, y_centered, :right, eqs, workspace)
+        if use_polynomial_right
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :right, eqs, workspace)
         else
-            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_offset, y_centered, :right, eqs, size(vs), workspace)
+            coef = get_recursive_coefs(slice_view, h[dim], kernel_boundary_condition[2], :right)
+            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :right, eqs, size(vs), workspace)
         end
     end
 end
 
 """
-    fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex, 
-                                  c_offset::AbstractVector{CartesianIndex{N}},
-                                  coef::Matrix, y_offset::T, y_centered::Vector{T},
-                                  side::Symbol, eqs::Int,
-                                  workspace::BoundaryWorkspace{T,N}) where {T,N}
+    fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
+        c_offset::AbstractVector{CartesianIndex{N}},
+        coef::Matrix, y_offset::T, y_centered::AbstractVector{T},
+        side::Symbol, eqs::Int,
+        workspace::BoundaryWorkspace{T,N}) where {T,N}
 
-Fill ghost points using polynomial boundary conditions (non-recursive, direct computation).
+Fill ghost points using polynomial boundary conditions via direct matrix-vector multiplication.
 
-# Arguments
-- `c::AbstractArray{T}`: Coefficient array to modify
-- `idx::CartesianIndex`: Index of the boundary point (interior grid point nearest to boundary)
-- `c_offset::AbstractVector{CartesianIndex{N}}`: Precomputed offsets for ghost point positions
-- `coef::Matrix`: Coefficient matrix where row j gives coefficients for ghost point g_{-j}
-- `y_offset::T`: Mean offset of the signal
-- `y_centered::Vector{T}`: Mean-centered signal values
-- `side::Symbol`: `:left` or `:right` boundary
-- `eqs::Int`: Number of equations (determines number of ghost points: eqs-1)
-- `workspace::BoundaryWorkspace{T,N}`: Workspace for temporary arrays
+Computes `ghost[j] = y_offset + coef[j,:] ⋅ y_centered` using preallocated workspace arrays.
+For right boundaries, reverses the signal into `workspace.y_temp` before multiplication.
+Uses `mul!` into `workspace.ghost_vals` for allocation-free computation.
 
-# Details
-Polynomial boundary conditions compute ghost points directly from interior values using
-optimal kernel-specific coefficient matrices. This method:
-
-- Preserves the polynomial reproduction property of the kernel
-- Uses matrix-vector multiplication for efficiency
-- Handles signal reversal automatically for right boundaries
-- Adds back the mean offset to get final ghost point values
-
-The computation is: `ghost[j] = y_offset + coef[j,:] ⋅ y_centered`
-
-This is the recommended boundary condition method for most use cases.
+`y_centered` is an `AbstractVector{T}` (typically a view into the workspace slice).
 
 See also: `fill_ghost_points_recursive!`, `get_polynomial_ghost_coeffs`.
 """
 
 function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex, 
                                       c_offset::AbstractVector{CartesianIndex{N}},
-                                      coef::Matrix, y_offset::T, y_centered::Vector{T},
+                                      coef::Matrix, y_offset::T, y_centered::AbstractVector{T},
                                       side::Symbol, eqs::Int,
                                       workspace::BoundaryWorkspace{T,N}) where {T,N}
     num_interior = size(coef, 2)
@@ -376,47 +331,27 @@ end
 
 """
     fill_ghost_points_recursive!(c::AbstractArray{T}, idx::CartesianIndex,
-                                 c_offset::AbstractVector{CartesianIndex{N}},
-                                 coef::Vector, y_offset::T, y_centered,
-                                 side::Symbol, eqs::Int, vs_size::NTuple,
-                                 workspace::BoundaryWorkspace{T,N}) where {T,N}
+        c_offset::AbstractVector{CartesianIndex{N}},
+        coef::Vector, y_offset::T, y_centered::AbstractVector{T},
+        side::Symbol, eqs::Int, vs_size::NTuple,
+        workspace::BoundaryWorkspace{T,N}) where {T,N}
 
-Fill ghost points using recursive boundary conditions (iterative extrapolation).
+Fill ghost points using recursive (iterative) extrapolation.
 
-# Arguments
-- `c::AbstractArray{T}`: Coefficient array to modify
-- `idx::CartesianIndex`: Index of the boundary point
-- `c_offset::AbstractVector{CartesianIndex{N}}`: Precomputed offsets for ghost point positions
-- `coef::Vector`: Prediction coefficients for recursive computation
-- `y_offset::T`: Mean offset of the signal
-- `y_centered`: Mean-centered signal values
-- `side::Symbol`: `:left` or `:right` boundary
-- `eqs::Int`: Number of equations (determines number of ghost points: eqs-1)
-- `vs_size::NTuple`: Size of original data array
-- `workspace::BoundaryWorkspace{T,N}`: Workspace for temporary arrays
+Each ghost point depends on previously computed ghost points and interior values:
+`ghost[j] = sum(coef[k] * extended[j-k] for k in 1:length(coef))`.
 
-# Details
-Recursive boundary conditions compute ghost points iteratively, where each ghost point
-depends on previously computed ghost points and interior values. Common methods include:
+Uses `workspace.y_extended` for the extended signal array. Fallback method for small grids
+or non-polynomial boundary conditions.
 
-- Linear extrapolation: `coef = [2.0, -1.0]`
-- Quadratic extrapolation: `coef = [3.0, -3.0, 1.0]`
-- Auto-detected periodic patterns
+`y_centered` is an `AbstractVector{T}` (typically a view into the workspace slice).
 
-The recursion proceeds outward from the interior:
-```
-ghost[j] = sum(coef[k] * (ghost[j-k] or interior[...]) for k in 1:length(coef))
-```
-
-This method is used as a fallback when polynomial coefficients are unavailable or for
-small grids where polynomial method is not applicable.
-
-See also: `fill_ghost_points_polynomial!`, `detect_boundary_signal_fast`.
+See also: `fill_ghost_points_polynomial!`, `get_recursive_coefs`.
 """
 
 function fill_ghost_points_recursive!(c::AbstractArray{T}, idx::CartesianIndex,
                                      c_offset::AbstractVector{CartesianIndex{N}},
-                                     coef::Vector, y_offset::T, y_centered,
+                                     coef::Vector, y_offset::T, y_centered::AbstractVector{T},
                                      side::Symbol, eqs::Int, vs_size::NTuple,
                                      workspace::BoundaryWorkspace{T,N}) where {T,N}
     if side == :left

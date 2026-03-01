@@ -1,11 +1,11 @@
 """
-    ConvolutionInterpolation(knots::NTuple{N,AbstractVector}, vs::AbstractArray{T,N};
-                             degree::Symbol=:b5, B=nothing, kernel_bc=:auto) where {T,N}
+    ConvolutionInterpolation(knots, vs::AbstractArray{T,N};
+        degree::Symbol=:b5, B=nothing, kernel_bc=:auto, derivative::Int=0) where {T,N}
 
 Construct a convolution interpolation object for N-dimensional data using direct kernel evaluation.
 
 # Arguments
-- `knots::NTuple{N,AbstractVector}`: Tuple of vectors containing the grid points in each dimension
+- `knots`: Vector, range, or tuple of vectors/ranges containing the grid points in each dimension
 - `vs::AbstractArray{T,N}`: Values to interpolate at the grid points
 
 # Keyword Arguments
@@ -13,55 +13,46 @@ Construct a convolution interpolation object for N-dimensional data using direct
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a5` (quintic), `:a7` (septic)
   - `b`-series (recommended): `:a4`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
   - Nonuniform-specific: `:n3` (cubic)
-  - Default `:b5` provides quintic reproduction with 7th-order convergence (from Taylor series)
+  - Default `:b5` provides quintic reproduction with 7th-order convergence
 - `B=nothing`: If provided, uses Gaussian kernel with parameter `B` instead of polynomial kernel
-- `kernel_bc=:auto`: Boundary condition for kernel evaluation at domain boundaries
+- `kernel_bc=:auto`: Boundary condition for kernel evaluation at domain boundaries.
+  Options: `:auto`, `:polynomial`, `:linear`, `:quadratic`, `:periodic`, `:detect`
+- `derivative::Int=0`: Order of derivative to evaluate (0 for interpolation)
 
 # Returns
-`ConvolutionInterpolation` object callable at arbitrary points within the grid domain
+`ConvolutionInterpolation` object callable at arbitrary points within the grid domain.
 
 # Nonuniform grid handling
 When any dimension has nonuniform spacing:
-- **b-series kernels** (`:b5`, `:b7`, `:b9`, `:b11`, `:b13`): Uses precomputed polynomial
-  weight coefficients with exact `Rational{BigInt}` arithmetic. Provides O(h^(p_deg+1))
+- **b-series kernels** (`:b5` through `:b13`): Uses precomputed polynomial weight
+  coefficients with exact `Rational{BigInt}` arithmetic. Provides O(h^(p_deg+1))
   convergence where p_deg is the kernel's polynomial degree. Supports derivatives.
-- **a-series kernels** (`:a0`, `:a1`, `:a3`, `:a4`, `:a5`, `:a7`): Falls back to
-  nonuniform cubic (`:n3`) with O(h³) convergence.
+- **a-series kernels** (`:a0` through `:a7`): Falls back to nonuniform cubic (`:n3`)
+  with O(h³) convergence.
 
 # Performance
-For faster evaluation, consider `convolution_interpolation(..., fast=true)` which precomputes
-kernel values and uses O(1) lookup with linear interpolation (typically 3-10× faster, especially
-for higher-order kernels).
+Direct kernel evaluation without precomputed tables. For faster evaluation, use
+`FastConvolutionInterpolation` or `convolution_interpolation(..., fast=true)` which
+provides O(1) lookup via precomputed kernel tables.
 
-# Details
-Creates a convolution-based interpolator with specified kernel and boundary handling.
-The grid is automatically expanded at boundaries and coefficients are computed to satisfy
-the chosen boundary conditions. All `b`-series kernels provide 7th-order convergence with
-polynomial reproduction properties.
-
-Examples
+# Examples
 ```julia
 # 1D interpolation with quintic kernel
 knots = (range(0, 1, 100),)
 data = sin.(2π .* knots[1])
 itp = ConvolutionInterpolation(knots, data)
-itp(0.5)  # Evaluate at x=0.5
+itp(0.5)
 
-# 2D interpolation with cubic kernel
-knots = (range(0, 1, 50), range(0, 1, 50))
-data = [sin(x) * cos(y) for x in knots[1], y in knots[2]]
-itp = ConvolutionInterpolation(knots, data, degree=:a3)
-itp(0.3, 0.7)  # Evaluate at (x,y) = (0.3, 0.7)
-
-# Nonuniform grid with b5 kernel (automatic high-order nonuniform path)
+# Nonuniform grid with b5 kernel
 knots = ([0.0, 0.3, 0.7, 1.0, 1.8, 2.5, 3.0],)
 data = sin.(knots[1])
 itp = ConvolutionInterpolation(knots, data, degree=:b5)
 itp(0.5)
 ```
 
-See also: `convolution_interpolation` for automatic extrapolation at boundaries.
+See also: `convolution_interpolation` for the recommended high-level interface with extrapolation.
 """
+
 function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
                                         AbstractVector,AbstractRange,NTuple{N,AbstractRange}},
                                   vs::AbstractArray{T,N};

@@ -128,16 +128,17 @@ Performance across dimensions and kernel families:
 
 [![Kernel performance heatmap](fig/kernel_performance_comparison.png)](fig/kernel_performance_comparison.png)
 
-**Initialization** (left panel): One-time setup cost, dominated by boundary condition computation. Ranges from ~80 μs for linear kernels to ~475 ms for 4D `:b13`.
+**Initialization** (left panel): One-time setup cost. Ranges from ~2 μs for linear kernels to ~4 s for 4D `:b9`. For kernels higher than `:a1`, setup time scales with the number of boundary points. Benchmarks use 100 grid points per dimension (100, 100², 100³, 100⁴).
 
-**Evaluation** (right panel): Cost per interpolation call. Representative `:b5` timings:
-- 1D: 12 ns
-- 2D: 68 ns
-- 3D: 525 ns
+**Evaluation** (right panel): Cost per interpolation call with default settings (`:cubic` subgrid, extrapolation wrapper). Representative `:b5` timings:
+
+- 1D: 20 ns
+- 2D: 178 ns
+- 3D: 524 ns
+
+Lower times are achievable with lower order kernels, `:linear` subgrid or by bypassing the extrapolation wrapper (`itp.itp(x)`).
 
 Evaluation cost scales as (2×eqs)ᴺ across dimensions due to tensor product structure.
-
-Benchmarks use linear subgrid interpolation. Cubic and quintic subgrids improve accuracy but add overhead from additional tensor products per cell.
 
 ## Kernel Reference
 
@@ -275,7 +276,7 @@ itp = convolution_interpolation(x, y; subgrid=:linear, precompute=10_000) # Fast
 | `:cubic`   | Cubic Hermite        | 1                      | Middle  | High     |
 | `:quintic` | Quintic Hermite      | 2                      | Slowest | Highest  |
 
-Cubic and quintic subgrids use analytically predifferentiated kernels for Hermite interpolation, achieving high accuracy with far fewer precomputed points than linear subgrid requires. The default `:cubic` with `precompute=100` is a good starting point. For linear subgrid, increase `precompute` to at least 10,000.
+Cubic and quintic subgrids use analytically predifferentiated kernels for Hermite interpolation, achieving high accuracy with far fewer precomputed points than linear subgrid requires. The default `:cubic` with `precompute=101` uses pre-shipped kernel tables requiring zero computation at startup. For linear subgrid, increase `precompute` to at least 10,000.
 
 The available subgrid order depends on remaining smooth derivatives: `max_derivative[kernel] - derivative`. For example, b5 with `derivative=3` has no remaining derivatives, so only `:linear` is available.
 
@@ -287,8 +288,8 @@ Benchmarks in the [Speed](#speed) section use `:linear` subgrid.
 
 - **Default to `:b5`**: Best balance of accuracy and cost
 - **Higher b-kernels for smoothness**: b7 through b13 maintain 7th order convergence with increasingly smooth derivatives
-- **Use `:a` kernels if construction time matters**: b-series boundary handling adds initialization overhead on fine grids
-- **Lower degrees in high dimensions**: Boundary handling overhead grows with dimension; simpler kernels keep initialization fast in 4D+
+- **Use `:a0` or `:a1` kernels if construction time is critical**: boundary handling adds initialization overhead on fine grids for higher order kernels
+- **Pre-shipped kernel tables**: The default `precompute=101` with `:cubic` or `:quintic` subgrid loads precomputed constants — no disk I/O or computation on first use
 
 ## Technical Background
 
@@ -296,7 +297,7 @@ This package introduces four main contributions:
 
 **b-series kernel family.** A new family of high-order convolution kernels (b5, b7, b9, b11, b13) discovered through systematic analytical search using symbolic computation (SymPy), generalizing the approach of R. G. Keys (1981). All b-series kernels achieve 7th order convergence with polynomial reproduction far exceeding their own degree. Kernel coefficients are stored as exact rational numbers, enabling extended precision arithmetic with BigFloat.
 
-**Hermite multilevel interpolation.** Rather than evaluating kernel polynomials directly, kernels are discretized at a small number of points (default 100) and cached to disk via Scratch.jl. During evaluation, data is convolved with these precomputed values, and the results are interpolated using cubic or quintic Hermite subgrid interpolation. This approach is both faster and more numerically stable than direct polynomial evaluation.
+**Hermite multilevel interpolation.** Rather than evaluating kernel polynomials directly, kernels are discretized at a small number of points (default 101) and shipped as package constants. Higher resolutions or non-standard precisions are computed on demand and cached to disk via Scratch.jl. During evaluation, data is convolved with these precomputed values, and the results are interpolated using cubic or quintic Hermite subgrid interpolation. This approach is both faster and more numerically stable than direct polynomial evaluation.
 
 **Polynomial boundary conditions.** A boundary handling method that computes optimal ghost point values that preserve each kernel's polynomial reproduction properties. This maintains convergence order across the entire domain rather than degrading near boundaries.
 

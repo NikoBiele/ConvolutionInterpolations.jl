@@ -1,8 +1,12 @@
-# ============================================================
-# Updated nonuniform evaluation — uses ghost points (no clamp)
-# ============================================================
+"""
+    _nonuniform_dim_ghost(knots::AbstractVector{T}, x_val::Number) where T
 
-# --- Helper: find index and weights for one dimension (with ghost points) ---
+Find interval index and compute cubic nonuniform weights for a single dimension.
+
+Takes the expanded knot vector (including ghost points) and returns the interval index `i`
+and a 4-element weight tuple `w` for the stencil `[i-1, i, i+1, i+2]`. Uses local spacing
+ratios (hm, h0, hp) for the nonuniform cubic weight formula.
+"""
 
 @inline function _nonuniform_dim_ghost(knots::AbstractVector{T}, x_val::Number) where T
     # knots is the EXPANDED knot vector (includes ghost positions)
@@ -20,6 +24,16 @@
     w = nonuniform_weights(x_local, hm, h0, hp)
     return i, w
 end
+
+"""
+    (itp::ConvolutionInterpolation{...,Val{:n3},...})(x...)
+
+Evaluate nonuniform cubic (`:n3`) interpolation. Uses 4-point stencil per dimension with
+locally adapted weights based on nonuniform grid spacing. Supports 1D through N-D via
+tensor product of 1D weights. Ghost points at boundaries eliminate the need for clamping.
+
+This is the fallback path for a-series kernels on nonuniform grids.
+"""
 
 # --- 1D with ghost points ---
 
@@ -97,6 +111,13 @@ end
 # Nonuniform b-kernel interpolation
 # ============================================================
 
+"""
+    _nb_M_eqs(::Val{degree})
+
+Return the half-stencil size for a nonuniform b-kernel. Compile-time dispatch on kernel
+degree: b5→5, b7→6, b9→7, b11→8, b13→9.
+"""
+
 # --- Stencil size from degree (compile-time) ---
 @inline _nb_M_eqs(::Val{:b5})  = 5
 @inline _nb_M_eqs(::Val{:b7})  = 6
@@ -104,12 +125,29 @@ end
 @inline _nb_M_eqs(::Val{:b11}) = 8
 @inline _nb_M_eqs(::Val{:b13}) = 9
 
+"""
+    _nb_n_stencil(::Val{degree})
+
+Return the full stencil size as `Val(2*M_eqs)` for compile-time `ntuple` specialization.
+"""
+
 # Stencil size = 2 * M_eqs, returned as Val for ntuple
 @inline _nb_n_stencil(::Val{:b5})  = Val(10)
 @inline _nb_n_stencil(::Val{:b7})  = Val(12)
 @inline _nb_n_stencil(::Val{:b9})  = Val(14)
 @inline _nb_n_stencil(::Val{:b11}) = Val(16)
 @inline _nb_n_stencil(::Val{:b13}) = Val(18)
+
+"""
+    _nb_dim(knots_expanded, weight_coeffs, M_eqs, x_val, ::Val{NS}) where {T, NS}
+
+Find interval and evaluate precomputed polynomial weight coefficients for a single dimension
+of nonuniform b-kernel interpolation.
+
+Returns `(i, w, h0)`: interval index, stencil weights as `NTuple{NS,T}`, and local spacing.
+Weights are evaluated via Horner's method from the precomputed coefficient matrices stored
+in `weight_coeffs[k]`, where `k` is the interval index in the original (unexpanded) grid.
+"""
 
 # --- Core 1D helper: find interval + evaluate weight polynomials ---
 # NS is the stencil size, known at compile time via Val{NS}
@@ -137,7 +175,7 @@ end
         @inbounds begin
             val = coeffs[j, n_poly]
             for p in (n_poly-1):-1:1
-                val = muladd(val, s, coeffs[j, p])
+                val = val * s + coeffs[j, p]
             end
             val
         end
@@ -145,6 +183,17 @@ end
 
     return i, w, h0
 end
+
+"""
+    (itp::ConvolutionInterpolation{...,NB<:Tuple{Vararg{Vector{Matrix{Float64}}}}})(x...)
+
+Evaluate nonuniform b-kernel interpolation. Uses precomputed polynomial weight coefficients
+(exact Rational{BigInt} arithmetic, stored as Float64) for high-order convergence on
+nonuniform grids. Stencil size is `2*M_eqs` per dimension.
+
+Supports b5 through b13 kernels in 1D through N-D via tensor product of 1D weights.
+Derivative scaling uses local interval spacing `h0` per dimension.
+"""
 
 # ── Nonuniform b-kernel 1D ───────────────────────────────────
 # Dispatch: NB <: Tuple{Vector{Matrix{Float64}}} (not Nothing)

@@ -1,46 +1,38 @@
 """
     POLYNOMIAL_GHOST_COEFFS
 
-Dictionary containing precomputed coefficient matrices for polynomial-reproduction boundary conditions.
+Dictionary mapping kernel symbols to `Float64` coefficient matrices for polynomial-reproduction
+boundary conditions. Each row contains coefficients for computing one ghost point from
+interior values.
 
-# Structure
-Maps kernel symbols to integer coefficient matrices where each row contains the coefficients
-for computing one ghost point from interior values.
-
-For a kernel of type `:kernel`, `POLYNOMIAL_GHOST_COEFFS[:kernel]` is a matrix where:
-- Row `j` contains coefficients for ghost point `g_{-j}` (left boundary)
-- Each coefficient multiplies consecutive interior points starting from the boundary
+For a kernel `:k`, `POLYNOMIAL_GHOST_COEFFS[:k][j, :]` gives the coefficients to compute
+ghost point `g_{-j}` (left boundary) from consecutive interior points.
 
 # Available Kernels
-- `:a3`: Cubic reproduction, 2 ghost points, uses 4 interior points
-- `:a5`: Cubic reproduction, 3 ghost points, uses 4 interior points
-- `:a7`: Cubic reproduction, 4 ghost points, uses 4 interior points
-- `:a4`: Cubic reproduction, 3 ghost points, uses 4 interior points
-- `:b5`: Quintic reproduction, 5 ghost points, uses 6 interior points
-- `:b7`: Septic reproduction, 6 ghost points, uses 8 interior points
-- `:b9`: 7th-order convergence, 7 ghost points, uses 8 interior points
-- `:b11`: 7th-order convergence, 8 ghost points, uses 8 interior points
-- `:b13`: 7th-order convergence, 9 ghost points, uses 8 interior points
+- `:a3`: Cubic reproduction, 2 ghost points, 4 interior points
+- `:a4`: Cubic reproduction, 3 ghost points, 4 interior points
+- `:a5`: Cubic reproduction, 3 ghost points, 4 interior points
+- `:a7`: Cubic reproduction, 4 ghost points, 4 interior points
+- `:b5`: Quintic reproduction, 5 ghost points, 6 interior points
+- `:b7`: Septic reproduction, 6 ghost points, 8 interior points
+- `:b9`: 7th-order, 7 ghost points, 8 interior points
+- `:b11`: 7th-order, 8 ghost points, 8 interior points
+- `:b13`: 7th-order, 9 ghost points, 8 interior points
 
-# Computation Method
-Coefficients are computed by solving Vandermonde systems to ensure exact reproduction
-of polynomials up to the specified degree. For example, `:b5` coefficients guarantee
-that quintic polynomials are interpolated exactly even near boundaries.
-
-# Usage
-These coefficients are used internally by the boundary condition system. The ghost point
-computation is: `g_{-j} = sum(coef[j,k] * f[k] for k in 1:num_interior)`
+Coefficients are derived from Vandermonde systems ensuring exact polynomial reproduction
+up to the kernel's polynomial degree. Stored as `Float64` to avoid type promotion
+allocations during `mul!` in the boundary condition computation.
 
 See also: `get_polynomial_ghost_coeffs`, `fill_ghost_points_polynomial!`.
 """
 
-const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
+const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Float64}}(
     
     # a3: Reproduces polynomials up to degree 3
     # Support: [-2, 2], needs 2 ghost points
     # Uses 4 interior points (degree + 1)
     :a3 => [
-        4  -6  4  -1;  # g_{-1}
+        4.0  -6  4  -1;  # g_{-1}
         10  -20  15  -4;   # g_{-2}
     ],
 
@@ -48,7 +40,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
     # Support: [-3, 3], needs 3 ghost points
     # Uses 4 interior points (degree + 1)
     :a4 => [
-        4  -6  4  -1;  # g_{-1}
+        4.0  -6  4  -1;  # g_{-1}
         10  -20  15  -4;  # g_{-2}
         20  -45  36  -10;   # g_{-3}
     ],
@@ -57,7 +49,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
     # Support: [-3, 3], needs 3 ghost points
     # Uses 4 interior points (degree + 1)
     :a5 => [
-        4  -6   4  -1;     # g_{-1} = 4*f0 - 6*f1 + 4*f2 - 1*f3
+        4.0  -6   4  -1;     # g_{-1} = 4*f0 - 6*f1 + 4*f2 - 1*f3
         10 -20  15  -4;    # g_{-2} = 10*f0 - 20*f1 + 15*f2 - 4*f3
         20 -45  36 -10;    # g_{-3} = 20*f0 - 45*f1 + 36*f2 - 10*f3
     ],
@@ -66,7 +58,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
     # Support: [-4, 4], needs 4 ghost points
     # Uses 4 interior points (degree + 1)
     :a7 => [
-        4  -6  4  -1;  # g_{-1}
+        4.0  -6  4  -1;  # g_{-1}
         10  -20  15  -4;  # g_{-2}
         20  -45  36  -10;  # g_{-3}
         35  -84  70  -20;   # g_{-4}
@@ -76,7 +68,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
     # Support: [-5, 5], needs 5 ghost points
     # Uses 6 interior points (degree + 1)
     :b5 => [
-        6    -15    20   -15    6   -1;      # g_{-1}
+        6.0    -15    20   -15    6   -1;      # g_{-1}
         21   -70   105   -84   35   -6;      # g_{-2}
         56  -210   336  -280  120  -21;      # g_{-3}
         126 -504   840  -720  315  -56;      # g_{-4}
@@ -87,7 +79,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
     # Support: [-6, 6], needs 6 ghost points
     # Uses 8 interior points (degree + 1)
     :b7 => [
-        8  -28  56  -70  56  -28  8  -1;  # g_{-1}
+        8.0  -28  56  -70  56  -28  8  -1;  # g_{-1}
         36  -168  378  -504  420  -216  63  -8;  # g_{-2}
         120  -630  1512  -2100  1800  -945  280  -36;  # g_{-3}
         330  -1848  4620  -6600  5775  -3080  924  -120;  # g_{-4}
@@ -99,7 +91,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
     # Support: [-7, 7], needs 7 ghost points
     # Uses 8 interior points (degree + 1)
     :b9 => [
-        8  -28  56  -70  56  -28  8  -1;  # g_{-1}
+        8.0  -28  56  -70  56  -28  8  -1;  # g_{-1}
         36  -168  378  -504  420  -216  63  -8;  # g_{-2}
         120  -630  1512  -2100  1800  -945  280  -36;  # g_{-3}
         330  -1848  4620  -6600  5775  -3080  924  -120;  # g_{-4}
@@ -112,7 +104,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
     # Support: [-8, 8], needs 8 ghost points
     # Uses 8 interior points (degree + 1)
     :b11 => [
-        8  -28  56  -70  56  -28  8  -1;  # g_{-1}
+        8.0  -28  56  -70  56  -28  8  -1;  # g_{-1}
         36  -168  378  -504  420  -216  63  -8;  # g_{-2}
         120  -630  1512  -2100  1800  -945  280  -36;  # g_{-3}
         330  -1848  4620  -6600  5775  -3080  924  -120;  # g_{-4}
@@ -126,7 +118,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
     # Support: [-9, 9], needs 9 ghost points
     # Uses 8 interior points (degree + 1)
     :b13 => [
-        8  -28  56  -70  56  -28  8  -1;  # g_{-1}
+        8.0  -28  56  -70  56  -28  8  -1;  # g_{-1}
         36  -168  378  -504  420  -216  63  -8;  # g_{-2}
         120  -630  1512  -2100  1800  -945  280  -36;  # g_{-3}
         330  -1848  4620  -6600  5775  -3080  924  -120;  # g_{-4}
@@ -141,32 +133,10 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
 """
     get_polynomial_ghost_coeffs(kernel_type::Symbol)
 
-Retrieve precomputed polynomial-reproduction ghost point coefficients for a given kernel.
+Retrieve the polynomial ghost point coefficient matrix for a given kernel.
+Returns a `Matrix{Float64}` from `POLYNOMIAL_GHOST_COEFFS`.
 
-# Arguments
-- `kernel_type::Symbol`: Kernel identifier (`:a3`, `:b5`, `:b7`, etc.)
-
-# Returns
-Integer coefficient matrix where row `j` contains coefficients for computing ghost point
-`g_{-j}` from interior values. The number of rows equals the number of ghost points needed
-(kernel support radius), and the number of columns equals the number of interior points
-used for the computation.
-
-# Throws
-`ArgumentError` if `kernel_type` is not available in `POLYNOMIAL_GHOST_COEFFS`
-
-# Examples
-```julia
-# Get coefficients for b5 kernel
-coefs = get_polynomial_ghost_coeffs(:b5)
-# Returns a 5×6 matrix for computing 5 ghost points from 6 interior points
-
-# Compute first ghost point for some data
-f = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]  # Interior points
-g_minus_1 = sum(coefs[1, k] * f[k] for k in 1:6)
-```
-
-See also: `POLYNOMIAL_GHOST_COEFFS`, `boundary_coefs`.
+See also: `POLYNOMIAL_GHOST_COEFFS`.
 """
 
 function get_polynomial_ghost_coeffs(kernel_type::Symbol)

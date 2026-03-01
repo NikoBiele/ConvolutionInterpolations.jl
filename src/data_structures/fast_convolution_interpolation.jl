@@ -1,6 +1,7 @@
 """
     FastConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,ConvolutionMethod},
-                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP} <: AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC}
+                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP,KBC,DO,FD,SD,SG} <: 
+                                AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG}
 
 A structure that implements convolution-based interpolation with precomputed kernel values for speed.
 
@@ -14,8 +15,11 @@ A structure that implements convolution-based interpolation with precomputed ker
 - `DT`: The dimension type (Val{N} for N≤3, HigherDimension{N} otherwise)
 - `DG`: The degree type (Val{degree})
 - `EQ`: The equation order type
-- `PR`: The type of the precomputed range
-- `KP`: The type of the precomputed kernel values
+- `KBC`: The kernel boundary condition type
+- `DO`: The derivative order type
+- `FD`: The first derivative type
+- `SD`: The second derivative type
+- `SG`: The subgrid type
 
 # Fields
 - `coefs::TCoefs`: The coefficient array with boundary extensions
@@ -28,10 +32,14 @@ A structure that implements convolution-based interpolation with precomputed ker
 - `eqs::EQ`: The number of equations used in the boundary conditions
 - `pre_range::PR`: The precomputed range of positions for kernel evaluation
 - `kernel_pre::KP`: The precomputed kernel values
+- `kernel_bc::KBC`: The kernel boundary condition
+- `derivative_order::DO`: The derivative order
+- `kernel_d1_pre::FD`: The precomputed first derivative
+- `kernel_d2_pre::SD`: The precomputed second derivative
+- `subgrid::SG`: The subgrid
 
-This implementation uses precomputed kernel values for commonly used positions,
-offering significantly faster performance than `ConvolutionInterpolation` at the cost
-of some additional memory usage.
+This implementation uses precomputed kernel values,
+offering significantly faster performance than `ConvolutionInterpolation`.
 """
 struct FastConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,ConvolutionMethod},
                                 Axs<:Tuple,KA,DT,DG,EQ,PR,KP,KBC,DO,FD,SD,SG} <: 

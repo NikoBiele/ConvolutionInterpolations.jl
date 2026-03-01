@@ -1,5 +1,5 @@
 """
-    get_equations_for_degree(degree::Integer)
+    get_equations_for_degree(degree::Symbol)
 
 Get the number of piecewise equations required for a convolution kernel of the specified degree.
 
@@ -21,9 +21,9 @@ Supported degrees are:
     :a0 => 1,
     :a1 => 1,
     :a3 => 2,
+    :a4 => 3,
     :a5 => 3,
     :a7 => 4,
-    :a4 => 3,
     :b5 => 5,
     :b7 => 6,
     :b9 => 7,
@@ -35,10 +35,10 @@ nonic, and higher-order kernels.
 # Examples
 ```julia
 # Get number of equations for a cubic kernel
-eqs = get_equations_for_degree(3)  # Returns 3
+eqs = get_equations_for_degree(:a4)  # Returns 3
 
 # Get number of equations for a quintic kernel
-eqs = get_equations_for_degree(5)  # Returns 5
+eqs = get_equations_for_degree(:b5)  # Returns 5
 ```
 """
 function get_equations_for_degree(degree::Symbol)

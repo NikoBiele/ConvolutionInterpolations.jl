@@ -1,5 +1,5 @@
 include("autocor_coefs.jl")
-include("boundary_coefs.jl")
+include("get_recursive_coefs.jl")
 include("create_convolutional_coefs.jl")
 include("linear_predict.jl")
 include("autocorrelation.jl")

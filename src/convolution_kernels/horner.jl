@@ -1,5 +1,5 @@
 """
-    horner(x::T, coeffs::Dict{Symbol,Vector{S}}, poly::Symbol) where {T,S}
+    horner(x::T, coef_dict, key, ::Type{T}, DO::P) where {T,P<:Integer}
 
 Efficiently evaluates a polynomial at point `x` using Horner's method.
 
@@ -7,6 +7,8 @@ Efficiently evaluates a polynomial at point `x` using Horner's method.
 - `x::T`: The point at which to evaluate the polynomial
 - `coeffs::Dict{Symbol,Vector{S}}`: A dictionary mapping polynomial identifiers to coefficient vectors
 - `poly::Symbol`: The identifier of the polynomial to evaluate
+- `T`: The type of the coefficients (default: Float64)
+- `DO::P`: Order of derivative to evaluate (default: 0)
 
 # Returns
 - The value of the polynomial at point `x`

@@ -6,13 +6,15 @@ using LaTeXStrings
 using Scratch
 # Scratch.clear_scratchspaces!()
 
-G = BigFloat # Float64
+G = Float64
 runge(x) = G(1)./G(G(1)+25*x^2)
 xf = [G(-1) + 2*G(i)/G(11_000) for i in 0:11_000]
 yf = runge.(xf)
 
 n = 100
 ns = unique(trunc.(Int, 10.0 .^([1 + 3.0 * i/(n-1) for i in 0:(n-1)])))
+subgrid = :cubic # :linear
+precompute = 101 # 10_000
 # cerrors = zeros(G, length(ns))
 # cubic_spline_errors = zeros(G, length(ns))
 itpb5_fast_errors = zeros(G, length(ns))
@@ -30,11 +32,11 @@ for n in ns
     xr = [G(-1.0)+G(2*i)/G(n-1) for i in 0:(n-1)]
     # xr_spline = range(-1.0, 1.0, length=n)
     # cubic_spline = Interpolations.cubic_spline_interpolation(xr_spline, runge.(xr))
-    itpb5_fast = convolution_interpolation(xr, runge.(xr); degree=:b5, fast=true, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
-    itpb7_fast = convolution_interpolation(xr, runge.(xr); degree=:b7, fast=true, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
-    itpb9_fast = convolution_interpolation(xr, runge.(xr); degree=:b9, fast=true, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
-    itpb11_fast = convolution_interpolation(xr, runge.(xr); degree=:b11, fast=true, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
-    itpb13_fast = convolution_interpolation(xr, runge.(xr); degree=:b13, fast=true, subgrid=:cubic, kernel_bc=[(:polynomial,:polynomial)]);
+    itpb5_fast = convolution_interpolation(xr, runge.(xr); degree=:b5, fast=true, subgrid=subgrid, precompute=precompute, kernel_bc=[(:polynomial,:polynomial)]);
+    itpb7_fast = convolution_interpolation(xr, runge.(xr); degree=:b7, fast=true, subgrid=subgrid, precompute=precompute, kernel_bc=[(:polynomial,:polynomial)]);
+    itpb9_fast = convolution_interpolation(xr, runge.(xr); degree=:b9, fast=true, subgrid=subgrid, precompute=precompute, kernel_bc=[(:polynomial,:polynomial)]);
+    itpb11_fast = convolution_interpolation(xr, runge.(xr); degree=:b11, fast=true, subgrid=subgrid, precompute=precompute, kernel_bc=[(:polynomial,:polynomial)]);
+    itpb13_fast = convolution_interpolation(xr, runge.(xr); degree=:b13, fast=true, subgrid=subgrid, precompute=precompute, kernel_bc=[(:polynomial,:polynomial)]);
 
     # cerrors[count] = maximum(abs.(c.(xf) - yf))
     # cubic_spline_errors[count] = maximum(abs.(cubic_spline.(xf) - yf))

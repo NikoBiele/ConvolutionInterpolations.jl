@@ -54,7 +54,11 @@ end
  
     # Direct index calculation
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
-    i = clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    i = if itp.lazy
+        clamp(floor(Int, i_float), 1, length(itp.knots[1]) - 1)
+    else
+        clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    end
     x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]
     x_diff_right = one(T) - x_diff_left
 
@@ -71,11 +75,20 @@ end
     # convolve nearest neighbor with kernel
     result = zero(T)
     
-    @inbounds for j in -(itp.eqs-1):itp.eqs
-        coef = itp.coefs[i+j]
-        kernel = itp.kernel_pre[idx, j+itp.eqs]
-        
-        result += coef * kernel
+    if itp.lazy && is_boundary_stencil(i, length(itp.coefs), itp.eqs)
+        kernel_type = _kernel_sym(itp.deg)
+        ng = itp.eqs - 1
+        @inbounds for j in -(itp.eqs-1):itp.eqs
+            coef = lazy_ghost_value(itp.coefs, (i + ng + j,), itp.eqs, kernel_type)
+            kernel = itp.kernel_pre[idx, j+itp.eqs]
+            result += coef * kernel
+        end
+    else
+        @inbounds for j in -(itp.eqs-1):itp.eqs
+            coef = itp.coefs[i+j]
+            kernel = itp.kernel_pre[idx, j+itp.eqs]
+            result += coef * kernel
+        end
     end
 
     # use the nearest neighbor directly
@@ -88,7 +101,11 @@ end
 
     # Direct index calculation
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
-    i = clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    i = if itp.lazy
+        clamp(floor(Int, i_float), 1, length(itp.knots[1]) - 1)
+    else
+        clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    end
     x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]
     x_diff_right = one(T) - x_diff_left
 
@@ -103,13 +120,24 @@ end
     result_lower = zero(T)
     result_upper = zero(T)
     
-    @inbounds for j in -(itp.eqs-1):itp.eqs
-        coef = itp.coefs[i+j]
-        k_lower = itp.kernel_pre[idx, j+itp.eqs]
-        k_upper = itp.kernel_pre[idx_next, j+itp.eqs]
-        
-        result_lower += coef * k_lower
-        result_upper += coef * k_upper
+    if itp.lazy && is_boundary_stencil(i, length(itp.coefs), itp.eqs)
+        kernel_type = _kernel_sym(itp.deg)
+        ng = itp.eqs - 1
+        @inbounds for j in -(itp.eqs-1):itp.eqs
+            coef = lazy_ghost_value(itp.coefs, (i + ng + j,), itp.eqs, kernel_type)
+            k_lower = itp.kernel_pre[idx, j+itp.eqs]
+            k_upper = itp.kernel_pre[idx_next, j+itp.eqs]
+            result_lower += coef * k_lower
+            result_upper += coef * k_upper
+        end
+    else
+        @inbounds for j in -(itp.eqs-1):itp.eqs
+            coef = itp.coefs[i+j]
+            k_lower = itp.kernel_pre[idx, j+itp.eqs]
+            k_upper = itp.kernel_pre[idx_next, j+itp.eqs]
+            result_lower += coef * k_lower
+            result_upper += coef * k_upper
+        end
     end
 
     # linear interpolation
@@ -122,7 +150,11 @@ end
 
     # Direct index calculation
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
-    i = clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    i = if itp.lazy
+        clamp(floor(Int, i_float), 1, length(itp.knots[1]) - 1)
+    else
+        clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    end
     x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]
 
     # move on to higher order subgrids
@@ -142,15 +174,28 @@ end
     sum_di1 = zero(T)
 
     # Single pass: accumulate both results simultaneously
-    @inbounds for j in -(itp.eqs-1):itp.eqs
-        coef = itp.coefs[i+j]
-        col = j + itp.eqs
-        
-        sum_f0 += coef * itp.kernel_pre[idx, col]
-        sum_f1 += coef * itp.kernel_pre[idx_next, col]
-        sum_di0 += coef * itp.kernel_d1_pre[idx, col]
-        sum_di1 += coef * itp.kernel_d1_pre[idx_next, col]
+    if itp.lazy && is_boundary_stencil(i, length(itp.coefs), itp.eqs)
+        kernel_type = _kernel_sym(itp.deg)
+        ng = itp.eqs - 1
+        @inbounds for j in -(itp.eqs-1):itp.eqs
+            coef = lazy_ghost_value(itp.coefs, (i + ng + j,), itp.eqs, kernel_type)
+            col = j + itp.eqs
+            sum_f0 += coef * itp.kernel_pre[idx, col]
+            sum_f1 += coef * itp.kernel_pre[idx_next, col]
+            sum_di0 += coef * itp.kernel_d1_pre[idx, col]
+            sum_di1 += coef * itp.kernel_d1_pre[idx_next, col]
+        end
+    else
+        @inbounds for j in -(itp.eqs-1):itp.eqs
+            coef = itp.coefs[i+j]
+            col = j + itp.eqs
+            sum_f0 += coef * itp.kernel_pre[idx, col]
+            sum_f1 += coef * itp.kernel_pre[idx_next, col]
+            sum_di0 += coef * itp.kernel_d1_pre[idx, col]
+            sum_di1 += coef * itp.kernel_d1_pre[idx_next, col]
+        end
     end
+
     # Cubic Hermite interpolation
     h_pre = one(T) / T(n_pre - 1)
     return cubic_hermite(t, sum_f0, sum_f1, sum_di0, sum_di1, h_pre) * (-one(T)/itp.h[1])^(DO.parameters[1])
@@ -162,7 +207,11 @@ end
 
     # Direct index calculation
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
-    i = clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    i = if itp.lazy
+        clamp(floor(Int, i_float), 1, length(itp.knots[1]) - 1)
+    else
+        clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    end
     x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]
 
     # move on to higher order subgrids
@@ -183,16 +232,30 @@ end
     sum_dd0 = zero(T)
     sum_dd1 = zero(T)
 
-    @inbounds for j in -(itp.eqs-1):itp.eqs
-        coef = itp.coefs[i+j]
-        col = j + itp.eqs
-        
-        sum_f0 += coef * itp.kernel_pre[idx, col]
-        sum_f1 += coef * itp.kernel_pre[idx_next, col]
-        sum_d0 += coef * itp.kernel_d1_pre[idx, col]
-        sum_d1 += coef * itp.kernel_d1_pre[idx_next, col]
-        sum_dd0 += coef * itp.kernel_d2_pre[idx, col]
-        sum_dd1 += coef * itp.kernel_d2_pre[idx_next, col]
+    if itp.lazy && is_boundary_stencil(i, length(itp.coefs), itp.eqs)
+        kernel_type = _kernel_sym(itp.deg)
+        ng = itp.eqs - 1
+        @inbounds for j in -(itp.eqs-1):itp.eqs
+            coef = lazy_ghost_value(itp.coefs, (i + ng + j,), itp.eqs, kernel_type)
+            col = j + itp.eqs
+            sum_f0 += coef * itp.kernel_pre[idx, col]
+            sum_f1 += coef * itp.kernel_pre[idx_next, col]
+            sum_d0 += coef * itp.kernel_d1_pre[idx, col]
+            sum_d1 += coef * itp.kernel_d1_pre[idx_next, col]
+            sum_dd0 += coef * itp.kernel_d2_pre[idx, col]
+            sum_dd1 += coef * itp.kernel_d2_pre[idx_next, col]
+        end
+    else
+        @inbounds for j in -(itp.eqs-1):itp.eqs
+            coef = itp.coefs[i+j]
+            col = j + itp.eqs
+            sum_f0 += coef * itp.kernel_pre[idx, col]
+            sum_f1 += coef * itp.kernel_pre[idx_next, col]
+            sum_d0 += coef * itp.kernel_d1_pre[idx, col]
+            sum_d1 += coef * itp.kernel_d1_pre[idx_next, col]
+            sum_dd0 += coef * itp.kernel_d2_pre[idx, col]
+            sum_dd1 += coef * itp.kernel_d2_pre[idx_next, col]
+        end
     end
 
     # Quintic Hermite interpolation

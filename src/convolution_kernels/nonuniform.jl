@@ -70,7 +70,3 @@ Tuple `(w_m1, w_0, w_1, w_2)` of weights for the 4-point stencil
     
     return (w_m1, w_0, w_1, w_2)
 end
-
-# Keep the old name as an alias for backwards compatibility
-@inline nonuniform_weights(s::T, hm::T, h0::T, hp::T) where T = 
-    nonuniform_cubic_weights(s, hm, h0, hp)

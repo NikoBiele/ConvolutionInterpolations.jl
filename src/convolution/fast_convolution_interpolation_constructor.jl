@@ -1,93 +1,84 @@
 """
-    FastConvolutionInterpolation(knots, vs::AbstractArray{T,N};
-        degree::Symbol=:b5, precompute::Int=101, B=nothing, kernel_bc=:auto,
-        derivative::Int=0, subgrid::Symbol=:cubic) where {T,N}
+    FastConvolutionInterpolation(knots, vs::AbstractArray{T,N}; kwargs...) where {T,N}
 
-Construct a fast convolution interpolation object with precomputed kernel values for O(1) evaluation.
+Construct a fast convolution interpolation object with precomputed kernel tables for O(1) evaluation.
+This is the lower-level fast constructor — most users should prefer `convolution_interpolation`,
+which wraps this with extrapolation handling and automatic mode selection.
+
+Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation` directly.
 
 # Arguments
-- `knots`: Vector, range, or tuple of vectors/ranges containing the grid points in each dimension
-- `vs::AbstractArray{T,N}`: Values to interpolate at the grid points
+- `knots`: Vector or range (1D) or tuple of vectors/ranges (N-D) of grid coordinates.
+- `vs`: Array of values at the grid points.
 
 # Keyword Arguments
-- `degree::Symbol=:b5`: Convolution kernel to use. Available kernels:
-  - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a5` (quintic), `:a7` (septic)
-  - `b`-series (recommended): `:a4`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
-  - Default `:b5` provides quintic reproduction with 7th-order convergence
-- `precompute::Int=101`: Resolution of the precomputed kernel table. The default (101) uses
-  pre-shipped tables requiring zero computation. Higher values (e.g. 10_000) trigger on-demand
-  computation and disk caching, useful for the `:linear` subgrid mode
-- `B=nothing`: If provided, uses Gaussian kernel with parameter `B` instead of polynomial kernel
-- `kernel_bc=:auto`: Boundary condition for kernel evaluation at domain boundaries.
-  Options: `:auto`, `:polynomial`, `:linear`, `:quadratic`, `:periodic`, `:detect`
-- `derivative::Int=0`: Order of derivative to evaluate (0 for interpolation, up to 6 for b-series)
-- `subgrid::Symbol=:cubic`: Subgrid interpolation mode for precomputed kernel tables.
-  Options: `:linear` (fastest, needs high precompute), `:cubic` (default), `:quintic` (most accurate).
-  Availability depends on remaining smooth derivatives: `max_smooth_derivative[kernel] - derivative`
+- `degree::Symbol=:a4`: Convolution kernel to use.
+  - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a4` (quartic), `:a5` (quintic), `:a7` (septic)
+  - `b`-series: `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
+- `precompute::Int=101`: Resolution of the precomputed kernel table. The default uses
+  pre-shipped tables (zero computation). Automatically raised to at least 10,000 for
+  `:linear` subgrid mode.
+- `B=nothing`: If provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
+  Forces eager mode.
+- `kernel_bc=:auto`: Boundary condition for kernel evaluation at domain edges.
+  Options: `:auto`, `:polynomial`, `:linear`, `:quadratic`, `:periodic`, `:detect`.
+- `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
+  kernels. For `a`-series kernels the top derivative automatically uses linear interpolation
+  to match the kernel's continuity class.
+- `subgrid::Symbol=:cubic`: Subgrid interpolation mode for the precomputed kernel table.
+  Options: `:linear` (fastest, needs high `precompute`), `:cubic` (default), `:quintic`.
+  Automatically downgraded to `:linear` for 3D+ and when evaluating the top derivative
+  of a kernel. Validated against the kernel's continuity class.
+- `lazy::Bool=false`: When `true`, skip ghost point expansion at construction time.
+  The raw values are stored directly and ghost points are computed on the fly during
+  evaluation near boundaries. Interior evaluation has zero overhead compared to eager mode.
+  Automatically disabled for `:a0`, `:a1`, and Gaussian kernels.
+- `boundary_fallback::Bool=false`: When `true`, throw an error instead of computing ghost
+  points when evaluating near boundaries in lazy mode. Prevents expensive tensor-product
+  ghost computation in high dimensions. Only active when `lazy=true`.
 
 # Returns
-`FastConvolutionInterpolation` object with O(1) evaluation time, independent of grid size.
+A `FastConvolutionInterpolation` object callable at arbitrary points within the grid domain.
+Does not handle extrapolation — use `convolution_interpolation` or wrap in
+`ConvolutionExtrapolation` for that.
 
-# Performance
-- Construction: ~5μs for 1D with 100 grid points (b5 kernel), using pre-shipped kernel tables
-- Evaluation: allocation-free, O(1). Typical 1D timings: `:a0`/`:a1` ~6ns, `:b5` ~20ns
-- Performance scales with dimensionality but not with grid size
-
-# Details
-The constructor expands the grid at boundaries, computes ghost point coefficients using
-polynomial boundary conditions, and loads precomputed kernel tables. For the default
-`precompute=101`, kernel tables are shipped with the package and loaded as constants
-(no disk I/O). For higher resolutions or BigFloat precision, tables are computed on first
-use and cached to disk via Scratch.jl.
-
-The subgrid mode controls how kernel values between precomputed points are interpolated:
-`:cubic` uses Hermite interpolation with analytically predifferentiated kernels (default),
-`:quintic` adds second derivatives for higher accuracy, and `:linear` uses simple linear
-interpolation requiring higher table resolution for equivalent accuracy.
-
-# Examples
-```julia
-# 1D fast interpolation with quintic kernel
-knots = (range(0, 1, 100),)
-data = sin.(2π .* knots[1])
-itp = FastConvolutionInterpolation(knots, data)
-itp(0.5)  # O(1) evaluation at x=0.5
-
-# 2D fast interpolation
-knots = (range(0, 1, 50), range(0, 1, 50))
-data = [sin(x) * cos(y) for x in knots[1], y in knots[2]]
-itp = FastConvolutionInterpolation(knots, data, degree=:b7)
-itp(0.3, 0.7)
-
-# First derivative evaluation
-itp = FastConvolutionInterpolation((range(0, 2π, 100),), sin.(range(0, 2π, 100)), derivative=1)
-```
-
-See also: `convolution_interpolation` for the recommended high-level interface with extrapolation.
+See also: [`convolution_interpolation`](@ref), [`ConvolutionInterpolation`](@ref), [`ConvolutionExtrapolation`](@ref).
 """
 
 function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector},AbstractRange,NTuple{N,AbstractRange}},
                                       vs::AbstractArray{T,N};
-                                      degree::Symbol=:b5, precompute::Int=101, B=nothing,
+                                      degree::Symbol=:a4, precompute::Int=101, B=nothing,
                                       kernel_bc=:auto,
                                       derivative::Int=0,
-                                      subgrid::Symbol=:cubic) where {T,N}
+                                      subgrid::Symbol=:cubic,
+                                      lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
 
     subgrid = validate_subgrid_compatibility(degree::Symbol, derivative::Int, subgrid::Symbol)
+    if N >= 3 && subgrid in (:cubic, :quintic)
+        subgrid = :linear
+    end
+    precompute = subgrid == :linear ? max(precompute, 10_000) : precompute # minimum precompute for linear subgrid
     if knots isa AbstractVector || knots isa AbstractRange
         knots = (knots,) # Convert knots to tuple if needed (if called directly)
     end
     eqs = B === nothing ? get_equations_for_degree(degree) : 50
     h = map(k -> k[2] - k[1], knots)
     it = ntuple(_ -> ConvolutionMethod(), N)
-    knots_new = expand_knots(knots, eqs-1) # expand boundaries
-    coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree) # create boundaries
+
+    # ===== LAZY vs EAGER coefs/knots =====
+    if lazy && degree != :a0 && degree != :a1 && B === nothing
+        # LAZY: store raw values directly, original knots (not expanded)
+        coefs = vs
+        knots_new = ntuple(i -> collect(eltype(h), knots[i]), N)
+    else
+        # EAGER: original path — expand knots and compute ghost points
+        lazy = false  # ensure flag matches actual state
+        knots_new = expand_knots(knots, eqs-1)
+        coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree)
+    end
+
     kernel = B === nothing ? ConvolutionKernel(Val(degree), Val(derivative)) : GaussianConvolutionKernel(Val(B))
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
-    if N >= 3 && subgrid in (:cubic, :quintic)
-        subgrid = :linear
-        precompute = max(precompute, 10_000)
-    end
     pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre = 
                   get_precomputed_kernel_and_range(degree; precompute=precompute, float_type=T,
                   derivative=derivative, subgrid=subgrid)
@@ -97,7 +88,7 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                                         typeof(degree),typeof(eqs),typeof(pre_range),typeof(kernel_pre),typeof(kernel_bc),
                                         typeof(Val(derivative)), typeof(kernel_d1_pre),typeof(kernel_d2_pre),typeof(Val(subgrid))}(
         coefs, knots_new, it, h, kernel, dimension, degree, eqs, pre_range, kernel_pre, kernel_bc, Val(derivative),
-        kernel_d1_pre, kernel_d2_pre, Val(subgrid)
+        kernel_d1_pre, kernel_d2_pre, Val(subgrid), lazy, boundary_fallback
     )
 end
 
@@ -107,13 +98,13 @@ function validate_subgrid_compatibility(degree::Symbol, derivative::Int, subgrid
     end 
     max_deriv = max_smooth_derivative[degree]  # e.g., 3 for b5
     available_derivs = max_deriv - derivative
-    
-    if required_derivs[subgrid] > available_derivs
-        throw(ArgumentError(
-            "Subgrid strategy :$subgrid requires $(required_derivs[subgrid]) additional derivatives, " *
-            "but only $available_derivs available for kernel :$degree with derivative order $derivative. " *
-            "Use :$(suggest_subgrid(available_derivs)) subgrid or lower instead."
-        ))
+
+    if available_derivs == 0 && subgrid != :linear
+        subgrid = :linear # force linear subgrid for top derivatives
+    elseif available_derivs < 0
+        error("Cannot compute derivative $(derivative) for kernel $degree with subgrid $subgrid." * 
+                "Maximum available derivative with this kernel and subgrid: $(available_derivs)."*
+                "Try a different kernel or subgrid.")
     end
     
     return subgrid

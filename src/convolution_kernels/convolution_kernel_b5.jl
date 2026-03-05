@@ -1,4 +1,11 @@
-# see 'docstring.jl' for documentation
+"""
+    (::ConvolutionKernel{Val{:b5},DO})(s)
+
+Quintic b-series kernel. Support [-5, 5], 5 pieces.
+C3 continuous, 7th-order accuracy. Derived by optimizing frequency response closeness
+to the ideal sinc function. Supports derivatives up to order 3 with smooth evaluation.
+"""
+
 const b5_coefs = Dict(
     # 5 equation quintic, 7th order accurate
     :eq1 => [1//1, 0//1, -731//384, 0//1, 11423//7680, -4483//7680], 

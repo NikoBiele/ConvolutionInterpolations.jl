@@ -1,56 +1,30 @@
 """
-    (etp::ConvolutionExtrapolation{T,N,ITPT,ET,O})(x::Vararg{Number,N}) where {T,N,ITPT,ET,O}
+    (etp::ConvolutionExtrapolation)(x::Vararg{Number,N})
 
-Evaluate the interpolation/extrapolation at the given point.
+Evaluate the extrapolation object at the given coordinates.
 
-# Arguments
-- `etp::ConvolutionExtrapolation`: The extrapolation object
-- `x::Vararg{Number,N}`: The coordinates at which to evaluate the function
+For points inside the interpolation domain, delegates directly to the underlying
+interpolation object. For points outside, applies the extrapolation boundary condition
+(`Throw()`, `Flat()`, `Line()`, `Periodic()`).
 
-# Returns
-The interpolated or extrapolated value at the given point
+Domain bounds are determined by `_domain_bounds`, which accounts for lazy mode and
+boundary fallback settings — in lazy mode with `boundary_fallback=true`, the valid
+domain is narrowed to avoid expensive ghost point computation near boundaries.
 
-# Details
-This function is the main evaluation method for extrapolation objects. It first determines
-whether the given point lies within or outside the valid interpolation domain by checking
-each coordinate against the domain boundaries.
-
-The valid interpolation domain is defined as the region where:
-```julia
-knots[d][eqs] ≤ x[d] ≤ knots[d][end-(eqs-1)] for all dimensions d
-```
-
-If the point is within bounds, the function delegates to the underlying interpolation
-object for efficient evaluation. If the point is outside bounds (in any dimension),
-it calls `extrapolate_point` to apply the appropriate boundary condition.
-
-This approach ensures optimal performance for points inside the domain, while still
-providing accurate extrapolation for points outside it, based on the specified
-boundary condition (`Line`, `Flat`, `Periodic`, `Reflect`, or `Throw`).
-
-# Broadcasting Support
-The extrapolation object supports efficient broadcasting over arrays of coordinates,
+Supports broadcasting over arrays of coordinates for vectorized evaluation,
 adapted from [Interpolations.jl](https://github.com/JuliaMath/Interpolations.jl).
-This enables vectorized evaluation for improved performance.
 
 # Examples
 ```julia
-# Create an interpolation with extrapolation
-knots = range(0, 1, length=10)
-values = sin.(2π .* knots)
-etp = convolution_interpolation(knots, values, extrapolation_bc=Line())
+knots = range(0, 2π, length=50)
+etp = convolution_interpolation(knots, sin.(knots), extrapolation_bc=Line())
 
-# Evaluate at a point inside the domain
-etp(0.5)  # Uses direct interpolation
-
-# Evaluate at a point outside the domain
-etp(1.2)  # Uses extrapolation based on the Line boundary condition
-
-# Broadcasting (vectorized evaluation)
-etp.([0.3, 0.5, 0.7, 1.2])  # Evaluates at multiple points efficiently
+etp(1.0)                         # interior: direct interpolation
+etp(7.0)                         # exterior: linear extrapolation
+etp.([0.3, 0.5, 0.7, 7.0])      # broadcasting over multiple points
 ```
 
-See also: [`extrapolate_point`](@ref), [`convolution_interpolation`](@ref)
+See also: [`convolution_interpolation`](@ref), [`extrapolate_point`](@ref), [`_domain_bounds`](@ref).
 """
 
 # For broadcasting (Adapted from Interpolations.jl)
@@ -64,7 +38,8 @@ See also: [`extrapolate_point`](@ref), [`convolution_interpolation`](@ref)
         y = x  # x is already a tuple of scalars
         within_bounds = true
         for d in 1:N
-            if y[d] > knots[d][end-(itp.eqs-1)] || y[d] < knots[d][itp.eqs]
+            lo, hi = _domain_bounds(itp, d)
+            if y[d] > hi || y[d] < lo
                 within_bounds = false
                 break
             end
@@ -79,10 +54,11 @@ See also: [`extrapolate_point`](@ref), [`convolution_interpolation`](@ref)
     
     # Array case
     ret = zeros(T, sh)
-    for (i, y) in zip(eachindex(ret), Iterators.product(x...))    
-        within_bounds = true
+    for (i, y) in zip(eachindex(ret), Iterators.product(x...))
+        within_bounds = true    
         for d in 1:N
-            if y[d] > knots[d][end-(itp.eqs-1)] || y[d] < knots[d][itp.eqs]
+            lo, hi = _domain_bounds(itp, d)
+            if y[d] > hi || y[d] < lo
                 within_bounds = false
                 break
             end

@@ -95,8 +95,12 @@ function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},HigherOr
 
     # First dimension (x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
-    i = clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
-    x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]  # Recompute from actual knot
+    i = if itp.lazy
+        clamp(floor(Int, i_float), 1, length(itp.knots[1]) - 1)
+    else
+        clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    end
+    x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]
     x_diff_right = one(T) - x_diff_left
     idx_x = clamp(floor(Int, x_diff_right * (length(itp.pre_range) - one(Int64))) + one(Int64), one(Int64), length(itp.pre_range) - one(Int64))
     idx_x_next = idx_x + one(Int64)
@@ -104,8 +108,12 @@ function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},HigherOr
 
     # Second dimension (y)
     j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + one(T)
-    j = clamp(floor(Int, j_float), itp.eqs, length(itp.knots[2]) - itp.eqs)
-    y_diff_left = (x[2] - itp.knots[2][j]) / itp.h[2]  # Recompute from actual knot
+    j = if itp.lazy
+        clamp(floor(Int, j_float), 1, length(itp.knots[2]) - 1)
+    else
+        clamp(floor(Int, j_float), itp.eqs, length(itp.knots[2]) - itp.eqs)
+    end
+    y_diff_left = (x[2] - itp.knots[2][j]) / itp.h[2]
     y_diff_right = one(T) - y_diff_left
     idx_y = clamp(floor(Int, y_diff_right * (length(itp.pre_range) - one(Int64))) + one(Int64), one(Int64), length(itp.pre_range) - one(Int64))
     idx_y_next = idx_y + one(Int64)
@@ -113,8 +121,12 @@ function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},HigherOr
 
     # Third dimension (z)
     k_float = (x[3] - itp.knots[3][1]) / itp.h[3] + one(T)
-    k = clamp(floor(Int, k_float), itp.eqs, length(itp.knots[3]) - itp.eqs)
-    z_diff_left = (x[3] - itp.knots[3][k]) / itp.h[3]  # Recompute from actual knot
+    k = if itp.lazy
+        clamp(floor(Int, k_float), 1, length(itp.knots[3]) - 1)
+    else
+        clamp(floor(Int, k_float), itp.eqs, length(itp.knots[3]) - itp.eqs)
+    end
+    z_diff_left = (x[3] - itp.knots[3][k]) / itp.h[3]
     z_diff_right = one(T) - z_diff_left
     idx_z = clamp(floor(Int, z_diff_right * (length(itp.pre_range) - one(Int64))) + one(Int64), one(Int64), length(itp.pre_range) - one(Int64))
     idx_z_next = idx_z + one(Int64)
@@ -131,28 +143,58 @@ function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},HigherOr
     result_111 = zero(T)
     
     # Single triple loop - accumulate all 8 corners simultaneously
-    @inbounds for n in -(itp.eqs-1):itp.eqs
-        kz_0 = itp.kernel_pre[idx_z, n+itp.eqs]
-        kz_1 = itp.kernel_pre[idx_z_next, n+itp.eqs]
-        
-        @inbounds for m in -(itp.eqs-1):itp.eqs
-            ky_0 = itp.kernel_pre[idx_y, m+itp.eqs]
-            ky_1 = itp.kernel_pre[idx_y_next, m+itp.eqs]
+    if itp.lazy && (is_boundary_stencil(i, size(itp.coefs, 1), itp.eqs) ||
+                    is_boundary_stencil(j, size(itp.coefs, 2), itp.eqs) ||
+                    is_boundary_stencil(k, size(itp.coefs, 3), itp.eqs))
+        kernel_type = _kernel_sym(itp.deg)
+        ng = itp.eqs - 1
+        @inbounds for n in -(itp.eqs-1):itp.eqs
+            kz_0 = itp.kernel_pre[idx_z, n+itp.eqs]
+            kz_1 = itp.kernel_pre[idx_z_next, n+itp.eqs]
             
-            @inbounds for l in -(itp.eqs-1):itp.eqs
-                coef = itp.coefs[i+l, j+m, k+n]
-                kx_0 = itp.kernel_pre[idx_x, l+itp.eqs]
-                kx_1 = itp.kernel_pre[idx_x_next, l+itp.eqs]
+            @inbounds for m in -(itp.eqs-1):itp.eqs
+                ky_0 = itp.kernel_pre[idx_y, m+itp.eqs]
+                ky_1 = itp.kernel_pre[idx_y_next, m+itp.eqs]
                 
-                # Accumulate all 8 corners
-                result_000 += coef * kx_0 * ky_0 * kz_0
-                result_100 += coef * kx_1 * ky_0 * kz_0
-                result_010 += coef * kx_0 * ky_1 * kz_0
-                result_110 += coef * kx_1 * ky_1 * kz_0
-                result_001 += coef * kx_0 * ky_0 * kz_1
-                result_101 += coef * kx_1 * ky_0 * kz_1
-                result_011 += coef * kx_0 * ky_1 * kz_1
-                result_111 += coef * kx_1 * ky_1 * kz_1
+                @inbounds for l in -(itp.eqs-1):itp.eqs
+                    coef = lazy_ghost_value(itp.coefs, (i + ng + l, j + ng + m, k + ng + n), itp.eqs, kernel_type)
+                    kx_0 = itp.kernel_pre[idx_x, l+itp.eqs]
+                    kx_1 = itp.kernel_pre[idx_x_next, l+itp.eqs]
+                    
+                    result_000 += coef * kx_0 * ky_0 * kz_0
+                    result_100 += coef * kx_1 * ky_0 * kz_0
+                    result_010 += coef * kx_0 * ky_1 * kz_0
+                    result_110 += coef * kx_1 * ky_1 * kz_0
+                    result_001 += coef * kx_0 * ky_0 * kz_1
+                    result_101 += coef * kx_1 * ky_0 * kz_1
+                    result_011 += coef * kx_0 * ky_1 * kz_1
+                    result_111 += coef * kx_1 * ky_1 * kz_1
+                end
+            end
+        end
+    else
+        @inbounds for n in -(itp.eqs-1):itp.eqs
+            kz_0 = itp.kernel_pre[idx_z, n+itp.eqs]
+            kz_1 = itp.kernel_pre[idx_z_next, n+itp.eqs]
+            
+            @inbounds for m in -(itp.eqs-1):itp.eqs
+                ky_0 = itp.kernel_pre[idx_y, m+itp.eqs]
+                ky_1 = itp.kernel_pre[idx_y_next, m+itp.eqs]
+                
+                @inbounds for l in -(itp.eqs-1):itp.eqs
+                    coef = itp.coefs[i+l, j+m, k+n]
+                    kx_0 = itp.kernel_pre[idx_x, l+itp.eqs]
+                    kx_1 = itp.kernel_pre[idx_x_next, l+itp.eqs]
+                    
+                    result_000 += coef * kx_0 * ky_0 * kz_0
+                    result_100 += coef * kx_1 * ky_0 * kz_0
+                    result_010 += coef * kx_0 * ky_1 * kz_0
+                    result_110 += coef * kx_1 * ky_1 * kz_0
+                    result_001 += coef * kx_0 * ky_0 * kz_1
+                    result_101 += coef * kx_1 * ky_0 * kz_1
+                    result_011 += coef * kx_0 * ky_1 * kz_1
+                    result_111 += coef * kx_1 * ky_1 * kz_1
+                end
             end
         end
     end

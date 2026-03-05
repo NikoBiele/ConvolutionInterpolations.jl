@@ -21,7 +21,7 @@ ratios (hm, h0, hp) for the nonuniform cubic weight formula.
     h0 = knots[i+1] - knots[i]
     hp = knots[i+2] - knots[i+1]
     
-    w = nonuniform_weights(x_local, hm, h0, hp)
+    w = nonuniform_cubic_weights(x_local, hm, h0, hp)
     return i, w
 end
 
@@ -40,6 +40,9 @@ This is the fallback path for a-series kernels on nonuniform grids.
 @inline function (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
                     Val{:n3},EQ,KBC,DO})(x::Vararg{Number,1}) where 
                     {T,TCoefs,IT,Axs,KA,EQ,KBC,DO}
+    if itp.lazy
+        return _eval_n3_lazy(itp, x[1])
+    end
 
     # itp.knots[1] is the expanded knot vector
     # itp.coefs includes ghost values
@@ -54,6 +57,9 @@ end
 @inline function (itp::ConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
                     Val{:n3},EQ,KBC,DO})(x::Vararg{Number,2}) where 
                     {T,TCoefs,IT,Axs,KA,EQ,KBC,DO}
+    if itp.lazy
+        return _eval_n3_lazy(itp, x[1], x[2])
+    end
 
     i, wi = _nonuniform_dim_ghost(itp.knots[1], x[1])
     j, wj = _nonuniform_dim_ghost(itp.knots[2], x[2])
@@ -72,6 +78,9 @@ end
 @inline function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
                     Val{:n3},EQ,KBC,DO})(x::Vararg{Number,3}) where 
                     {T,TCoefs,IT,Axs,KA,EQ,KBC,DO}
+    if itp.lazy
+        return _eval_n3_lazy(itp, x[1], x[2], x[3])
+    end
 
     i, wi = _nonuniform_dim_ghost(itp.knots[1], x[1])
     j, wj = _nonuniform_dim_ghost(itp.knots[2], x[2])
@@ -93,6 +102,9 @@ end
 @inline function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
                     Val{:n3},EQ,KBC,DO})(x::Vararg{Number,N}) where 
                     {T,N,TCoefs,IT,Axs,KA,EQ,KBC,DO}
+    if itp.lazy
+        return _eval_n3_lazy(itp, x...)
+    end
 
     iw = ntuple(d -> _nonuniform_dim_ghost(itp.knots[d], x[d]), N)
     indices = ntuple(d -> iw[d][1], N)

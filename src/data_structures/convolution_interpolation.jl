@@ -29,6 +29,9 @@ A structure that implements convolution-based interpolation on N-dimensional dat
   b-kernel interpolation (per dimension). `nothing` for uniform grids and non-b kernels.
   When active, is an `NTuple{N, Vector{Matrix{Float64}}}` where each element holds
   per-interval polynomial coefficients for one dimension.
+- `lazy::Bool`: If `true`, no ghost points are computed, and are instead computed on the fly.
+- `boundary_fallback::Bool`: When `true`, throws an error instead of computing ghost
+  points when evaluating near boundaries in lazy mode.
 
 This implementation evaluates the convolution kernel at each point directly,
 providing accurate results but potentially slower performance than `FastConvolutionInterpolation`.
@@ -51,4 +54,6 @@ struct ConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,Convoluti
     kernel_d2_pre::SD
     subgrid::SG
     nb_weight_coeffs::NB
+    lazy::Bool
+    boundary_fallback::Bool
 end

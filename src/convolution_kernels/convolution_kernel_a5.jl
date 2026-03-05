@@ -1,4 +1,10 @@
-# see 'docstring.jl' for documentation
+"""
+    (::ConvolutionKernel{Val{:a5},DO})(s)
+
+Quintic a-series kernel. Support [-3, 3], 3 pieces.
+C1 continuous. Same support as `:a4` but higher polynomial degree.
+"""
+
 const a = 3//64
 const a5_coefs = Dict(
     # 3 equation quintic

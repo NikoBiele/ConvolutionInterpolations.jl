@@ -1,4 +1,11 @@
-# see 'docstring.jl' for documentation
+"""
+    (::ConvolutionKernel{Val{:a4},DO})(s)
+
+Keys' 4th order cubic kernel. Support [-3, 3], 3 pieces.
+C1 continuous, 4th-order accuracy. One extra stencil point over `:a3` for an additional
+order of accuracy — the default kernel.
+"""
+
 const a4_coefs = Dict(
     :eq1 => [1//1, 0//1, -7//3, 4//3],
     :eq2 => [15//6, -59//12, 3//1, -7//12],
@@ -15,10 +22,8 @@ function (::ConvolutionKernel{:a4,DO})(s::T) where {T,DO}
         a4_coefs
     elseif DO == 1
         a4_coefs_d1
-    elseif DO == -1
-        a4_coefs_i1
     else
-        error("kernel :a4 supports differentiation orders -1, 0, 1, but got $DO")
+        error("kernel :a4 supports differentiation orders 0, 1, but got $DO")
     end
     s_abs = abs(s)
     if s_abs < 1.0

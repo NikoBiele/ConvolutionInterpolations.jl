@@ -37,6 +37,9 @@ A structure that implements convolution-based interpolation with precomputed ker
 - `kernel_d1_pre::FD`: The precomputed first derivative
 - `kernel_d2_pre::SD`: The precomputed second derivative
 - `subgrid::SG`: The subgrid
+- `lazy::Bool`: If `true`, no ghost points are computed, and are instead computed on the fly.
+- `boundary_fallback::Bool`: When `true`, throws an error instead of computing ghost
+  points when evaluating near boundaries in lazy mode.
 
 This implementation uses precomputed kernel values,
 offering significantly faster performance than `ConvolutionInterpolation`.
@@ -59,4 +62,6 @@ struct FastConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,Convo
     kernel_d1_pre::FD
     kernel_d2_pre::SD
     subgrid::SG
+    lazy::Bool
+    boundary_fallback::Bool
 end

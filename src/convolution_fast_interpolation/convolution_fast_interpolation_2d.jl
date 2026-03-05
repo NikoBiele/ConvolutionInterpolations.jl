@@ -78,22 +78,26 @@ function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
     
     # First dimension (x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
-    i = clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
-    x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]  # Recompute from actual knot
+    i = if itp.lazy
+        clamp(floor(Int, i_float), 1, length(itp.knots[1]) - 1)
+    else
+        clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    end
+    x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]
     x_diff_right = one(T) - x_diff_left
-    # Direct pre_range index - no search
     idx_x = clamp(floor(Int, x_diff_right * (length(itp.pre_range) - one(Int64))) + one(Int64), one(Int64), length(itp.pre_range) - one(Int64))
-    # Linear interpolation weight
     t_x = (x_diff_right - itp.pre_range[idx_x]) / (itp.pre_range[idx_x+1] - itp.pre_range[idx_x])
 
     # Second dimension (y)
     j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + one(T)
-    j = clamp(floor(Int, j_float), itp.eqs, length(itp.knots[2]) - itp.eqs)
-    y_diff_left = (x[2] - itp.knots[2][j]) / itp.h[2]  # Recompute from actual knot
+    j = if itp.lazy
+        clamp(floor(Int, j_float), 1, length(itp.knots[2]) - 1)
+    else
+        clamp(floor(Int, j_float), itp.eqs, length(itp.knots[2]) - itp.eqs)
+    end
+    y_diff_left = (x[2] - itp.knots[2][j]) / itp.h[2]
     y_diff_right = one(T) - y_diff_left 
-    # Direct pre_range index - no search
     idx_y = clamp(floor(Int, y_diff_right * (length(itp.pre_range) - one(T))) + one(Int64), one(Int64), length(itp.pre_range) - one(Int64))
-    # Linear interpolation weight
     t_y = (y_diff_right - itp.pre_range[idx_y]) / (itp.pre_range[idx_y+1] - itp.pre_range[idx_y])
     
     # Initialize results
@@ -103,20 +107,40 @@ function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
     result_11 = zero(T)
 
     # Single pass through the convolution support
-    @inbounds for m in -(itp.eqs-1):itp.eqs
-        ky_0 = itp.kernel_pre[idx_y, m+itp.eqs]
-        ky_1 = itp.kernel_pre[idx_y+1, m+itp.eqs]
-        
-        @inbounds for l in -(itp.eqs-1):itp.eqs
-            coef = itp.coefs[i+l, j+m]
-            kx_0 = itp.kernel_pre[idx_x, l+itp.eqs]
-            kx_1 = itp.kernel_pre[idx_x+1, l+itp.eqs]
+    if itp.lazy && (is_boundary_stencil(i, size(itp.coefs, 1), itp.eqs) ||
+                    is_boundary_stencil(j, size(itp.coefs, 2), itp.eqs))
+        kernel_type = _kernel_sym(itp.deg)
+        ng = itp.eqs - 1
+        @inbounds for m in -(itp.eqs-1):itp.eqs
+            ky_0 = itp.kernel_pre[idx_y, m+itp.eqs]
+            ky_1 = itp.kernel_pre[idx_y+1, m+itp.eqs]
             
-            # Accumulate all 4 corners - pure tensor product
-            result_00 += coef * kx_0 * ky_0
-            result_10 += coef * kx_1 * ky_0
-            result_01 += coef * kx_0 * ky_1
-            result_11 += coef * kx_1 * ky_1
+            @inbounds for l in -(itp.eqs-1):itp.eqs
+                coef = lazy_ghost_value(itp.coefs, (i + ng + l, j + ng + m), itp.eqs, kernel_type)
+                kx_0 = itp.kernel_pre[idx_x, l+itp.eqs]
+                kx_1 = itp.kernel_pre[idx_x+1, l+itp.eqs]
+                
+                result_00 += coef * kx_0 * ky_0
+                result_10 += coef * kx_1 * ky_0
+                result_01 += coef * kx_0 * ky_1
+                result_11 += coef * kx_1 * ky_1
+            end
+        end
+    else
+        @inbounds for m in -(itp.eqs-1):itp.eqs
+            ky_0 = itp.kernel_pre[idx_y, m+itp.eqs]
+            ky_1 = itp.kernel_pre[idx_y+1, m+itp.eqs]
+            
+            @inbounds for l in -(itp.eqs-1):itp.eqs
+                coef = itp.coefs[i+l, j+m]
+                kx_0 = itp.kernel_pre[idx_x, l+itp.eqs]
+                kx_1 = itp.kernel_pre[idx_x+1, l+itp.eqs]
+                
+                result_00 += coef * kx_0 * ky_0
+                result_10 += coef * kx_1 * ky_0
+                result_01 += coef * kx_0 * ky_1
+                result_11 += coef * kx_1 * ky_1
+            end
         end
     end
 
@@ -131,7 +155,11 @@ end
 
     # First dimension (x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
-    i = clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    i = if itp.lazy
+        clamp(floor(Int, i_float), 1, length(itp.knots[1]) - 1)
+    else
+        clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    end
     x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]
     x_diff_right = one(T) - x_diff_left
     n_pre = length(itp.pre_range)
@@ -141,7 +169,11 @@ end
 
     # Second dimension (y)
     j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + one(T)
-    j = clamp(floor(Int, j_float), itp.eqs, length(itp.knots[2]) - itp.eqs)
+    j = if itp.lazy
+        clamp(floor(Int, j_float), 1, length(itp.knots[2]) - 1)
+    else
+        clamp(floor(Int, j_float), itp.eqs, length(itp.knots[2]) - itp.eqs)
+    end
     y_diff_left = (x[2] - itp.knots[2][j]) / itp.h[2]
     y_diff_right = one(T) - y_diff_left
     continuous_idx_y = y_diff_right * T(n_pre - 1) + one(T)
@@ -149,64 +181,98 @@ end
     t_y = continuous_idx_y - T(idx_y)
 
     # 16 accumulators: f and df for 2 x-positions × 2 y-positions
-    # Naming: s_[x-quantity][y-quantity]_[x-idx][y-idx]
-    # f = function value, d = derivative value
     s_ff_00 = zero(T); s_ff_10 = zero(T); s_ff_01 = zero(T); s_ff_11 = zero(T)
     s_df_00 = zero(T); s_df_10 = zero(T); s_df_01 = zero(T); s_df_11 = zero(T)
     s_fd_00 = zero(T); s_fd_10 = zero(T); s_fd_01 = zero(T); s_fd_11 = zero(T)
     s_dd_00 = zero(T); s_dd_10 = zero(T); s_dd_01 = zero(T); s_dd_11 = zero(T)
 
-    @inbounds for m in -(itp.eqs-1):itp.eqs
-        col_y = m + itp.eqs
-        ky_f0 = itp.kernel_pre[idx_y, col_y]
-        ky_f1 = itp.kernel_pre[idx_y+1, col_y]
-        ky_d0 = itp.kernel_d1_pre[idx_y, col_y]
-        ky_d1 = itp.kernel_d1_pre[idx_y+1, col_y]
+    if itp.lazy && (is_boundary_stencil(i, size(itp.coefs, 1), itp.eqs) ||
+                    is_boundary_stencil(j, size(itp.coefs, 2), itp.eqs))
+        kernel_type = _kernel_sym(itp.deg)
+        ng = itp.eqs - 1
+        @inbounds for m in -(itp.eqs-1):itp.eqs
+            col_y = m + itp.eqs
+            ky_f0 = itp.kernel_pre[idx_y, col_y]
+            ky_f1 = itp.kernel_pre[idx_y+1, col_y]
+            ky_d0 = itp.kernel_d1_pre[idx_y, col_y]
+            ky_d1 = itp.kernel_d1_pre[idx_y+1, col_y]
 
-        @inbounds for l in -(itp.eqs-1):itp.eqs
-            coef = itp.coefs[i+l, j+m]
-            col_x = l + itp.eqs
-            kx_f0 = itp.kernel_pre[idx_x, col_x]
-            kx_f1 = itp.kernel_pre[idx_x+1, col_x]
-            kx_d0 = itp.kernel_d1_pre[idx_x, col_x]
-            kx_d1 = itp.kernel_d1_pre[idx_x+1, col_x]
+            @inbounds for l in -(itp.eqs-1):itp.eqs
+                coef = lazy_ghost_value(itp.coefs, (i + ng + l, j + ng + m), itp.eqs, kernel_type)
+                col_x = l + itp.eqs
+                kx_f0 = itp.kernel_pre[idx_x, col_x]
+                kx_f1 = itp.kernel_pre[idx_x+1, col_x]
+                kx_d0 = itp.kernel_d1_pre[idx_x, col_x]
+                kx_d1 = itp.kernel_d1_pre[idx_x+1, col_x]
 
-            # All 16 tensor products
-            s_ff_00 += coef * kx_f0 * ky_f0
-            s_ff_10 += coef * kx_f1 * ky_f0
-            s_ff_01 += coef * kx_f0 * ky_f1
-            s_ff_11 += coef * kx_f1 * ky_f1
+                s_ff_00 += coef * kx_f0 * ky_f0
+                s_ff_10 += coef * kx_f1 * ky_f0
+                s_ff_01 += coef * kx_f0 * ky_f1
+                s_ff_11 += coef * kx_f1 * ky_f1
 
-            s_df_00 += coef * kx_d0 * ky_f0
-            s_df_10 += coef * kx_d1 * ky_f0
-            s_df_01 += coef * kx_d0 * ky_f1
-            s_df_11 += coef * kx_d1 * ky_f1
+                s_df_00 += coef * kx_d0 * ky_f0
+                s_df_10 += coef * kx_d1 * ky_f0
+                s_df_01 += coef * kx_d0 * ky_f1
+                s_df_11 += coef * kx_d1 * ky_f1
 
-            s_fd_00 += coef * kx_f0 * ky_d0
-            s_fd_10 += coef * kx_f1 * ky_d0
-            s_fd_01 += coef * kx_f0 * ky_d1
-            s_fd_11 += coef * kx_f1 * ky_d1
+                s_fd_00 += coef * kx_f0 * ky_d0
+                s_fd_10 += coef * kx_f1 * ky_d0
+                s_fd_01 += coef * kx_f0 * ky_d1
+                s_fd_11 += coef * kx_f1 * ky_d1
 
-            s_dd_00 += coef * kx_d0 * ky_d0
-            s_dd_10 += coef * kx_d1 * ky_d0
-            s_dd_01 += coef * kx_d0 * ky_d1
-            s_dd_11 += coef * kx_d1 * ky_d1
+                s_dd_00 += coef * kx_d0 * ky_d0
+                s_dd_10 += coef * kx_d1 * ky_d0
+                s_dd_01 += coef * kx_d0 * ky_d1
+                s_dd_11 += coef * kx_d1 * ky_d1
+            end
+        end
+    else
+        @inbounds for m in -(itp.eqs-1):itp.eqs
+            col_y = m + itp.eqs
+            ky_f0 = itp.kernel_pre[idx_y, col_y]
+            ky_f1 = itp.kernel_pre[idx_y+1, col_y]
+            ky_d0 = itp.kernel_d1_pre[idx_y, col_y]
+            ky_d1 = itp.kernel_d1_pre[idx_y+1, col_y]
+
+            @inbounds for l in -(itp.eqs-1):itp.eqs
+                coef = itp.coefs[i+l, j+m]
+                col_x = l + itp.eqs
+                kx_f0 = itp.kernel_pre[idx_x, col_x]
+                kx_f1 = itp.kernel_pre[idx_x+1, col_x]
+                kx_d0 = itp.kernel_d1_pre[idx_x, col_x]
+                kx_d1 = itp.kernel_d1_pre[idx_x+1, col_x]
+
+                s_ff_00 += coef * kx_f0 * ky_f0
+                s_ff_10 += coef * kx_f1 * ky_f0
+                s_ff_01 += coef * kx_f0 * ky_f1
+                s_ff_11 += coef * kx_f1 * ky_f1
+
+                s_df_00 += coef * kx_d0 * ky_f0
+                s_df_10 += coef * kx_d1 * ky_f0
+                s_df_01 += coef * kx_d0 * ky_f1
+                s_df_11 += coef * kx_d1 * ky_f1
+
+                s_fd_00 += coef * kx_f0 * ky_d0
+                s_fd_10 += coef * kx_f1 * ky_d0
+                s_fd_01 += coef * kx_f0 * ky_d1
+                s_fd_11 += coef * kx_f1 * ky_d1
+
+                s_dd_00 += coef * kx_d0 * ky_d0
+                s_dd_10 += coef * kx_d1 * ky_d0
+                s_dd_01 += coef * kx_d0 * ky_d1
+                s_dd_11 += coef * kx_d1 * ky_d1
+            end
         end
     end
 
     # Nested cubic Hermite: first interpolate along x for each y-bracket
     h_pre = one(T) / T(n_pre - 1)
 
-    # At y-subgrid idx_y: Hermite along x using (ff, df) at x=0,1
     val_y0  = cubic_hermite(t_x, s_ff_00, s_ff_10, s_df_00, s_df_10, h_pre)
-    # At y-subgrid idx_y+1: Hermite along x using (ff, df) at x=0,1
     val_y1  = cubic_hermite(t_x, s_ff_01, s_ff_11, s_df_01, s_df_11, h_pre)
-    # d/dy at y-subgrid idx_y: Hermite along x using (fd, dd) at x=0,1
     dval_y0 = cubic_hermite(t_x, s_fd_00, s_fd_10, s_dd_00, s_dd_10, h_pre)
-    # d/dy at y-subgrid idx_y+1: Hermite along x using (fd, dd) at x=0,1
     dval_y1 = cubic_hermite(t_x, s_fd_01, s_fd_11, s_dd_01, s_dd_11, h_pre)
 
-    # Then Hermite along y
     result = cubic_hermite(t_y, val_y0, val_y1, dval_y0, dval_y1, h_pre)
 
     return result * (-one(T)/itp.h[1])^(DO.parameters[1]) * (-one(T)/itp.h[2])^(DO.parameters[1])
@@ -218,7 +284,11 @@ end
 
     # First dimension (x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
-    i = clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    i = if itp.lazy
+        clamp(floor(Int, i_float), 1, length(itp.knots[1]) - 1)
+    else
+        clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
+    end
     x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]
     x_diff_right = one(T) - x_diff_left
     n_pre = length(itp.pre_range)
@@ -228,16 +298,18 @@ end
 
     # Second dimension (y)
     j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + one(T)
-    j = clamp(floor(Int, j_float), itp.eqs, length(itp.knots[2]) - itp.eqs)
+    j = if itp.lazy
+        clamp(floor(Int, j_float), 1, length(itp.knots[2]) - 1)
+    else
+        clamp(floor(Int, j_float), itp.eqs, length(itp.knots[2]) - itp.eqs)
+    end
     y_diff_left = (x[2] - itp.knots[2][j]) / itp.h[2]
     y_diff_right = one(T) - y_diff_left
     continuous_idx_y = y_diff_right * T(n_pre - 1) + one(T)
     idx_y = clamp(floor(Int, continuous_idx_y), 1, n_pre - 1)
     t_y = continuous_idx_y - T(idx_y)
 
-    # 36 accumulators: (f, d1, d2) × 2 x-brackets × (f, d1, d2) × 2 y-brackets
-    # Naming: s_[x-type][y-type]_[x-idx][y-idx]
-    # f = function, d = first derivative, e = second derivative
+    # 36 accumulators
     s_ff_00 = zero(T); s_ff_10 = zero(T); s_ff_01 = zero(T); s_ff_11 = zero(T)
     s_df_00 = zero(T); s_df_10 = zero(T); s_df_01 = zero(T); s_df_11 = zero(T)
     s_ef_00 = zero(T); s_ef_10 = zero(T); s_ef_01 = zero(T); s_ef_11 = zero(T)
@@ -248,69 +320,118 @@ end
     s_de_00 = zero(T); s_de_10 = zero(T); s_de_01 = zero(T); s_de_11 = zero(T)
     s_ee_00 = zero(T); s_ee_10 = zero(T); s_ee_01 = zero(T); s_ee_11 = zero(T)
 
-    @inbounds for m in -(itp.eqs-1):itp.eqs
-        col_y = m + itp.eqs
-        ky_f0 = itp.kernel_pre[idx_y, col_y]
-        ky_f1 = itp.kernel_pre[idx_y+1, col_y]
-        ky_d0 = itp.kernel_d1_pre[idx_y, col_y]
-        ky_d1 = itp.kernel_d1_pre[idx_y+1, col_y]
-        ky_e0 = itp.kernel_d2_pre[idx_y, col_y]
-        ky_e1 = itp.kernel_d2_pre[idx_y+1, col_y]
+    if itp.lazy && (is_boundary_stencil(i, size(itp.coefs, 1), itp.eqs) ||
+                    is_boundary_stencil(j, size(itp.coefs, 2), itp.eqs))
+        kernel_type = _kernel_sym(itp.deg)
+        ng = itp.eqs - 1
+        @inbounds for m in -(itp.eqs-1):itp.eqs
+            col_y = m + itp.eqs
+            ky_f0 = itp.kernel_pre[idx_y, col_y]
+            ky_f1 = itp.kernel_pre[idx_y+1, col_y]
+            ky_d0 = itp.kernel_d1_pre[idx_y, col_y]
+            ky_d1 = itp.kernel_d1_pre[idx_y+1, col_y]
+            ky_e0 = itp.kernel_d2_pre[idx_y, col_y]
+            ky_e1 = itp.kernel_d2_pre[idx_y+1, col_y]
 
-        @inbounds for l in -(itp.eqs-1):itp.eqs
-            coef = itp.coefs[i+l, j+m]
-            col_x = l + itp.eqs
-            kx_f0 = itp.kernel_pre[idx_x, col_x]
-            kx_f1 = itp.kernel_pre[idx_x+1, col_x]
-            kx_d0 = itp.kernel_d1_pre[idx_x, col_x]
-            kx_d1 = itp.kernel_d1_pre[idx_x+1, col_x]
-            kx_e0 = itp.kernel_d2_pre[idx_x, col_x]
-            kx_e1 = itp.kernel_d2_pre[idx_x+1, col_x]
+            @inbounds for l in -(itp.eqs-1):itp.eqs
+                coef = lazy_ghost_value(itp.coefs, (i + ng + l, j + ng + m), itp.eqs, kernel_type)
+                col_x = l + itp.eqs
+                kx_f0 = itp.kernel_pre[idx_x, col_x]
+                kx_f1 = itp.kernel_pre[idx_x+1, col_x]
+                kx_d0 = itp.kernel_d1_pre[idx_x, col_x]
+                kx_d1 = itp.kernel_d1_pre[idx_x+1, col_x]
+                kx_e0 = itp.kernel_d2_pre[idx_x, col_x]
+                kx_e1 = itp.kernel_d2_pre[idx_x+1, col_x]
 
-            # All 36 tensor products
-            s_ff_00 += coef * kx_f0 * ky_f0;  s_ff_10 += coef * kx_f1 * ky_f0
-            s_ff_01 += coef * kx_f0 * ky_f1;  s_ff_11 += coef * kx_f1 * ky_f1
+                s_ff_00 += coef * kx_f0 * ky_f0;  s_ff_10 += coef * kx_f1 * ky_f0
+                s_ff_01 += coef * kx_f0 * ky_f1;  s_ff_11 += coef * kx_f1 * ky_f1
 
-            s_df_00 += coef * kx_d0 * ky_f0;  s_df_10 += coef * kx_d1 * ky_f0
-            s_df_01 += coef * kx_d0 * ky_f1;  s_df_11 += coef * kx_d1 * ky_f1
+                s_df_00 += coef * kx_d0 * ky_f0;  s_df_10 += coef * kx_d1 * ky_f0
+                s_df_01 += coef * kx_d0 * ky_f1;  s_df_11 += coef * kx_d1 * ky_f1
 
-            s_ef_00 += coef * kx_e0 * ky_f0;  s_ef_10 += coef * kx_e1 * ky_f0
-            s_ef_01 += coef * kx_e0 * ky_f1;  s_ef_11 += coef * kx_e1 * ky_f1
+                s_ef_00 += coef * kx_e0 * ky_f0;  s_ef_10 += coef * kx_e1 * ky_f0
+                s_ef_01 += coef * kx_e0 * ky_f1;  s_ef_11 += coef * kx_e1 * ky_f1
 
-            s_fd_00 += coef * kx_f0 * ky_d0;  s_fd_10 += coef * kx_f1 * ky_d0
-            s_fd_01 += coef * kx_f0 * ky_d1;  s_fd_11 += coef * kx_f1 * ky_d1
+                s_fd_00 += coef * kx_f0 * ky_d0;  s_fd_10 += coef * kx_f1 * ky_d0
+                s_fd_01 += coef * kx_f0 * ky_d1;  s_fd_11 += coef * kx_f1 * ky_d1
 
-            s_dd_00 += coef * kx_d0 * ky_d0;  s_dd_10 += coef * kx_d1 * ky_d0
-            s_dd_01 += coef * kx_d0 * ky_d1;  s_dd_11 += coef * kx_d1 * ky_d1
+                s_dd_00 += coef * kx_d0 * ky_d0;  s_dd_10 += coef * kx_d1 * ky_d0
+                s_dd_01 += coef * kx_d0 * ky_d1;  s_dd_11 += coef * kx_d1 * ky_d1
 
-            s_ed_00 += coef * kx_e0 * ky_d0;  s_ed_10 += coef * kx_e1 * ky_d0
-            s_ed_01 += coef * kx_e0 * ky_d1;  s_ed_11 += coef * kx_e1 * ky_d1
+                s_ed_00 += coef * kx_e0 * ky_d0;  s_ed_10 += coef * kx_e1 * ky_d0
+                s_ed_01 += coef * kx_e0 * ky_d1;  s_ed_11 += coef * kx_e1 * ky_d1
 
-            s_fe_00 += coef * kx_f0 * ky_e0;  s_fe_10 += coef * kx_f1 * ky_e0
-            s_fe_01 += coef * kx_f0 * ky_e1;  s_fe_11 += coef * kx_f1 * ky_e1
+                s_fe_00 += coef * kx_f0 * ky_e0;  s_fe_10 += coef * kx_f1 * ky_e0
+                s_fe_01 += coef * kx_f0 * ky_e1;  s_fe_11 += coef * kx_f1 * ky_e1
 
-            s_de_00 += coef * kx_d0 * ky_e0;  s_de_10 += coef * kx_d1 * ky_e0
-            s_de_01 += coef * kx_d0 * ky_e1;  s_de_11 += coef * kx_d1 * ky_e1
+                s_de_00 += coef * kx_d0 * ky_e0;  s_de_10 += coef * kx_d1 * ky_e0
+                s_de_01 += coef * kx_d0 * ky_e1;  s_de_11 += coef * kx_d1 * ky_e1
 
-            s_ee_00 += coef * kx_e0 * ky_e0;  s_ee_10 += coef * kx_e1 * ky_e0
-            s_ee_01 += coef * kx_e0 * ky_e1;  s_ee_11 += coef * kx_e1 * ky_e1
+                s_ee_00 += coef * kx_e0 * ky_e0;  s_ee_10 += coef * kx_e1 * ky_e0
+                s_ee_01 += coef * kx_e0 * ky_e1;  s_ee_11 += coef * kx_e1 * ky_e1
+            end
+        end
+    else
+        @inbounds for m in -(itp.eqs-1):itp.eqs
+            col_y = m + itp.eqs
+            ky_f0 = itp.kernel_pre[idx_y, col_y]
+            ky_f1 = itp.kernel_pre[idx_y+1, col_y]
+            ky_d0 = itp.kernel_d1_pre[idx_y, col_y]
+            ky_d1 = itp.kernel_d1_pre[idx_y+1, col_y]
+            ky_e0 = itp.kernel_d2_pre[idx_y, col_y]
+            ky_e1 = itp.kernel_d2_pre[idx_y+1, col_y]
+
+            @inbounds for l in -(itp.eqs-1):itp.eqs
+                coef = itp.coefs[i+l, j+m]
+                col_x = l + itp.eqs
+                kx_f0 = itp.kernel_pre[idx_x, col_x]
+                kx_f1 = itp.kernel_pre[idx_x+1, col_x]
+                kx_d0 = itp.kernel_d1_pre[idx_x, col_x]
+                kx_d1 = itp.kernel_d1_pre[idx_x+1, col_x]
+                kx_e0 = itp.kernel_d2_pre[idx_x, col_x]
+                kx_e1 = itp.kernel_d2_pre[idx_x+1, col_x]
+
+                s_ff_00 += coef * kx_f0 * ky_f0;  s_ff_10 += coef * kx_f1 * ky_f0
+                s_ff_01 += coef * kx_f0 * ky_f1;  s_ff_11 += coef * kx_f1 * ky_f1
+
+                s_df_00 += coef * kx_d0 * ky_f0;  s_df_10 += coef * kx_d1 * ky_f0
+                s_df_01 += coef * kx_d0 * ky_f1;  s_df_11 += coef * kx_d1 * ky_f1
+
+                s_ef_00 += coef * kx_e0 * ky_f0;  s_ef_10 += coef * kx_e1 * ky_f0
+                s_ef_01 += coef * kx_e0 * ky_f1;  s_ef_11 += coef * kx_e1 * ky_f1
+
+                s_fd_00 += coef * kx_f0 * ky_d0;  s_fd_10 += coef * kx_f1 * ky_d0
+                s_fd_01 += coef * kx_f0 * ky_d1;  s_fd_11 += coef * kx_f1 * ky_d1
+
+                s_dd_00 += coef * kx_d0 * ky_d0;  s_dd_10 += coef * kx_d1 * ky_d0
+                s_dd_01 += coef * kx_d0 * ky_d1;  s_dd_11 += coef * kx_d1 * ky_d1
+
+                s_ed_00 += coef * kx_e0 * ky_d0;  s_ed_10 += coef * kx_e1 * ky_d0
+                s_ed_01 += coef * kx_e0 * ky_d1;  s_ed_11 += coef * kx_e1 * ky_d1
+
+                s_fe_00 += coef * kx_f0 * ky_e0;  s_fe_10 += coef * kx_f1 * ky_e0
+                s_fe_01 += coef * kx_f0 * ky_e1;  s_fe_11 += coef * kx_f1 * ky_e1
+
+                s_de_00 += coef * kx_d0 * ky_e0;  s_de_10 += coef * kx_d1 * ky_e0
+                s_de_01 += coef * kx_d0 * ky_e1;  s_de_11 += coef * kx_d1 * ky_e1
+
+                s_ee_00 += coef * kx_e0 * ky_e0;  s_ee_10 += coef * kx_e1 * ky_e0
+                s_ee_01 += coef * kx_e0 * ky_e1;  s_ee_11 += coef * kx_e1 * ky_e1
+            end
         end
     end
 
     # Nested quintic Hermite: first interpolate along x, then along y
     h_pre = one(T) / T(n_pre - 1)
 
-    # At y-bracket 0: quintic Hermite along x for f, df/dy, d²f/dy²
     val_y0   = quintic_hermite(t_x, s_ff_00, s_ff_10, s_df_00, s_df_10, s_ef_00, s_ef_10, h_pre)
     d1_y0    = quintic_hermite(t_x, s_fd_00, s_fd_10, s_dd_00, s_dd_10, s_ed_00, s_ed_10, h_pre)
     d2_y0    = quintic_hermite(t_x, s_fe_00, s_fe_10, s_de_00, s_de_10, s_ee_00, s_ee_10, h_pre)
 
-    # At y-bracket 1: quintic Hermite along x for f, df/dy, d²f/dy²
     val_y1   = quintic_hermite(t_x, s_ff_01, s_ff_11, s_df_01, s_df_11, s_ef_01, s_ef_11, h_pre)
     d1_y1    = quintic_hermite(t_x, s_fd_01, s_fd_11, s_dd_01, s_dd_11, s_ed_01, s_ed_11, h_pre)
     d2_y1    = quintic_hermite(t_x, s_fe_01, s_fe_11, s_de_01, s_de_11, s_ee_01, s_ee_11, h_pre)
 
-    # Final quintic Hermite along y
     result = quintic_hermite(t_y, val_y0, val_y1, d1_y0, d1_y1, d2_y0, d2_y1, h_pre)
 
     return result * (-one(T)/itp.h[1])^(DO.parameters[1]) * (-one(T)/itp.h[2])^(DO.parameters[1])

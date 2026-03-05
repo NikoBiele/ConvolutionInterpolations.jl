@@ -85,7 +85,11 @@ function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension
     i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
     
     # Find knot indices for each dimension
-    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs, length(itp.knots[d]) - itp.eqs), N)
+    pos_ids = if itp.lazy
+        ntuple(d -> clamp(floor(Int, i_floats[d]), 1, length(itp.knots[d]) - 1), N)
+    else
+        ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs, length(itp.knots[d]) - itp.eqs), N)
+    end
     
     # Compute normalized left distances - recompute from actual knot positions
     diff_left = ntuple(d -> (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
@@ -100,17 +104,35 @@ function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension
 
     result = zero(T)
     
-    @inbounds for offsets in Iterators.product(ntuple(_ -> -(itp.eqs-1):itp.eqs, N)...)
-        coef = itp.coefs[(pos_ids .+ offsets)...]
-        
-        kernel_val = one(T)
-        @inbounds for d in 1:N
-            k_lower = itp.kernel_pre[idx_lower[d], offsets[d]+itp.eqs]
-            k_upper = itp.kernel_pre[idx_upper[d], offsets[d]+itp.eqs]
-            kernel_val *= (one(T) - t[d]) * k_lower + t[d] * k_upper
+    if itp.lazy && any(d -> is_boundary_stencil(pos_ids[d], size(itp.coefs, d), itp.eqs), 1:N)
+        kernel_type = _kernel_sym(itp.deg)
+        ng = itp.eqs - 1
+        @inbounds for offsets in Iterators.product(ntuple(_ -> -(itp.eqs-1):itp.eqs, N)...)
+            vidx = ntuple(d -> pos_ids[d] + ng + offsets[d], N)
+            coef = lazy_ghost_value(itp.coefs, vidx, itp.eqs, kernel_type)
+            
+            kernel_val = one(T)
+            @inbounds for d in 1:N
+                k_lower = itp.kernel_pre[idx_lower[d], offsets[d]+itp.eqs]
+                k_upper = itp.kernel_pre[idx_upper[d], offsets[d]+itp.eqs]
+                kernel_val *= (one(T) - t[d]) * k_lower + t[d] * k_upper
+            end
+            
+            result += coef * kernel_val
         end
-        
-        result += coef * kernel_val
+    else
+        @inbounds for offsets in Iterators.product(ntuple(_ -> -(itp.eqs-1):itp.eqs, N)...)
+            coef = itp.coefs[(pos_ids .+ offsets)...]
+            
+            kernel_val = one(T)
+            @inbounds for d in 1:N
+                k_lower = itp.kernel_pre[idx_lower[d], offsets[d]+itp.eqs]
+                k_upper = itp.kernel_pre[idx_upper[d], offsets[d]+itp.eqs]
+                kernel_val *= (one(T) - t[d]) * k_lower + t[d] * k_upper
+            end
+            
+            result += coef * kernel_val
+        end
     end
     
     return  @inbounds @fastmath result * prod((-one(T)/itp.h[i])^(DO.parameters[1]) for i in 1:N)

@@ -1,4 +1,10 @@
-# see 'docstring.jl' for documentation
+"""
+    (::ConvolutionKernel{Val{:b11},DO})(s)
+
+11th-degree b-series kernel. Support [-8, 8], 8 pieces.
+C6 continuous, 7th-order accuracy. Derivatives up to order 6.
+"""
+
 const b11_coefs = Dict(
     # 8 equation 11th degree, 7th order accurate
     :eq1 => [1//1, 0//1, -1474545903118565939//792228434572753920, 0//1, 78507043213210069//66019036214396160, 0//1, -12670369340107457//31437636292569600, 0//1, 46165786466951987//528152289715169280, 0//1, -1979989382272480301//126756549531640627200, 12125765928110303//3621615700904017920], 

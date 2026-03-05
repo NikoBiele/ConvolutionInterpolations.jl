@@ -69,13 +69,14 @@ function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET,O}, x::NTup
     needs_extrapolation = false
     
     for d in 1:N
-        if x[d] < knots[d][itp.eqs]
+        lo, hi = _domain_bounds(itp, d)
+        if x[d] < lo
             clamped_dir[d] = -1
-            clamped_x[d] = knots[d][itp.eqs]
+            clamped_x[d] = lo
             needs_extrapolation = true
-        elseif x[d] > knots[d][end-(itp.eqs-1)]
+        elseif x[d] > hi
             clamped_dir[d] = 1
-            clamped_x[d] = knots[d][end-(itp.eqs-1)]
+            clamped_x[d] = hi
             needs_extrapolation = true
         else
             clamped_dir[d] = 0
@@ -108,11 +109,11 @@ function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET,O}, x::NTup
         return itp(clamped_x...)
         
     elseif etp.et isa Periodic
-        # Handle periodic boundaries
         x_periodic = ntuple(d -> begin
+            lo, hi = _domain_bounds(itp, d)
             if !isapprox(x[d], clamped_x[d], atol=1e-6)
-                period = knots[d][end-(itp.eqs-1)] - knots[d][itp.eqs]
-                knots[d][itp.eqs] + mod(x[d] - knots[d][itp.eqs], period)
+                period = hi - lo
+                lo + mod(x[d] - lo, period)
             else
                 x[d]
             end
@@ -120,10 +121,10 @@ function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET,O}, x::NTup
         return itp(x_periodic...)
         
     elseif etp.et isa Reflect
-        # Handle reflection at boundaries
         x_reflect = ntuple(d -> begin
+            lo, hi = _domain_bounds(itp, d)
             if !isapprox(x[d], clamped_x[d], atol=1e-6)
-                reflect(x[d], knots[d][itp.eqs], knots[d][end-(itp.eqs-1)])
+                reflect(x[d], lo, hi)
             else
                 x[d]
             end
@@ -133,5 +134,35 @@ function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET,O}, x::NTup
     else # if etp.et isa Throw
         error("Unsupported extrapolation type: $(etp.et).
         Please set 'extrapolation_bc =' Line(), Flat(), Natural(), Periodic(), or Reflect() to enable extrapolation.")
+    end
+end
+
+"""
+    _domain_bounds(itp, d) -> (lo, hi)
+
+Return the valid interpolation bounds for dimension `d`, accounting for ghost points.
+In lazy mode with `boundary_fallback=true`, the domain is narrowed by `eqs-1` knots
+on each side to avoid boundary ghost computation. In eager mode, bounds correspond
+to the first and last non-ghost knot positions.
+"""
+
+@inline function _domain_bounds(itp, d)
+    if itp.lazy && itp.boundary_fallback
+        k = itp.knots[d]
+        n_k = length(k)
+        n_d = size(itp.coefs, d)
+        ng = itp.eqs - 1
+        return k[1 + ng], k[end - ng]
+    elseif itp.lazy
+        k = itp.knots[d]
+        n_k = length(k)
+        n_d = size(itp.coefs, d)
+        # If knots are expanded (nonuniform lazy), skip ghost knots
+        # Uniform lazy: n_k == n_d (knots not expanded)
+        # Nonuniform lazy n3: n_k == n_d + 2 (1 ghost knot per side)
+        ng = (n_k - n_d) ÷ 2
+        return k[1 + ng], k[end - ng]
+    else
+        return itp.knots[d][itp.eqs], itp.knots[d][end-(itp.eqs-1)]
     end
 end

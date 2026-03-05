@@ -1,4 +1,10 @@
-# see 'docstring.jl' for documentation
+"""
+    (::ConvolutionKernel{Val{:a7},DO})(s)
+
+Septic a-series kernel. Support [-4, 4], 4 pieces.
+C1 continuous. Wider support than `:a5` with 7th-degree piecewise polynomials.
+"""
+
 const a7_coefs = Dict(
     # 4 equation septic
     :eq1 => [1//1, 0//1, -3611//1734, 0//1, 16775//10404, 0//1, -22039//27744, 22013//83232],

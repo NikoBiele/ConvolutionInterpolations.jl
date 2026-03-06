@@ -27,26 +27,15 @@ Pkg.add("ConvolutionInterpolations")
 using ConvolutionInterpolations
 using Plots
 
-# Sparse sampling: 3 samples per period
-x = range(0, 2π, length=4)
+# Sparse sampling: 5 samples sine wave
+x = range(0, 2π, length=5)
 y = sin.(x)
-itp = convolution_interpolation(x, y)  # default :a4 kernel
+itp = convolution_interpolation(x, y);  # default :a4 kernel
 
 x_fine = range(0, 2π, length=200)
 p1 = plot(x_fine, sin.(x_fine), label="True function: sin(x)")
-scatter!(p1, x, y, label="3 samples per period")
-plot!(p1, x_fine, itp.(x_fine), label="Interpolated (3 samples)")
-
-# Slightly denser: 4 samples per period
-x = range(0, 2π, length=5)
-y = sin.(x)
-itp = convolution_interpolation(x, y)
-
-p2 = plot(x_fine, sin.(x_fine), label="True function: sin(x)")
-scatter!(p2, x, y, label="4 samples per period")
-plot!(p2, x_fine, itp.(x_fine), label="Interpolated (4 samples)")
-
-plot(p1, p2, layout=(1,2), size=(800,300), dpi=1000)
+scatter!(p1, x, y, label="5 samples")
+plot!(p1, x_fine, itp.(x_fine), label="Interpolated (5 samples)")
 ```
 
 [![1D sine wave interpolation](fig/simple_sine_wave_1D_demonstration.png)](fig/simple_sine_wave_1D_demonstration.png)
@@ -63,17 +52,17 @@ xs = range(-2, 2, length=10)
 ys = range(-2, 2, length=10)
 zs = rand(10, 10)
 
-itp_2d = convolution_interpolation((xs, ys), zs)
+itp_2d = convolution_interpolation((xs, ys), zs);
 
 xs_fine = range(-2, 2, length=100)
 ys_fine = range(-2, 2, length=100)
 
 p1 = contourf(xs, ys, zs', title="Original Data")
 p2 = contourf(xs_fine, ys_fine, itp_2d.(xs_fine, ys_fine')', title="Interpolated")
-plot(p1, p2, layout=(1,2), size=(800,300), dpi=1000)
+plot(p1, p2, layout=(1,2), size=(800,300))
 ```
 
-[![2D random interpolation](fig/Smooth_random_2D_interpolation.png)](fig/Smooth_random_2D_interpolation.png)
+[![2D random interpolation](fig/smooth_random_2D_interpolation.png)](fig/smooth_random_2D_interpolation.png)
 
 ### Non-uniform Grid Interpolation
 
@@ -130,13 +119,13 @@ Performance across dimensions and kernel families:
 
 [![Kernel performance heatmap](fig/kernel_performance_comparison.png)](fig/kernel_performance_comparison.png)
 
-**Initialization** (left panel): One-time setup cost. Ranges from ~2 μs for linear kernels to ~4 s for 4D `:b9`. For kernels higher than `:a1`, setup time scales with the number of boundary points. Benchmarks use 100 grid points per dimension (100, 100², 100³, 100⁴).
+**Initialization** (left panel): One-time setup cost in eager mode (`lazy=false`). Ranges from ~2 μs for linear kernels to ~4 s for 4D `:b9`. For kernels higher than `:a1`, setup time scales with the number of boundary points. Benchmarks use 100 grid points per dimension (100, 100², 100³, 100⁴). With `lazy=true`, construction is constant-time (~0.12 ms) regardless of grid size or dimension — see [High-Dimensional Interpolation](#high-dimensional-interpolation) for benchmarks.
 
-**Evaluation** (right panel): Cost per interpolation call with default settings (`:cubic` subgrid, extrapolation wrapper). Representative `:b5` timings:
+**Evaluation** (right panel): Cost per interpolation call with default settings (`:cubic` subgrid, extrapolation wrapper). Representative `:a4` timings:
 
-- 1D: 20 ns
-- 2D: 178 ns
-- 3D: 524 ns
+- 1D: 15 ns
+- 2D: 80 ns
+- 3D: 134 ns
 
 Lower times are achievable with lower order kernels, `:linear` subgrid or by bypassing the extrapolation wrapper (`itp.itp(x)`).
 
@@ -334,7 +323,7 @@ Benchmarks in the [Speed](#speed) section use `:linear` subgrid.
 
 ## Technical Background
 
-This package introduces four main contributions:
+This package introduces five main contributions:
 
 **b-series kernel family.** A new family of high-order convolution kernels (b5, b7, b9, b11, b13) discovered through systematic analytical search using symbolic computation (SymPy), generalizing the approach of R. G. Keys (1981). All b-series kernels achieve 7th order convergence with polynomial reproduction far exceeding their own degree. Kernel coefficients are stored as exact rational numbers, enabling extended precision arithmetic with BigFloat.
 
@@ -342,7 +331,9 @@ This package introduces four main contributions:
 
 **Polynomial boundary conditions.** A boundary handling method that computes optimal ghost point values that preserve each kernel's polynomial reproduction properties. This maintains convergence order across the entire domain rather than degrading near boundaries.
 
-**Non-uniform b-kernel extension.** On uniform grids, kernel weights are identical for every interval. On non-uniform grids, each interval requires its own weights adapted to the local grid geometry. This is achieved by expanding the kernel in a binomial series around each interval's local coordinate, then projecting through a Vandermonde system to enforce polynomial reproduction up to the kernel's design order. The result is a compact set of polynomial coefficients per interval, evaluated via Horner's method at query time. All weight generation uses exact Rational{BigInt} arithmetic to avoid floating-point contamination, with conversion to Float64 only at the final storage step. The same framework extends to derivatives by applying the binomial expansion to analytically differentiated kernel coefficients.
+**Uniform evaluation paths.** On uniform grids, the package provides two evaluation strategies. Direct evaluation computes the piecewise polynomial kernel as written. Fast evaluation (default) looks up precomputed kernel values from shipped tables and interpolates between them using Hermite subgrid interpolation — `O(1)` with no per-evaluation polynomial work and more numerically stable than direct polynomial evaluation at high degree.
+
+**Non-uniform b-kernel extension.** On non-uniform grids, each interval requires its own weights adapted to the local grid geometry. This is achieved by expanding the kernel in a binomial series around each interval's local coordinate, then projecting through a Vandermonde system to enforce polynomial reproduction up to the kernel's design order. The result is a compact set of polynomial coefficients per interval, evaluated via Horner's method at query time. All weight generation uses exact `Rational{BigInt}` arithmetic to avoid floating-point contamination, with conversion to `Float64` only at the final storage step. The same framework extends to derivatives by applying the binomial expansion to analytically differentiated kernel coefficients. On mixed grids (some dimensions uniform, some not), each dimension independently selects the appropriate path through the separable tensor product.
 
 ## Comparison with Other Packages
 

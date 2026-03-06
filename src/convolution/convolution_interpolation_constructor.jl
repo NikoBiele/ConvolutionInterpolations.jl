@@ -49,7 +49,8 @@ See also: [`convolution_interpolation`](@ref), [`FastConvolutionInterpolation`](
 function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
                                         AbstractVector,AbstractRange,NTuple{N,AbstractRange}},
                                   vs::AbstractArray{T,N};
-                                  degree::Symbol=:a4, B=nothing, kernel_bc=:auto,
+                                  degree::Symbol=:a4, B=nothing,
+                                  kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
                                   derivative::Int=0,
                                   lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
     # Convert knots to tuple if needed (if called directly)

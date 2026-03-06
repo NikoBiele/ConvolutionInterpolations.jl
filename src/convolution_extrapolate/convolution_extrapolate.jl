@@ -1,5 +1,3 @@
 include("extrapolation_operator.jl")
 include("extrapolate.jl")
-include("calculate_gradient.jl")
-include("calculate_component_gradient.jl")
 include("extrapolate_point.jl")

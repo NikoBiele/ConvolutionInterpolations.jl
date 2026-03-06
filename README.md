@@ -6,7 +6,7 @@ Smooth interpolation and derivatives from a discrete grid of samples.
 
 ## Why ConvolutionInterpolations.jl?
 
-- **7th order convergence**: The default `:b5` kernel significantly exceeds cubic spline accuracy at comparable cost
+- **High accuracy by default**: The default `:a4` kernel gives 4th-order convergence with compact support; the `:b`-series kernels reach 7th order for demanding applications
 - **Uniform and non-uniform grids**: Uniform grids use optimized precomputed kernels; non-uniform grids are detected automatically
 - **O(1) evaluation**: Interpolation time is independent of grid size (for uniform), with allocation-free evaluation
 - **N-dimensional**: Separable kernel design scales naturally from 1D to arbitrary dimensions
@@ -30,7 +30,7 @@ using Plots
 # Sparse sampling: 3 samples per period
 x = range(0, 2π, length=4)
 y = sin.(x)
-itp = convolution_interpolation(x, y)
+itp = convolution_interpolation(x, y)  # default :a4 kernel
 
 x_fine = range(0, 2π, length=200)
 p1 = plot(x_fine, sin.(x_fine), label="True function: sin(x)")
@@ -78,7 +78,9 @@ plot(p1, p2, layout=(1,2), size=(800,300), dpi=1000)
 ### Non-uniform Grid Interpolation
 
 Non-uniform grids are detected automatically.
-All `:a` kernels (`:a0` through `:a7`) fall back to the `:n3` kernel on non-uniform grids, which uses cubic weights equivalent to non-uniform Catmull-Rom splines with 3rd order convergence.
+The `:a0` (nearest) and `:a1` (linear) kernels work natively on non-uniform grids.
+Higher `:a` kernels (`:a3` through `:a7`) fall back to the `:n3` kernel, which uses
+cubic weights equivalent to non-uniform Catmull-Rom splines with 3rd order convergence.
 
 For higher accuracy and derivatives, the `:b` kernels (`:b5` through `:b13`) can be used.
 The maximum derivative order depends on the kernel's continuity class (see [Available Kernels](#available-kernels)).
@@ -164,6 +166,8 @@ Non-uniform grid kernels
 
 | Kernel | Degree | Continuity | Max derivative | Convergence | eqs |
 |--------|--------|------------|----------------|-------------|-----|
+| `:a0`  | 0      | —          | —              | 1st order   | 1   |
+| `:a1`  | 1      | C⁰         | —              | 2nd order   | 1   |
 | `:n3`  | 3      | C¹         | 0              | ~3rd order  | 4   |
 | `:b5`  | 5      | C³         | 3              | 7th order   | 5   |
 | `:b7`  | 7      | C⁴         | 4              | 7th order   | 6   |
@@ -171,7 +175,10 @@ Non-uniform grid kernels
 | `:b11` | 11     | C⁶         | 6              | 7th order   | 8   |
 | `:b13` | 13     | C⁶         | 6              | 7th order   | 9   |
 
-The b5 kernel is the default. Higher-degree b-series kernels provide additional smoothness while maintaining 7th order convergence.
+The default kernel is `:a4`, which provides 4th-order accuracy with compact support
+and works across all modes: uniform, non-uniform (via `:n3` fallback), lazy, and
+arbitrary dimensions. For maximum accuracy, use `:b5` or higher b-series kernels,
+which provide 7th-order convergence with additional smoothness.
 
 Gaussian smoothing is also available via the `B` parameter, which does not interpolate data points exactly:
 ```julia
@@ -245,21 +252,54 @@ itp = convolution_interpolation(x, y; extrapolation_bc=Natural())   # Smooth bou
 The `Natural()` mode transforms extrapolation into interpolation by expanding the domain with boundary coefficients before applying linear extrapolation. This preserves the kernel's full smoothness across the boundary region, rather than abruptly transitioning at the domain edge.
 
 ### High-Dimensional Interpolation
+
+The separable kernel design scales to arbitrary dimensions. For high-dimensional data,
+`lazy=true` is recommended. It automatically enables `boundary_fallback` and `Line()`
+extrapolation near boundaries.
+
+> **Note**: With `lazy=true`, values near domain boundaries are linearly extrapolated from the
+interior rather than interpolated exactly with the full kernel.
+This tradeoff avoids expensive ghost point computation in high dimensions.
+For exact interpolation across the entire domain, use `lazy=false`.
+
 ```julia
 # 4D interpolation (e.g., time-evolving 3D scalar field)
-x = range(0, 1, length=10)
-y = range(0, 1, length=10)
-z = range(0, 1, length=10)
-t = range(0, 1, length=5)
+x = range(0, 1, length=20)
+y = range(0, 1, length=20)
+z = range(0, 1, length=20)
+t = range(0, 1, length=10)
 
-data_4d = [sin(2π*xi)*cos(2π*yi)*exp(-zi)*sqrt(ti) 
+data_4d = [sin(2π*xi)*cos(2π*yi)*exp(-zi)*sqrt(ti+0.1)
            for xi in x, yi in y, zi in z, ti in t]
 
-itp_4d = convolution_interpolation((x, y, z, t), data_4d)
+itp_4d = convolution_interpolation((x, y, z, t), data_4d, lazy=true)
 itp_4d(0.42, 0.33, 0.77, 0.51)
 ```
 
-The separable kernel design scales to arbitrary dimensions.
+Interior evaluation is identical in lazy and eager modes. Near boundaries, lazy mode
+linearly extrapolates from the interior using two evaluations regardless of dimensionality.
+
+#### Construction speedup with `lazy=true`
+
+| Grid | :a3 eager | :a3 lazy | Speedup | :a4 eager | :a4 lazy | Speedup | :b5 eager | :b5 lazy | Speedup |
+|------|-----------|----------|---------|-----------|----------|---------|-----------|----------|---------|
+| 3D 20³ | 0.31 ms | 0.11 ms | 3× | 0.38 ms | 0.13 ms | 3× | 0.51 ms | 0.16 ms | 3× |
+| 3D 100³ | 12.7 ms | 0.13 ms | 96× | 13.3 ms | 0.13 ms | 102× | 14.9 ms | 0.14 ms | 104× |
+| 4D 10⁴ | 0.84 ms | 0.12 ms | 7× | 1.33 ms | 0.12 ms | 11× | 3.19 ms | 0.15 ms | 22× |
+| 4D 30⁴ | 28.9 ms | 0.12 ms | 248× | 31.9 ms | 0.13 ms | 252× | 50.1 ms | 0.14 ms | 349× |
+
+Lazy construction is constant-time (~0.12 ms) regardless of grid size; eager scales with the number of boundary points.
+
+#### Evaluation cost (4D 20⁴)
+
+| Kernel | Interior | Boundary (eager) | Boundary (lazy + Line) |
+|--------|----------|-------------------|------------------------|
+| :a3 | 659 ns | 659 ns | 3.1 μs |
+| :a4 | 3.2 μs | 3.2 μs | 8.2 μs |
+| :b5 | 24 μs | 24 μs | 50 μs |
+
+For `lazy=false` (eager mode), all boundary conditions and extrapolation options
+remain available. Use this when exact boundary behavior is critical.
 
 ### Subgrid Interpolation
 
@@ -286,9 +326,10 @@ Benchmarks in the [Speed](#speed) section use `:linear` subgrid.
 
 ## Performance Guidelines
 
-- **Default to `:b5`**: Best balance of accuracy and cost
-- **Higher b-kernels for smoothness**: b7 through b13 maintain 7th order convergence with increasingly smooth derivatives
-- **Use `:a0` or `:a1` kernels if construction time is critical**: boundary handling adds initialization overhead on fine grids for higher order kernels
+- **Default `:a4` works everywhere**: 4th-order accuracy on uniform grids, falls back to `:n3` on non-uniform grids, fast evaluation, low memory
+- **Use `:b5`+ for maximum accuracy**: 7th-order convergence, smooth high-order derivatives, at the cost of wider stencils
+- **Use `lazy=true` in high dimensions**: Skips ghost point expansion, reducing construction time and memory
+- **Use `:a0` or `:a1` if construction time is critical**: No boundary handling overhead
 - **Pre-shipped kernel tables**: The default `precompute=101` with `:cubic` or `:quintic` subgrid loads precomputed constants — no disk I/O or computation on first use
 
 ## Technical Background

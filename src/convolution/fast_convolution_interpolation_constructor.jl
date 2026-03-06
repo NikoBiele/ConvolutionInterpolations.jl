@@ -48,10 +48,14 @@ See also: [`convolution_interpolation`](@ref), [`ConvolutionInterpolation`](@ref
 function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector},AbstractRange,NTuple{N,AbstractRange}},
                                       vs::AbstractArray{T,N};
                                       degree::Symbol=:a4, precompute::Int=101, B=nothing,
-                                      kernel_bc=:auto,
+                                      kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
                                       derivative::Int=0,
                                       subgrid::Symbol=:cubic,
                                       lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
+
+    if degree == :n3
+        error("The :n3 kernel is not supported by FastConvolutionInterpolation. Use ConvolutionInterpolation instead.")
+    end
 
     subgrid = validate_subgrid_compatibility(degree::Symbol, derivative::Int, subgrid::Symbol)
     if N >= 3 && subgrid in (:cubic, :quintic)

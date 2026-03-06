@@ -91,18 +91,26 @@ function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET,O}, x::NTup
     clamped_x = ntuple(i -> clamped_x[i], N)
     
     # Handle different extrapolation types
-    if etp.et isa Line
-        # For Line extrapolation, compute the gradient and apply it
-        grad = calculate_gradient(etp, clamped_x, clamped_dir)
-        val = itp(clamped_x...)
-        
-        # Apply linear extrapolation for all dimensions at once
-        for d in 1:N
-            if !isapprox(x[d], clamped_x[d], atol=1e-6)
-                val += grad[d] * (x[d] - clamped_x[d])
-            end
+        if etp.et isa Line
+        # 2-point directional derivative: 2 evaluations total regardless of dimension
+        dx = ntuple(d -> x[d] - clamped_x[d], N)
+        dist_sq = sum(d -> dx[d]^2, 1:N)
+
+        if dist_sq < eps(T)
+            return itp(clamped_x...)
         end
-        return val
+
+        # Step inward along the extrapolation direction
+        h_min = minimum(d -> itp.h[d], 1:N)
+        ε = h_min / T(100)
+        dist = sqrt(dist_sq)
+        x_inward = ntuple(d -> clamped_x[d] - ε * dx[d] / dist, N)
+
+        f_boundary = itp(clamped_x...)
+        f_inward = itp(x_inward...)
+        slope = (f_boundary - f_inward) / ε
+
+        return f_boundary + slope * dist
         
     elseif etp.et isa Flat
         # Simply return the value at the boundary

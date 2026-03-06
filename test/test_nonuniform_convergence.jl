@@ -3,6 +3,9 @@
 ###########################################################################
 
 convergence_nu_kernels = [:b5, :b7, :b9, :b11]
+expected_order_nonuniform = Dict(
+    :b5 => 7, :b7 => 7, :b9 => 7, :b11 => 6 # no accumulated floating point error (precomputed kernel)
+)
 
 println("Testing nonuniform convergence of 0th, 1st, and 2nd derivatives in 1D and 2D...")
 @testset "1D nonuniform convergence d0" begin
@@ -17,8 +20,9 @@ println("Testing nonuniform convergence of 0th, 1st, and 2nd derivatives in 1D a
             err = maximum(abs.(itp.itp.(test_pts) .- sin.(2π .* test_pts)))
             push!(errs, err)
         end
-        @test errs[2] / errs[3] > 2.0
-        @test errs[1] / errs[2] > 2.0
+        min_ratio = 2.0^(expected_order_nonuniform[kernel] - 1)
+        @test errs[2] / errs[3] > min_ratio
+        @test errs[1] / errs[2] > min_ratio
     end
 end
 
@@ -34,9 +38,9 @@ end
             err = maximum(abs.(Float64[itp_d1(x) for x in test_pts] .- cos.(test_pts)))
             push!(errs, err)
         end
-        # error should decrease at least 2× per doubling
-        @test errs[2] / errs[3] > 2.0
-        @test errs[1] / errs[2] > 2.0
+        min_ratio = 2.0^(expected_order_nonuniform[kernel] - 2)
+        @test errs[2] / errs[3] > min_ratio
+        @test errs[1] / errs[2] > min_ratio
     end
 end
 
@@ -52,9 +56,9 @@ end
             err = maximum(abs.(Float64[itp_d2(x) for x in test_pts] .- (-sin.(test_pts))))
             push!(errs, err)
         end
-        # error should decrease at least 2× per doubling
-        @test errs[2] / errs[3] > 2.0
-        @test errs[1] / errs[2] > 2.0
+        min_ratio = 2.0^(expected_order_nonuniform[kernel] - 3)
+        @test errs[2] / errs[3] > min_ratio
+        @test errs[1] / errs[2] > min_ratio
     end
 end
 
@@ -62,7 +66,7 @@ end
 ### TEST NEARLY UNIFORM VIA NONUNIFORM PATH #############################
 #########################################################################
 
-nu_regression_kernels = [:a3, :b5, :b7, :b9, :b11] # :a3 kernel triggers nonuniform lower order kernel
+nu_regression_kernels = [:a0, :a1, :a3, :b5, :b7, :b9, :b11] # :a3 kernel triggers nonuniform lower order kernel
 
 println("Testing nearly-uniform via nonuniform path in 1D...")
 @testset "1D nearly-uniform via nonuniform matches fast" begin

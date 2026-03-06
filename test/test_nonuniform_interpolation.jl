@@ -3,7 +3,7 @@
 ###########################################################################    
 
 ### Nonuniform b-kernel interpolation
-nu_kernels = [:a3, :b5, :b7, :b9, :b11] # :a3 kernel triggers nonuniform lower order kernel
+nu_kernels = [:n3, :b5, :b7, :b9, :b11] # :a3 kernel triggers nonuniform lower order kernel
 N_nu = 12
 tolerance_nu = 1e-4
 

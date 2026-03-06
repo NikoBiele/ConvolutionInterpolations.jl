@@ -2,8 +2,16 @@
 ### TEST UNIFORM CONVERGENCE ##########################################
 #######################################################################
 
-convergence_kernels = [:a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11]
+convergence_kernels = [:a1, :a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11]
 convergence_deriv_kernels = [:b5, :b7, :b9, :b11]
+expected_order_fast = Dict(
+    :a1 => 1, :a3 => 3, :a4 => 4, :a5 => 3, :a7 => 3,
+    :b5 => 7, :b7 => 7, :b9 => 7, :b11 => 7 # no accumulated floating point error (precomputed kernel)
+)
+expected_order_direct = Dict(
+    :a1 => 1, :a3 => 3, :a4 => 4, :a5 => 3, :a7 => 3,
+    :b5 => 7, :b7 => 6, :b9 => 5, :b11 => 4 # accumulated floating point error for higher orders
+)
 kernel_bc_deriv = :polynomial # control kernel boundary conditions for derivatives
 
 println("Testing uniform grid convergence in 1D for direct and fast kernels for 0th, 1st and 2nd derivatives...")
@@ -20,8 +28,9 @@ println("Testing uniform grid convergence in 1D for direct and fast kernels for 
             err = maximum(abs.(itp.itp.(test_pts) .- sin.(2π .* test_pts)))
             push!(errs, err)
         end
-        @test errs[2] / errs[3] > 2.0
-        @test errs[1] / errs[2] > 2.0
+        min_ratio = kernel == :a1 ? 1.5 : 2.0^(expected_order_fast[kernel] - 1)
+        @test errs[2] / errs[3] > min_ratio
+        @test errs[1] / errs[2] > min_ratio
     end
 end
 
@@ -37,8 +46,9 @@ end
             err = maximum(abs.(itp.itp.(test_pts) .- sin.(2π .* test_pts)))
             push!(errs, err)
         end
-        @test errs[2] / errs[3] > 2.0
-        @test errs[1] / errs[2] > 2.0
+        min_ratio = kernel == :a1 ? 1.5 : 2.0^(expected_order_direct[kernel] - 1)
+        @test errs[2] / errs[3] > min_ratio
+        @test errs[1] / errs[2] > min_ratio
     end
 end
 
@@ -55,8 +65,9 @@ end
             err = maximum(abs.(Float64[itp_d1(x) for x in test_pts] .- cos.(test_pts)))
             push!(errs, err)
         end
-        @test errs[2] / errs[3] > 2.0
-        @test errs[1] / errs[2] > 2.0
+        min_ratio = 2.0^(expected_order_fast[kernel] - 2)
+        @test errs[2] / errs[3] > min_ratio
+        @test errs[1] / errs[2] > min_ratio
     end
 end
 
@@ -72,8 +83,9 @@ end
             err = maximum(abs.(Float64[itp_d1(x) for x in test_pts] .- cos.(test_pts)))
             push!(errs, err)
         end
-        @test errs[2] / errs[3] > 2.0
-        @test errs[1] / errs[2] > 2.0
+        min_ratio = 2.0^(expected_order_direct[kernel] - 2)
+        @test errs[2] / errs[3] > min_ratio
+        @test errs[1] / errs[2] > min_ratio
     end
 end
 
@@ -90,8 +102,9 @@ end
             err = maximum(abs.(Float64[itp_d2(x) for x in test_pts] .- (-sin.(test_pts))))
             push!(errs, err)
         end
-        @test errs[2] / errs[3] > 2.0
-        @test errs[1] / errs[2] > 2.0
+        min_ratio = 2.0^(expected_order_fast[kernel] - 3)
+        @test errs[2] / errs[3] > min_ratio
+        @test errs[1] / errs[2] > min_ratio
     end
 end
 
@@ -107,7 +120,8 @@ end
             err = maximum(abs.(Float64[itp_d2(x) for x in test_pts] .- (-sin.(test_pts))))
             push!(errs, err)
         end
-        @test errs[2] / errs[3] > 2.0
-        @test errs[1] / errs[2] > 2.0
+        min_ratio = 2.0^(expected_order_direct[kernel] - 3)
+        @test errs[2] / errs[3] > min_ratio
+        @test errs[1] / errs[2] > min_ratio
     end
 end

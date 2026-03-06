@@ -139,7 +139,7 @@ See also: `apply_boundary_conditions_for_dim!`, `boundary_coefs`.
 """
 
 function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs::P,
-                                kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}}},
+                                kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}},
                                 kernel_type::Symbol) where {T,N,P}
        
     new_dims = size(vs) .+ 2*(eqs-1)
@@ -194,7 +194,7 @@ See also: `fill_ghost_points_polynomial!`, `fill_ghost_points_recursive!`, `get_
 
 function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractArray, dim::Int, 
                                            h::NTuple{N,T}, eqs::Int,
-                                           kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}}}, 
+                                           kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}, 
                                            kernel_type::Symbol,
                                            workspace::BoundaryWorkspace{T,N}) where {T,N}
     

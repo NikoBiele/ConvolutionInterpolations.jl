@@ -13,6 +13,7 @@ function make_nonuniform_grid(n; a=0.0, b=1.0, strength=0.3)
 end
 
 @testset "ConvolutionInterpolations.jl" begin
+    include("test_constructors.jl")
     include("test_uniform_interpolation.jl")
     include("test_uniform_derivatives.jl")
     include("test_uniform_convergence.jl")

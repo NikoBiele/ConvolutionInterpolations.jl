@@ -6,7 +6,7 @@ Smooth interpolation and derivatives from a discrete grid of samples.
 
 ## Why ConvolutionInterpolations.jl?
 
-- **High accuracy by default**: The default `:a4` kernel gives 4th-order convergence with compact support; the `:b`-series kernels reach 7th order for demanding applications
+- **High accuracy by default**: The default `:b5` kernel gives 7th-order convergence
 - **Uniform and non-uniform grids**: Uniform grids use optimized precomputed kernels; non-uniform grids are detected automatically
 - **O(1) evaluation**: Interpolation time is independent of grid size (for uniform), with allocation-free evaluation
 - **N-dimensional**: Separable kernel design scales naturally from 1D to arbitrary dimensions
@@ -27,15 +27,15 @@ Pkg.add("ConvolutionInterpolations")
 using ConvolutionInterpolations
 using Plots
 
-# Sparse sampling: 5 samples sine wave
-x = range(0, 2π, length=5)
+# Sparse sampling: 4 samples sine wave
+x = range(0, 2π, length=4)
 y = sin.(x)
-itp = convolution_interpolation(x, y);  # default :a4 kernel
+itp = convolution_interpolation(x, y);  # default :b5 kernel
 
 x_fine = range(0, 2π, length=200)
 p1 = plot(x_fine, sin.(x_fine), label="True function: sin(x)")
-scatter!(p1, x, y, label="5 samples")
-plot!(p1, x_fine, itp.(x_fine), label="Interpolated (5 samples)")
+scatter!(p1, x, y, label="4 samples")
+plot!(p1, x_fine, itp.(x_fine), label="Interpolated (4 samples)")
 ```
 
 [![1D sine wave interpolation](fig/simple_sine_wave_1D_demonstration.png)](fig/simple_sine_wave_1D_demonstration.png)
@@ -43,26 +43,24 @@ plot!(p1, x_fine, itp.(x_fine), label="Interpolated (5 samples)")
 ### 2D Interpolation
 
 ```julia
-using Random
 using ConvolutionInterpolations
 using Plots
 
-Random.seed!(123)
-xs = range(-2, 2, length=10)
-ys = range(-2, 2, length=10)
-zs = rand(10, 10)
+xs = range(-π, π, length=5)
+ys = range(-π, π, length=5)
+zs = sin.(xs) .* sin.(ys')
 
 itp_2d = convolution_interpolation((xs, ys), zs);
 
-xs_fine = range(-2, 2, length=100)
-ys_fine = range(-2, 2, length=100)
+xs_fine = range(-π, π, length=100)
+ys_fine = range(-π, π, length=100)
 
 p1 = contourf(xs, ys, zs', title="Original Data")
 p2 = contourf(xs_fine, ys_fine, itp_2d.(xs_fine, ys_fine')', title="Interpolated")
 plot(p1, p2, layout=(1,2), size=(800,300))
 ```
 
-[![2D random interpolation](fig/smooth_random_2D_interpolation.png)](fig/smooth_random_2D_interpolation.png)
+[![2D random interpolation](fig/smooth_2D_interpolation.png)](fig/smooth_2D_interpolation.png)
 
 ### Non-uniform Grid Interpolation
 
@@ -90,7 +88,7 @@ itp_d5 = convolution_interpolation(x, y; degree=:b11, derivative=5)  # f⁵(x)
 
 [![Nonuniform derivatives](fig/nonuniform_derivatives.png)](fig/nonuniform_derivatives.png)
 
-Dots are analytical values, solid lines are the b11 interpolant.
+Dots are analytical values, solid lines are the `:b11` interpolant.
 Non-uniform interpolation works in any number of dimensions via tensor products.
 Non-uniform precomputation scales with the number of intervals; for performance-critical applications, non-uniform kernels can be used once to resample data onto a uniform grid, then efficient uniform kernels can be used for repeated evaluation.
 
@@ -121,11 +119,11 @@ Performance across dimensions and kernel families:
 
 **Initialization** (left panel): One-time setup cost in eager mode (`lazy=false`). Ranges from ~2 μs for linear kernels to ~4 s for 4D `:b9`. For kernels higher than `:a1`, setup time scales with the number of boundary points. Benchmarks use 100 grid points per dimension (100, 100², 100³, 100⁴). With `lazy=true`, construction is constant-time (~0.12 ms) regardless of grid size or dimension — see [High-Dimensional Interpolation](#high-dimensional-interpolation) for benchmarks.
 
-**Evaluation** (right panel): Cost per interpolation call with default settings (`:cubic` subgrid, extrapolation wrapper). Representative `:a4` timings:
+**Evaluation** (right panel): Cost per interpolation call with default settings (`:cubic` subgrid, extrapolation wrapper). Representative `:b5` timings:
 
-- 1D: 15 ns
-- 2D: 80 ns
-- 3D: 134 ns
+- 1D: 20 ns
+- 2D: 178 ns
+- 3D: 524 ns
 
 Lower times are achievable with lower order kernels, `:linear` subgrid or by bypassing the extrapolation wrapper (`itp.itp(x)`).
 
@@ -164,10 +162,9 @@ Non-uniform grid kernels
 | `:b11` | 11     | C⁶         | 6              | 7th order   | 8   |
 | `:b13` | 13     | C⁶         | 6              | 7th order   | 9   |
 
-The default kernel is `:a4`, which provides 4th-order accuracy with compact support
-and works across all modes: uniform, non-uniform (via `:n3` fallback), lazy, and
-arbitrary dimensions. For maximum accuracy, use `:b5` or higher b-series kernels,
-which provide 7th-order convergence with additional smoothness.
+The default kernel is `:b5`, which provides 7th-order accuracy and C³ continuity.
+It works across all modes: uniform, non-uniform, derivatives, lazy, and
+arbitrary dimensions.
 
 Gaussian smoothing is also available via the `B` parameter, which does not interpolate data points exactly:
 ```julia
@@ -315,11 +312,10 @@ Benchmarks in the [Speed](#speed) section use `:linear` subgrid.
 
 ## Performance Guidelines
 
-- **Default `:a4` works everywhere**: 4th-order accuracy on uniform grids, falls back to `:n3` on non-uniform grids, fast evaluation, low memory
-- **Use `:b5`+ for maximum accuracy**: 7th-order convergence, smooth high-order derivatives, at the cost of wider stencils
+- **Default `:b5` works everywhere**: 7th-order accuracy on uniform grids, non-uniform grids, high-order derivatives
 - **Use `lazy=true` in high dimensions**: Skips ghost point expansion, reducing construction time and memory
-- **Use `:a0` or `:a1` if construction time is critical**: No boundary handling overhead
-- **Pre-shipped kernel tables**: The default `precompute=101` with `:cubic` or `:quintic` subgrid loads precomputed constants — no disk I/O or computation on first use
+- **Use `:a0`, `:a1`, `:a3` or `:a4` in high dimensions**: Evaluation time of narrower kernels scale better with dimensions
+- **Pre-shipped kernel tables**: The default `precompute=101` with `:cubic` or `:quintic` subgrid loads precomputed constants
 
 ## Technical Background
 

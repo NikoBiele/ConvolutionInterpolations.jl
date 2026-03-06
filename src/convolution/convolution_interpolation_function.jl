@@ -77,7 +77,7 @@ See also: [`FastConvolutionInterpolation`](@ref), [`ConvolutionInterpolation`](@
 """
 
 function convolution_interpolation(knots, values::AbstractArray{T,N}; 
-        degree::Symbol=:a4, fast::Bool=true, precompute::Int=101,
+        degree::Symbol=:b5, fast::Bool=true, precompute::Int=101,
         B=nothing, extrapolation_bc=Throw(),
         kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
         derivative::Int=0, subgrid::Symbol=:cubic,

@@ -47,7 +47,7 @@ See also: [`convolution_interpolation`](@ref), [`ConvolutionInterpolation`](@ref
 
 function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector},AbstractRange,NTuple{N,AbstractRange}},
                                       vs::AbstractArray{T,N};
-                                      degree::Symbol=:a4, precompute::Int=101, B=nothing,
+                                      degree::Symbol=:b5, precompute::Int=101, B=nothing,
                                       kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
                                       derivative::Int=0,
                                       subgrid::Symbol=:cubic,

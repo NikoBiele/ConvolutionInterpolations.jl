@@ -13,7 +13,7 @@ Together these effects approximately balances out, creating a boundary condition
 # Returns
 - Vector of coefficients for periodic boundary conditions
 """
-function periodic_boundary(y_centered::Vector{T}) where T
+function periodic_boundary(y_centered::SubArray{T, 1, Vector{T}, Tuple{UnitRange{Int64}}, true}) where T
     autocorrelation_coefs = autocor_coefs(y_centered)
     quadratic_coefs = T[T(3), T(-3), one(T)]
     return T[i <= length(quadratic_coefs) ?

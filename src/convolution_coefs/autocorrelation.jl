@@ -17,7 +17,7 @@ This function:
 
 The autocorrelation values provide information about signal periodicity and structure, which is used for determining appropriate boundary conditions.
 """
-function autocorrelation(signal::Vector{T}) where T
+function autocorrelation(signal::SubArray{T, 1, Vector{T}, Tuple{UnitRange{Int64}}, true}) where T
     n = length(signal)
     signal_centered = signal .- sum(signal)/length(signal)
     variance = max(1e-6, sum(abs2, signal_centered) / n)

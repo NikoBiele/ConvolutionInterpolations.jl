@@ -1,5 +1,5 @@
 """
-    (::ConvolutionKernel{Val{:a5},DO})(s)
+    (::ConvolutionKernel{:a5,DO})(s)
 
 Quintic a-series kernel. Support [-3, 3], 3 pieces.
 C1 continuous. Same support as `:a4` but higher polynomial degree.
@@ -19,15 +19,32 @@ const a5_coefs_d1 = Dict(
     :eq3 => [0//1*-162//1*a, 297//1*a, 2//1*-216//1*a, 3//1*78//1*a, 4//1*-14//1*a, 5//1*a]
 )
 
+const a5_coefs_i1 = Dict(
+    :eq1 => [0//1, 1//1, 0//1, -17//24, 0//1, 63//160, -9//64],
+    :eq2 => [-83//384, 61//32, -165//128, -7//24, 85//128, -21//80, 13//384],
+    :eq3 => [2507//640, -243//32, 891//128, -27//8, 117//128, -21//160, 1//128],
+)
+
 function (::ConvolutionKernel{:a5,DO})(s::T) where {T,DO}
+    s_abs = abs(s)
+    if DO == -1
+        if s_abs >= 3
+            return T(1//2) * T(sign(s))
+        elseif s_abs < 1
+            return horner(s_abs, a5_coefs_i1, :eq1, T, 0) * T(sign(s))
+        elseif s_abs < 2
+            return horner(s_abs, a5_coefs_i1, :eq2, T, 0) * T(sign(s))
+        else
+            return horner(s_abs, a5_coefs_i1, :eq3, T, 0) * T(sign(s))
+        end
+    end
     a5_coefs_in = if DO == 0
         a5_coefs
     elseif DO == 1
         a5_coefs_d1
     else
-        error("kernel :a5 supports differentiation orders 0, 1, but got $DO")
+        error("kernel :a5 supports differentiation orders -1, 0, 1, but got $DO")
     end
-    s_abs = abs(s)
     if s_abs < 1.0
         return horner(s_abs, a5_coefs_in, :eq1, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
     elseif s_abs < 2.0

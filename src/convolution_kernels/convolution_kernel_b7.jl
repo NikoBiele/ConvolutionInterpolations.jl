@@ -1,5 +1,5 @@
 """
-    (::ConvolutionKernel{Val{:b7},DO})(s)
+    (::ConvolutionKernel{:b7,DO})(s)
 
 Septic b-series kernel. Support [-6, 6], 6 pieces.
 C4 continuous, 7th-order accuracy. Higher smoothness than `:b5` with derivatives up
@@ -52,7 +52,34 @@ const b7_coefs_d4 = Dict(
     :eq6 => [0//1*9711//1156, 0//1*1//1*-29133//2890, 0//1*2//1*119769//23120, 0//1*2//1*3//1*-20501//13872, 2//1*3//1*4//1*14027//55488, 2//1*3//1*4//1*5//1*-1079//41616, 3//1*4//1*5//1*6//1*44239//29963520, 4//1*5//1*6//1*7//1*-1079//29963520]
 )
 
+const b7_coefs_i1 = Dict(
+    :eq1 => [0//1, 1//1, 0//1, -1173431//1872720, 0//1, 922243//3745440, 0//1, -7587149//104872320, 258097//13317120],
+    :eq2 => [1788173//69914880, 106117//124848, 834167//2496960, -1709177//1872720, -119839//998784, 2712769//3745440, -214769//499392, 11023027//104872320, -384481//39951360],
+    :eq3 => [-17253629//4660992, 30587//2448, -35785081//2496960, 376423//46818, -126025//58752, 794957//7490880, 13571//166464, -796241//41948928, 105457//79902720],
+    :eq4 => [1477795537//46609920, -2861771//41616, 325209229//4993920, -129943051//3745440, 22764947//1997568, -17736439//7490880, 303937//998784, -4645469//209744640, 167719//239708160],
+    :eq5 => [-18485422759//419489280, 9845663//124848, -908278361//14981760, 99126901//3745440, -14343661//1997568, 9292729//7490880, -399533//2996352, 1710679//209744640, -52123//239708160],
+    :eq6 => [-26753//4760, 9711//1156, -29133//5780, 39923//23120, -20501//55488, 14027//277440, -1079//249696, 44239//209744640, -1079//239708160],
+)
+
 function (::ConvolutionKernel{:b7,DO})(s::T) where {T,DO} # 7th order accurate 7th degree
+    s_abs = abs(s)
+    if DO == -1
+        if s_abs >= 6
+            return T(1//2) * T(sign(s))
+        elseif s_abs < 1
+            return horner(s_abs, b7_coefs_i1, :eq1, T, 0) * T(sign(s))
+        elseif s_abs < 2
+            return horner(s_abs, b7_coefs_i1, :eq2, T, 0) * T(sign(s))
+        elseif s_abs < 3
+            return horner(s_abs, b7_coefs_i1, :eq3, T, 0) * T(sign(s))
+        elseif s_abs < 4
+            return horner(s_abs, b7_coefs_i1, :eq4, T, 0) * T(sign(s))
+        elseif s_abs < 5
+            return horner(s_abs, b7_coefs_i1, :eq5, T, 0) * T(sign(s))
+        else
+            return horner(s_abs, b7_coefs_i1, :eq6, T, 0) * T(sign(s))
+        end
+    end
     b7_coefs_in = if DO == 0
         b7_coefs
     elseif DO == 1
@@ -66,7 +93,6 @@ function (::ConvolutionKernel{:b7,DO})(s::T) where {T,DO} # 7th order accurate 7
     else
         error("kernel :b7 supports differentiation orders 0, 1, 2, 3, 4, but got $DO")
     end
-    s_abs = abs(s)
     if s_abs < 1.0
         return horner(s_abs, b7_coefs_in, :eq1, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
     elseif s_abs < 2.0

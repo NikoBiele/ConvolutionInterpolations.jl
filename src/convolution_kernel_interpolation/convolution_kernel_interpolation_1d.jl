@@ -132,7 +132,7 @@ end
     else
         clamp(floor(Int, i_float), itp.eqs, length(itp.knots[1]) - itp.eqs)
     end
-
+    
     result = zero(T)
     if itp.lazy && DG !== Val{:a0} && DG !== Val{:a1} && is_boundary_stencil(i, n_d, itp.eqs)
         # Uniform lazy boundary — resolve_dim pattern
@@ -150,11 +150,24 @@ end
                 result += kval * cw * itp.coefs[ri]
             end
         end
+    elseif DO.parameters[1] == -1
+        result = zero(T)
+        x_left = itp.knots[1][itp.eqs]
+        @inbounds for j in 1:length(itp.coefs)
+            xj = itp.knots[1][itp.eqs] + (j - itp.eqs) * itp.h[1]  # knot position for coef j
+            kt_x     = itp.kernel((x[1]  - xj) / itp.h[1])
+            kt_left  = itp.kernel((x_left - xj) / itp.h[1])
+            result += itp.coefs[j] * (kt_x - kt_left)
+        end
+        return result * itp.h[1]
     else
         @inbounds for l = -(itp.eqs-1):itp.eqs
             result += itp.coefs[i+l] * 
                     itp.kernel( (x[1] - itp.knots[1][i+l]) / itp.h[1] )
         end
     end
-    return @fastmath result * one(T)/(itp.h[1])^DO.parameters[1]
+    # return @fastmath result * one(T)/(itp.h[1])^DO.parameters[1]
+    do_val = DO.parameters[1]
+    scale = do_val >= 0 ? one(T) / itp.h[1]^do_val : itp.h[1]^(-do_val)
+    return @fastmath result * scale
 end

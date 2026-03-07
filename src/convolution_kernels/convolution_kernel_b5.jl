@@ -1,5 +1,5 @@
 """
-    (::ConvolutionKernel{Val{:b5},DO})(s)
+    (::ConvolutionKernel{:b5,DO})(s)
 
 Quintic b-series kernel. Support [-5, 5], 5 pieces.
 C3 continuous, 7th-order accuracy. Derived by optimizing frequency response closeness
@@ -38,7 +38,33 @@ const b5_coefs_d3 = Dict(
     :eq4 => [0//1*1681//1280, 0//1*-7843//15360, 0//1*-1463//3840, 6//1*2071//7680, 24//1*-439//7680, 60//1*21//5120],
     :eq5 => [0//1*-3625//768, 0//1*5075//1024, 0//1*-1595//768, 6//1*667//1536, 24//1*-29//640, 60//1*29//15360]
 )
+
+const b5_coefs_i1 = Dict(
+    :eq1 => [0//1, 1//1, 0//1, -731//1152, 0//1, 11423//38400, -4483//46080],
+    :eq2 => [881//25600, 2597//3840, 16931//15360, -14371//5760, 25933//15360, -6337//12800, 313//5760],
+    :eq3 => [-54061//76800, 1211//256, -96221//15360, 4549//1152, -20011//15360, 335//1536, -169//11520],
+    :eq4 => [-137039//153600, 1681//1280, -7843//30720, -1463//11520, 2071//30720, -439//38400, 7//10240],
+    :eq5 => [78091//18432, -3625//768, 5075//2048, -1595//2304, 667//6144, -29//3200, 29//92160],
+)
+
 function (::ConvolutionKernel{:b5,DO})(s::T) where {T,DO} # 5 equations 7th order accurate quintic
+    s_abs = abs(s)
+    if DO == -1
+        # Antiderivative K̃: odd function, saturates at ±1/2
+        if s_abs >= 5
+            return T(1//2) * T(sign(s))
+        elseif s_abs < 1
+            return horner(s_abs, b5_coefs_i1, :eq1, T, 0) * T(sign(s))
+        elseif s_abs < 2
+            return horner(s_abs, b5_coefs_i1, :eq2, T, 0) * T(sign(s))
+        elseif s_abs < 3
+            return horner(s_abs, b5_coefs_i1, :eq3, T, 0) * T(sign(s))
+        elseif s_abs < 4
+            return horner(s_abs, b5_coefs_i1, :eq4, T, 0) * T(sign(s))
+        else
+            return horner(s_abs, b5_coefs_i1, :eq5, T, 0) * T(sign(s))
+        end
+    end
     b5_coefs_in = if DO == 0
         b5_coefs
     elseif DO == 1
@@ -48,9 +74,8 @@ function (::ConvolutionKernel{:b5,DO})(s::T) where {T,DO} # 5 equations 7th orde
     elseif DO == 3
         b5_coefs_d3
     else
-        error("kernel :b5 supports differentiation orders 0, 1, 2, 3, but got $DO")
+        error("kernel :b5 supports differentiation orders -1, 0, 1, 2, 3, but got $DO")
     end
-    s_abs = abs(s)
     if s_abs < 1.0
         return horner(s_abs, b5_coefs_in, :eq1, T, DO) * (isodd(DO) ? sign(s) : one(T))
     elseif s_abs < 2.0

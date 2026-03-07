@@ -161,6 +161,30 @@ function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},DG,EQ,KBC,DO
                 end
             end
         end
+    elseif DO.parameters[1] == -1
+        x_left = itp.knots[1][itp.eqs]
+        y_left = itp.knots[2][itp.eqs]
+        z_left = itp.knots[3][itp.eqs]
+        n1 = size(itp.coefs, 1)
+        n2 = size(itp.coefs, 2)
+        n3 = size(itp.coefs, 3)
+        @inbounds for i1 in 1:n1
+            xi = itp.knots[1][itp.eqs] + (i1 - itp.eqs) * itp.h[1]
+            dx = itp.kernel((x[1]   - xi) / itp.h[1]) -
+                 itp.kernel((x_left - xi) / itp.h[1])
+            for i2 in 1:n2
+                yj = itp.knots[2][itp.eqs] + (i2 - itp.eqs) * itp.h[2]
+                dy = itp.kernel((x[2]   - yj) / itp.h[2]) -
+                     itp.kernel((y_left - yj) / itp.h[2])
+                for i3 in 1:n3
+                    zk = itp.knots[3][itp.eqs] + (i3 - itp.eqs) * itp.h[3]
+                    dz = itp.kernel((x[3]   - zk) / itp.h[3]) -
+                         itp.kernel((z_left - zk) / itp.h[3])
+                    result += itp.coefs[i1, i2, i3] * dx * dy * dz
+                end
+            end
+        end
+        return result * itp.h[1] * itp.h[2] * itp.h[3]
     else
         @inbounds for l = -(itp.eqs-1):itp.eqs,
             m = -(itp.eqs-1):itp.eqs,
@@ -172,7 +196,8 @@ function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},DG,EQ,KBC,DO
         end
     end
 
-    return @fastmath result * (one(T)/itp.h[1])^(DO.parameters[1]) * 
-                               (one(T)/itp.h[2])^(DO.parameters[1]) * 
-                               (one(T)/itp.h[3])^(DO.parameters[1])
+    do_val = DO.parameters[1]
+    scale = do_val >= 0 ? (one(T)/itp.h[1])^do_val * (one(T)/itp.h[2])^do_val * (one(T)/itp.h[3])^do_val :
+                          itp.h[1]^(-do_val) * itp.h[2]^(-do_val) * itp.h[3]^(-do_val)
+    return @fastmath result * scale
 end

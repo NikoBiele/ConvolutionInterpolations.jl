@@ -96,6 +96,18 @@ function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
             coef = lazy_ghost_value(itp.coefs, vidx, itp.eqs, kernel_type)
             result += coef * prod(itp.kernel(s[d] - T(offsets[d])) for d in 1:N)
         end
+    elseif DO.parameters[1] == -1
+        x_lefts = ntuple(d -> itp.knots[d][itp.eqs], N)
+        ns = ntuple(d -> size(itp.coefs, d), N)
+        @inbounds for idx in Iterators.product(ntuple(d -> 1:ns[d], N)...)
+            dx = prod(d -> begin
+                xd = itp.knots[d][itp.eqs] + (idx[d] - itp.eqs) * itp.h[d]
+                itp.kernel((x[d]        - xd) / itp.h[d]) -
+                itp.kernel((x_lefts[d]  - xd) / itp.h[d])
+            end, 1:N)
+            result += itp.coefs[idx...] * dx
+        end
+        return result * prod(itp.h[d] for d in 1:N)
     else
         @inbounds for offsets in Iterators.product(ntuple(_ -> -(itp.eqs-1):itp.eqs, N)...)
             result += itp.coefs[(pos_ids .+ offsets)...] * 
@@ -103,5 +115,8 @@ function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
         end
     end
     
-    return @inbounds @fastmath result * prod((one(T)/itp.h[i])^(DO.parameters[1]) for i in 1:N)
+    do_val = DO.parameters[1]
+    scale = do_val >= 0 ? prod((one(T)/itp.h[d])^do_val for d in 1:N) :
+                          prod(itp.h[d]^(-do_val) for d in 1:N)
+    return @inbounds @fastmath result * scale
 end

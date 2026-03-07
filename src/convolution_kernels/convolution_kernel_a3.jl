@@ -1,8 +1,10 @@
 """
-    (::ConvolutionKernel{Val{:a3},DO})(s)
+    (::ConvolutionKernel{:a3,DO})(s)
 
 Keys' cubic kernel (a = -1/2). Support [-2, 2], 2 pieces.
 C1 continuous, 3rd-order accuracy. The classic cubic convolution kernel from Keys (1981).
+Antiderivative (DO = -1): K̃(x) = ∫_{-∞}^{x} K(t) dt - 1/2, odd function, K̃(0) = 0,
+K̃(±∞) = ±1/2. Exact definite integration via K̃(b) - K̃(a).
 """
 
 const a3_coefs = Dict(
@@ -10,19 +12,33 @@ const a3_coefs = Dict(
     :eq2 => [2//1, -4//1, 5//2, -1//2]
 )
 const a3_coefs_d1 = Dict(
-    :eq1 => [0//1*1//1, 0//1, 2//1*-5//2, 3//1*3//2],
-    :eq2 => [0//1*2//1, -4//1, 2//1*5//2, 3//1*-1//2]
+    :eq1 => [0//1, 0//1, 2//1*-5//2, 3//1*3//2],
+    :eq2 => [0//1, -4//1, 2//1*5//2, 3//1*-1//2]
+)
+const a3_coefs_i1 = Dict(
+    :eq1 => [0//1, 1//1, 0//1, -5//6, 3//8],
+    :eq2 => [-1//6, 2//1, -2//1, 5//6, -1//8]
 )
 
 function (::ConvolutionKernel{:a3,DO})(s::T) where {T,DO}
+    s_abs = abs(s)
+    if DO == -1
+        # Antiderivative K̃: odd function, saturates at ±1/2
+        if s_abs >= 2
+            return T(1//2) * T(sign(s))
+        elseif s_abs < 1
+            return horner(s_abs, a3_coefs_i1, :eq1, T, 0) * T(sign(s))
+        else
+            return horner(s_abs, a3_coefs_i1, :eq2, T, 0) * T(sign(s))
+        end
+    end
     a3_coefs_in = if DO == 0
         a3_coefs
     elseif DO == 1
         a3_coefs_d1
     else
-        error("kernel :a3 supports differentiation orders 0, 1, but got $DO")
+        error("kernel :a3 supports differentiation orders -1, 0, 1, but got $DO")
     end
-    s_abs = abs(s)
     if s_abs < 1.0
         return horner(s_abs, a3_coefs_in, :eq1, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))
     elseif s_abs < 2.0

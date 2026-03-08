@@ -256,6 +256,10 @@ Antiderivative support is available for all uniform-grid kernels except `:a0`, a
 not yet supported on non-uniform grids. The `subgrid` parameter has no effect when
 `derivative=-1`; cubic subgrid is used internally for coefficient solving.
 
+The figure below shows convergence of the antiderivative of Runge's function:
+
+[![Antiderivative convergence](fig/integration_1d_runge.png)](fig/integration_1d_runge.png)
+
 ### Extrapolation
 
 Define behavior outside the data domain:

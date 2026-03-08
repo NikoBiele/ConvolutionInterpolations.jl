@@ -56,4 +56,5 @@ struct ConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,Convoluti
     nb_weight_coeffs::NB
     lazy::Bool
     boundary_fallback::Bool
+    anchor::NTuple{N, T}
 end

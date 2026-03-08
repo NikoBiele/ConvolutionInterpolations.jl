@@ -45,8 +45,8 @@ This implementation uses precomputed kernel values,
 offering significantly faster performance than `ConvolutionInterpolation`.
 """
 struct FastConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,ConvolutionMethod},
-                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP,KBC,DO,FD,SD,SG} <: 
-                                AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG}
+                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP,KBC,DOT,FD,SD,SG} <: 
+                                AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG}
     coefs::TCoefs
     knots::Axs
     it::IT
@@ -58,10 +58,12 @@ struct FastConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,Convo
     pre_range::PR
     kernel_pre::KP
     kernel_bc::KBC
-    derivative_order::DO
+    derivative_order::DOT
     kernel_d1_pre::FD
     kernel_d2_pre::SD
     subgrid::SG
     lazy::Bool
     boundary_fallback::Bool
+    left_values::NTuple{N, Vector{T}}
+    anchor::NTuple{N, T}
 end

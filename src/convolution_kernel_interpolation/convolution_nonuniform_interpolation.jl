@@ -38,8 +38,8 @@ This is the fallback path for a-series kernels on nonuniform grids.
 # --- 1D with ghost points ---
 
 @inline function (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
-                    Val{:n3},EQ,KBC,DO})(x::Vararg{Number,1}) where 
-                    {T,TCoefs,IT,Axs,KA,EQ,KBC,DO}
+                    Val{:n3},EQ,KBC,DerivativeOrder{DO},FD,SD,SG})(x::Vararg{Number,1}) where
+                    {T,TCoefs,IT,Axs,KA,EQ,KBC,DO,FD,SD,SG}
     if itp.lazy
         return _eval_n3_lazy(itp, x[1])
     end
@@ -55,8 +55,8 @@ end
 # --- 2D with ghost points ---
 
 @inline function (itp::ConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
-                    Val{:n3},EQ,KBC,DO})(x::Vararg{Number,2}) where 
-                    {T,TCoefs,IT,Axs,KA,EQ,KBC,DO}
+                    Val{:n3},EQ,KBC,DerivativeOrder{DO},FD,SD,SG})(x::Vararg{Number,2}) where
+                    {T,TCoefs,IT,Axs,KA,EQ,KBC,DO,FD,SD,SG}
     if itp.lazy
         return _eval_n3_lazy(itp, x[1], x[2])
     end
@@ -76,8 +76,8 @@ end
 # --- 3D with ghost points ---
 
 @inline function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
-                    Val{:n3},EQ,KBC,DO})(x::Vararg{Number,3}) where 
-                    {T,TCoefs,IT,Axs,KA,EQ,KBC,DO}
+                    Val{:n3},EQ,KBC,DerivativeOrder{DO},FD,SD,SG})(x::Vararg{Number,3}) where
+                    {T,TCoefs,IT,Axs,KA,EQ,KBC,DO,FD,SD,SG}
     if itp.lazy
         return _eval_n3_lazy(itp, x[1], x[2], x[3])
     end
@@ -100,8 +100,8 @@ end
 # --- ND (N > 3) with ghost points ---
 
 @inline function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
-                    Val{:n3},EQ,KBC,DO})(x::Vararg{Number,N}) where 
-                    {T,N,TCoefs,IT,Axs,KA,EQ,KBC,DO}
+        Val{:n3},EQ,KBC,DerivativeOrder{DO},FD,SD,SG})(x::Vararg{Number,N}) where 
+        {T,N,TCoefs,IT,Axs,KA,EQ,KBC,DO,FD,SD,SG}
     if itp.lazy
         return _eval_n3_lazy(itp, x...)
     end
@@ -211,65 +211,55 @@ Derivative scaling uses local interval spacing `h0` per dimension.
 # Dispatch: NB <: Tuple{Vector{Matrix{Float64}}} (not Nothing)
 
 @inline function (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
-                    DG,EQ,KBC,DO,FD,SD,SG,NB})(x::Vararg{Number,1}) where 
+                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG,NB})(x::Vararg{Number,1}) where 
                     {T,TCoefs,IT,Axs,KA,DG,EQ,KBC,DO,FD,SD,SG,
-                     NB<:Tuple{Vector{Matrix{Float64}}}}
+                    NB<:Tuple{Vector{Matrix{Float64}}}}
 
     M_eqs = _nb_M_eqs(itp.deg)
     ns = _nb_n_stencil(itp.deg)
     i, w, h0 = _nb_dim(itp.knots[1], itp.nb_weight_coeffs[1], M_eqs, x[1], ns)
 
-    # Derivative order from type parameter
-    deriv = DO.parameters[1]
-
     result = zero(T)
     @inbounds for (j, wj) in enumerate(w)
         result += T(wj) * itp.coefs[i - M_eqs + j]
     end
-    return result * (one(T) / h0)^deriv
+    return result * (one(T) / h0)^DO
 end
 
 # ── Nonuniform b-kernel 2D ───────────────────────────────────
 
 @inline function (itp::ConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
-                    DG,EQ,KBC,DO,FD,SD,SG,NB})(x::Vararg{Number,2}) where 
+                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG,NB})(x::Vararg{Number,2}) where 
                     {T,TCoefs,IT,Axs,KA,DG,EQ,KBC,DO,FD,SD,SG,
-                     NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
+                    NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
 
     M_eqs = _nb_M_eqs(itp.deg)
     ns = _nb_n_stencil(itp.deg)
     ix, wx, h0x = _nb_dim(itp.knots[1], itp.nb_weight_coeffs[1], M_eqs, x[1], ns)
     iy, wy, h0y = _nb_dim(itp.knots[2], itp.nb_weight_coeffs[2], M_eqs, x[2], ns)
     
-    # Derivative order from type parameter
-    deriv = DO.parameters[1]
     result = zero(T)
-    
     @inbounds for (jx, wjx) in enumerate(wx)
         for (jy, wjy) in enumerate(wy)
             result += T(wjx) * T(wjy) * itp.coefs[ix - M_eqs + jx, iy - M_eqs + jy]
         end
     end
-    return result * (one(T) / h0x)^deriv * (one(T) / h0y)^deriv
+    return result * (one(T) / h0x)^DO * (one(T) / h0y)^DO
 end
 
 # ── Nonuniform b-kernel 3D ───────────────────────────────────
 
 @inline function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
-                    DG,EQ,KBC,DO,FD,SD,SG,NB})(x::Vararg{Number,3}) where 
+                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG,NB})(x::Vararg{Number,3}) where 
                     {T,TCoefs,IT,Axs,KA,DG,EQ,KBC,DO,FD,SD,SG,
                      NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
-
     M_eqs = _nb_M_eqs(itp.deg)
     ns = _nb_n_stencil(itp.deg)
     ix, wx, h0x = _nb_dim(itp.knots[1], itp.nb_weight_coeffs[1], M_eqs, x[1], ns)
     iy, wy, h0y = _nb_dim(itp.knots[2], itp.nb_weight_coeffs[2], M_eqs, x[2], ns)
     iz, wz, h0z = _nb_dim(itp.knots[3], itp.nb_weight_coeffs[3], M_eqs, x[3], ns)
 
-    # Derivative order from type parameter
-    deriv = DO.parameters[1]
     result = zero(T)
-
     @inbounds for (jx, wjx) in enumerate(wx)
         for (jy, wjy) in enumerate(wy)
             for (jz, wjz) in enumerate(wz)
@@ -278,15 +268,15 @@ end
             end
         end
     end
-    return result * (one(T) / h0x)^deriv * (one(T) / h0y)^deriv * (one(T) / h0z)^deriv
+    return result * (one(T) / h0x)^DO * (one(T) / h0y)^DO * (one(T) / h0z)^DO
 end
 
 # ── Nonuniform b-kernel ND (N > 3) ───────────────────────────
 
 @inline function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
-                    DG,EQ,KBC,DO,FD,SD,SG,NB})(x::Vararg{Number,N}) where 
-                    {T,N,TCoefs,IT,Axs,KA,DG,EQ,KBC,DO,FD,SD,SG,
-                     NB<:Tuple{Vararg{Vector{Matrix{Float64}}}}}
+                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG,NB})(x::Vararg{Number,N}) where 
+                    {T,TCoefs,IT,Axs,KA,DG,EQ,KBC,DO,FD,SD,SG,
+                     NB<:Tuple{Vararg{Vector{Matrix{Float64}}}},N}
 
     M_eqs = _nb_M_eqs(itp.deg)
     ns = _nb_n_stencil(itp.deg)
@@ -298,13 +288,11 @@ end
     weights = ntuple(d -> iw[d][2], N)
     n_stencil = length(weights[1])
     
-    # Derivative order from type parameter
-    deriv = DO.parameters[1]
     result = zero(T)
     @inbounds for offsets in Iterators.product(ntuple(_ -> 1:n_stencil, N)...)
         w_prod = prod(T(weights[d][offsets[d]]) for d in 1:N)
         idx = ntuple(d -> indices[d] - M_eqs + offsets[d], N)
         result += w_prod * itp.coefs[idx...]
     end
-    return result * prod(one(T) / iw[d][3] for d in 1:N)^deriv
+    return result * prod(one(T) / iw[d][3] for d in 1:N)^DO
 end

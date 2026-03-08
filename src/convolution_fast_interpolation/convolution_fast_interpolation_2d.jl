@@ -51,7 +51,7 @@ See also: `FastConvolutionInterpolation`, `cubic_hermite`, `quintic_hermite`.
     end
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},Val{:a1},EQ,PR,KP,KBC,DO})(x::Vararg{Number,2}) where {T,TCoefs,IT,Axs,KA,EQ,PR,KP,KBC,DO}
+@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},Val{:a1},EQ,PR,KP,KBC,DerivativeOrder{DO}})(x::Vararg{Number,2}) where {T,TCoefs,IT,Axs,KA,EQ,PR,KP,KBC,DO}
     # specialized dispatch for 2d linear kernel
     # First dimension (x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
@@ -68,11 +68,11 @@ end
                         x_diff_left*(1-y_diff_left)*itp.coefs[i+1, j] + 
                         (1-x_diff_left)*y_diff_left*itp.coefs[i, j+1] + 
                         x_diff_left*y_diff_left*itp.coefs[i+1, j+1]) *
-                        (-one(T)/itp.h[1])^(DO.parameters[1]) * (-one(T)/itp.h[2])^(DO.parameters[1])
+                        (-one(T)/itp.h[1])^DO * (-one(T)/itp.h[2])^DO
 end
 
 function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
-            HigherOrderKernel{DG},EQ,PR,KP,KBC,DO,FD,SD,Val{:linear}})(x::Vararg{Number,2}) where 
+            HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{:linear}})(x::Vararg{Number,2}) where 
             {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,DO,FD,SD}
     # specialized dispatch for 2d higher-order kernels
     
@@ -146,11 +146,11 @@ function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
 
     # Bilinear interpolation
     return @fastmath ((one(T)-t_x)*(one(T)-t_y)*result_00 + t_x*(one(T)-t_y)*result_10 + (one(T)-t_x)*t_y*result_01 + t_x*t_y*result_11) *
-                        (-one(T)/itp.h[1])^(DO.parameters[1]) * (-one(T)/itp.h[2])^(DO.parameters[1])
+                        (-one(T)/itp.h[1])^DO * (-one(T)/itp.h[2])^DO
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
-                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DO,FD,SD,Val{:cubic}})(x::Vararg{Number,2}) where 
+                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{:cubic}})(x::Vararg{Number,2}) where 
                     {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,DO,FD,SD}
 
     # First dimension (x)
@@ -275,11 +275,11 @@ end
 
     result = cubic_hermite(t_y, val_y0, val_y1, dval_y0, dval_y1, h_pre)
 
-    return result * (-one(T)/itp.h[1])^(DO.parameters[1]) * (-one(T)/itp.h[2])^(DO.parameters[1])
+    return result * (-one(T)/itp.h[1])^DO * (-one(T)/itp.h[2])^DO
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
-                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DO,FD,SD,Val{:quintic}})(x::Vararg{Number,2}) where 
+                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{:quintic}})(x::Vararg{Number,2}) where 
                     {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,DO,FD,SD}
 
     # First dimension (x)
@@ -434,5 +434,181 @@ end
 
     result = quintic_hermite(t_y, val_y0, val_y1, d1_y0, d1_y1, d2_y0, d2_y1, h_pre)
 
-    return result * (-one(T)/itp.h[1])^(DO.parameters[1]) * (-one(T)/itp.h[2])^(DO.parameters[1])
+    return result * (-one(T)/itp.h[1])^DO * (-one(T)/itp.h[2])^DO
+end
+
+@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
+                    HigherOrderKernel{DG},EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{:quintic}})(x::Vararg{Number,2}) where 
+                    {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,FD,SD}
+
+    eqs_int = itp.eqs
+    n_pre = length(itp.pre_range)
+    h_pre = one(T) / T(n_pre - 1)
+    result = zero(T)
+
+    @inbounds for j2 in 1:size(itp.coefs, 2)
+        xj2 = itp.knots[2][eqs_int] + (j2 - eqs_int) * itp.h[2]
+        sj2 = (x[2] - xj2) / itp.h[2]
+
+        if abs(sj2) >= T(eqs_int)
+            kt2 = T(1//2) * T(sign(sj2))
+        else
+            col_float2 = T(eqs_int) + sj2
+            col2 = clamp(floor(Int, col_float2) + 1, 1, 2 * eqs_int)
+            x_diff_right2 = col_float2 - T(col2 - 1)
+            continuous_idx2 = x_diff_right2 * T(n_pre - 1) + one(T)
+            idx2      = clamp(floor(Int, continuous_idx2), 1, n_pre - 1)
+            idx2_next = idx2 + 1
+            t2        = continuous_idx2 - T(idx2)
+            kt2 = quintic_hermite(t2,
+                    itp.kernel_pre[idx2,    col2], itp.kernel_pre[idx2_next,    col2],
+                    itp.kernel_d1_pre[idx2, col2], itp.kernel_d1_pre[idx2_next, col2],
+                    itp.kernel_d2_pre[idx2, col2], itp.kernel_d2_pre[idx2_next, col2],
+                    h_pre)
+        end
+
+        lv2 = kt2 - itp.left_values[2][j2]
+
+        @inbounds for j1 in 1:size(itp.coefs, 1)
+            xj1 = itp.knots[1][eqs_int] + (j1 - eqs_int) * itp.h[1]
+            sj1 = (x[1] - xj1) / itp.h[1]
+
+            if abs(sj1) >= T(eqs_int)
+                kt1 = T(1//2) * T(sign(sj1))
+            else
+                col_float1 = T(eqs_int) + sj1
+                col1 = clamp(floor(Int, col_float1) + 1, 1, 2 * eqs_int)
+                x_diff_right1 = col_float1 - T(col1 - 1)
+                continuous_idx1 = x_diff_right1 * T(n_pre - 1) + one(T)
+                idx1      = clamp(floor(Int, continuous_idx1), 1, n_pre - 1)
+                idx1_next = idx1 + 1
+                t1        = continuous_idx1 - T(idx1)
+                kt1 = quintic_hermite(t1,
+                        itp.kernel_pre[idx1,    col1], itp.kernel_pre[idx1_next,    col1],
+                        itp.kernel_d1_pre[idx1, col1], itp.kernel_d1_pre[idx1_next, col1],
+                        itp.kernel_d2_pre[idx1, col1], itp.kernel_d2_pre[idx1_next, col1],
+                        h_pre)
+            end
+
+            result += itp.coefs[j1, j2] * (kt1 - itp.left_values[1][j1]) * lv2
+        end
+    end
+
+    return result * itp.h[1] * itp.h[2]
+end
+
+@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
+                    HigherOrderKernel{DG},EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{:cubic}})(x::Vararg{Number,2}) where 
+                    {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,FD,SD}
+
+    eqs_int = itp.eqs
+    n_pre = length(itp.pre_range)
+    h_pre = one(T) / T(n_pre - 1)
+    result = zero(T)
+
+    @inbounds for j2 in 1:size(itp.coefs, 2)
+        xj2 = itp.knots[2][eqs_int] + (j2 - eqs_int) * itp.h[2]
+        sj2 = (x[2] - xj2) / itp.h[2]
+
+        if abs(sj2) >= T(eqs_int)
+            kt2 = T(1//2) * T(sign(sj2))
+        else
+            col_float2 = T(eqs_int) + sj2
+            col2 = clamp(floor(Int, col_float2) + 1, 1, 2 * eqs_int)
+            x_diff_right2 = col_float2 - T(col2 - 1)
+            continuous_idx2 = x_diff_right2 * T(n_pre - 1) + one(T)
+            idx2      = clamp(floor(Int, continuous_idx2), 1, n_pre - 1)
+            idx2_next = idx2 + 1
+            t2        = continuous_idx2 - T(idx2)
+            kt2 = cubic_hermite(t2,
+                    itp.kernel_pre[idx2,    col2], itp.kernel_pre[idx2_next,    col2],
+                    itp.kernel_d1_pre[idx2, col2], itp.kernel_d1_pre[idx2_next, col2],
+                    h_pre)
+        end
+
+        lv2 = kt2 - itp.left_values[2][j2]
+
+        @inbounds for j1 in 1:size(itp.coefs, 1)
+            xj1 = itp.knots[1][eqs_int] + (j1 - eqs_int) * itp.h[1]
+            sj1 = (x[1] - xj1) / itp.h[1]
+
+            if abs(sj1) >= T(eqs_int)
+                kt1 = T(1//2) * T(sign(sj1))
+            else
+                col_float1 = T(eqs_int) + sj1
+                col1 = clamp(floor(Int, col_float1) + 1, 1, 2 * eqs_int)
+                x_diff_right1 = col_float1 - T(col1 - 1)
+                continuous_idx1 = x_diff_right1 * T(n_pre - 1) + one(T)
+                idx1      = clamp(floor(Int, continuous_idx1), 1, n_pre - 1)
+                idx1_next = idx1 + 1
+                t1        = continuous_idx1 - T(idx1)
+                kt1 = cubic_hermite(t1,
+                        itp.kernel_pre[idx1,    col1], itp.kernel_pre[idx1_next,    col1],
+                        itp.kernel_d1_pre[idx1, col1], itp.kernel_d1_pre[idx1_next, col1],
+                        h_pre)
+            end
+
+            result += itp.coefs[j1, j2] * (kt1 - itp.left_values[1][j1]) * lv2
+        end
+    end
+
+    return result * itp.h[1] * itp.h[2]
+end
+
+@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
+                    Val{:a1},EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{:cubic}})(x::Vararg{Number,2}) where 
+                    {T,TCoefs,IT,Axs,KA,EQ,PR,KP,KBC,FD,SD}
+
+    eqs_int = itp.eqs
+    n_pre = length(itp.pre_range)
+    h_pre = one(T) / T(n_pre - 1)
+    result = zero(T)
+
+    @inbounds for j2 in 1:size(itp.coefs, 2)
+        xj2 = itp.knots[2][eqs_int] + (j2 - eqs_int) * itp.h[2]
+        sj2 = (x[2] - xj2) / itp.h[2]
+
+        if abs(sj2) >= T(eqs_int)
+            kt2 = T(1//2) * T(sign(sj2))
+        else
+            col_float2 = T(eqs_int) + sj2
+            col2 = clamp(floor(Int, col_float2) + 1, 1, 2 * eqs_int)
+            x_diff_right2 = col_float2 - T(col2 - 1)
+            continuous_idx2 = x_diff_right2 * T(n_pre - 1) + one(T)
+            idx2      = clamp(floor(Int, continuous_idx2), 1, n_pre - 1)
+            idx2_next = idx2 + 1
+            t2        = continuous_idx2 - T(idx2)
+            kt2 = cubic_hermite(t2,
+                    itp.kernel_pre[idx2,    col2], itp.kernel_pre[idx2_next,    col2],
+                    itp.kernel_d1_pre[idx2, col2], itp.kernel_d1_pre[idx2_next, col2],
+                    h_pre)
+        end
+
+        lv2 = kt2 - itp.left_values[2][j2]
+
+        @inbounds for j1 in 1:size(itp.coefs, 1)
+            xj1 = itp.knots[1][eqs_int] + (j1 - eqs_int) * itp.h[1]
+            sj1 = (x[1] - xj1) / itp.h[1]
+
+            if abs(sj1) >= T(eqs_int)
+                kt1 = T(1//2) * T(sign(sj1))
+            else
+                col_float1 = T(eqs_int) + sj1
+                col1 = clamp(floor(Int, col_float1) + 1, 1, 2 * eqs_int)
+                x_diff_right1 = col_float1 - T(col1 - 1)
+                continuous_idx1 = x_diff_right1 * T(n_pre - 1) + one(T)
+                idx1      = clamp(floor(Int, continuous_idx1), 1, n_pre - 1)
+                idx1_next = idx1 + 1
+                t1        = continuous_idx1 - T(idx1)
+                kt1 = cubic_hermite(t1,
+                        itp.kernel_pre[idx1,    col1], itp.kernel_pre[idx1_next,    col1],
+                        itp.kernel_d1_pre[idx1, col1], itp.kernel_d1_pre[idx1_next, col1],
+                        h_pre)
+            end
+
+            result += itp.coefs[j1, j2] * (kt1 - itp.left_values[1][j1]) * lv2
+        end
+    end
+
+    return result * itp.h[1] * itp.h[2]
 end

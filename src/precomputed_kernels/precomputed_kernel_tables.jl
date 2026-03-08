@@ -30,42 +30,72 @@ function get_shipped_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) w
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :a1
-        if derivative == 0
+        if derivative == -1
+            kp = T.(KERNEL_PRE_a1_i1)
+            kd1 = T.(KERNEL_D1_PRE_a1_i1)
+            kd2 = nothing
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 0
             kp = T.(KERNEL_PRE_a1_d0)
             kd1 = nothing
             kd2 = nothing
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :a3
-        if derivative == 0
+        if derivative == -1
+            kp = T.(KERNEL_PRE_a3_i1)
+            kd1 = T.(KERNEL_D1_PRE_a3_i1)
+            kd2 = T.(KERNEL_D2_PRE_a3_i1)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 0
             kp = T.(KERNEL_PRE_a3_d0)
             kd1 = T.(KERNEL_D1_PRE_a3_d0)
             kd2 = nothing
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :a4
-        if derivative == 0
+        if derivative == -1
+            kp = T.(KERNEL_PRE_a4_i1)
+            kd1 = T.(KERNEL_D1_PRE_a4_i1)
+            kd2 = T.(KERNEL_D2_PRE_a4_i1)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 0
             kp = T.(KERNEL_PRE_a4_d0)
             kd1 = T.(KERNEL_D1_PRE_a4_d0)
             kd2 = nothing
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :a5
-        if derivative == 0
+        if derivative == -1
+            kp = T.(KERNEL_PRE_a5_i1)
+            kd1 = T.(KERNEL_D1_PRE_a5_i1)
+            kd2 = T.(KERNEL_D2_PRE_a5_i1)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 0
             kp = T.(KERNEL_PRE_a5_d0)
             kd1 = T.(KERNEL_D1_PRE_a5_d0)
             kd2 = nothing
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :a7
-        if derivative == 0
+        if derivative == -1
+            kp = T.(KERNEL_PRE_a7_i1)
+            kd1 = T.(KERNEL_D1_PRE_a7_i1)
+            kd2 = T.(KERNEL_D2_PRE_a7_i1)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 0
             kp = T.(KERNEL_PRE_a7_d0)
             kd1 = T.(KERNEL_D1_PRE_a7_d0)
             kd2 = nothing
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :b5
-        if derivative == 0
+        if derivative == -1
+            kp = T.(KERNEL_PRE_b5_i1)
+            kd1 = T.(KERNEL_D1_PRE_b5_i1)
+            kd2 = T.(KERNEL_D2_PRE_b5_i1)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 0
             kp = T.(KERNEL_PRE_b5_d0)
             kd1 = T.(KERNEL_D1_PRE_b5_d0)
             kd2 = T.(KERNEL_D2_PRE_b5_d0)
@@ -82,7 +112,12 @@ function get_shipped_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) w
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :b7
-        if derivative == 0
+        if derivative == -1
+            kp = T.(KERNEL_PRE_b7_i1)
+            kd1 = T.(KERNEL_D1_PRE_b7_i1)
+            kd2 = T.(KERNEL_D2_PRE_b7_i1)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 0
             kp = T.(KERNEL_PRE_b7_d0)
             kd1 = T.(KERNEL_D1_PRE_b7_d0)
             kd2 = T.(KERNEL_D2_PRE_b7_d0)
@@ -104,7 +139,12 @@ function get_shipped_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) w
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :b9
-        if derivative == 0
+        if derivative == -1
+            kp = T.(KERNEL_PRE_b9_i1)
+            kd1 = T.(KERNEL_D1_PRE_b9_i1)
+            kd2 = T.(KERNEL_D2_PRE_b9_i1)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 0
             kp = T.(KERNEL_PRE_b9_d0)
             kd1 = T.(KERNEL_D1_PRE_b9_d0)
             kd2 = T.(KERNEL_D2_PRE_b9_d0)
@@ -131,7 +171,12 @@ function get_shipped_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) w
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :b11
-        if derivative == 0
+        if derivative == -1
+            kp = T.(KERNEL_PRE_b11_i1)
+            kd1 = T.(KERNEL_D1_PRE_b11_i1)
+            kd2 = T.(KERNEL_D2_PRE_b11_i1)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 0
             kp = T.(KERNEL_PRE_b11_d0)
             kd1 = T.(KERNEL_D1_PRE_b11_d0)
             kd2 = T.(KERNEL_D2_PRE_b11_d0)
@@ -163,7 +208,12 @@ function get_shipped_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) w
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :b13
-        if derivative == 0
+        if derivative == -1
+            kp = T.(KERNEL_PRE_b13_i1)
+            kd1 = T.(KERNEL_D1_PRE_b13_i1)
+            kd2 = T.(KERNEL_D2_PRE_b13_i1)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 0
             kp = T.(KERNEL_PRE_b13_d0)
             kd1 = T.(KERNEL_D1_PRE_b13_d0)
             kd2 = T.(KERNEL_D2_PRE_b13_d0)

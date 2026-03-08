@@ -121,3 +121,31 @@ This is a convenience constructor that creates a `GaussianConvolutionKernel{B}` 
 from a value type, used for implementing specialized Gaussian kernel methods.
 """
 GaussianConvolutionKernel(::Val{B}) where B = GaussianConvolutionKernel{B}()
+
+"""
+    IntegralOrder
+
+Dispatch type indicating that a `ConvolutionInterpolation` or
+`FastConvolutionInterpolation` computes the antiderivative (indefinite integral)
+of the interpolant. Stored in the derivative slot (position 11) of the interpolant
+type when `derivative=-1` is passed at construction.
+
+See also: `DerivativeOrder`, `convolution_interpolation`.
+"""
+struct IntegralOrder end
+
+"""
+    DerivativeOrder{DO}
+
+Dispatch type indicating the derivative order of a `ConvolutionInterpolation` or
+`FastConvolutionInterpolation`. Stored in the derivative slot (position 11) of the
+interpolant type. `DO=0` corresponds to plain interpolation, `DO=1` to the first
+derivative, and so on up to the kernel's maximum supported order.
+
+# Type Parameters
+- `DO`: Derivative order as an `Int`. Must satisfy `0 ≤ DO ≤ max_derivative[kernel]`.
+
+See also: `IntegralOrder`, `convolution_interpolation`.
+"""
+struct DerivativeOrder{DO} end
+DerivativeOrder(::Val{DO}) where DO = DerivativeOrder{DO}()

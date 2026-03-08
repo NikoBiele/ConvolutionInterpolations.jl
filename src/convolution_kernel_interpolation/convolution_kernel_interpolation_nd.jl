@@ -27,7 +27,27 @@ where the sum is over all possible offset combinations in the N-dimensional neig
 is across all dimensions. This generalizes to any number of dimensions efficiently.
 """
 
-function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},DG,EQ,KBC,DO})(x::Vararg{Number,N}) where {T,N,TCoefs,IT,KA,Axs,DG,EQ,KBC,DO}
+@inline function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
+                    DG,EQ,KBC,IntegralOrder,FD,SD,SG})(x::Vararg{Number,N}) where 
+                    {T,N,TCoefs,IT,KA,Axs,DG,EQ,KBC,FD,SD,SG}
+
+    result = zero(T)
+    x_lefts = ntuple(d -> itp.knots[d][itp.eqs], N)
+    ns = ntuple(d -> size(itp.coefs, d), N)
+    @inbounds for idx in Iterators.product(ntuple(d -> 1:ns[d], N)...)
+        dx = prod(d -> begin
+            xd = itp.knots[d][itp.eqs] + (idx[d] - itp.eqs) * itp.h[d]
+            itp.kernel((x[d]       - xd) / itp.h[d]) -
+            itp.kernel((x_lefts[d] - xd) / itp.h[d])
+        end, 1:N)
+        result += itp.coefs[idx...] * dx
+    end
+    return result * prod(itp.h[d] for d in 1:N)
+end
+
+function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
+                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG})(x::Vararg{Number,N}) where 
+                    {T,N,TCoefs,IT,KA,Axs,DG,EQ,KBC,DO,FD,SD,SG}
 
     # Check if nonuniform lazy
     is_nonuniform = itp.lazy && any(d -> length(itp.knots[d]) != size(itp.coefs, d), 1:N)
@@ -58,7 +78,6 @@ function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
             return result
 
         else
-            # n3/a3+ nonuniform lazy
             knots_orig = ntuple(d -> itp.knots[d][ngs[d]+1:end-ngs[d]], N)
             iw = ntuple(d -> _nonuniform_dim_ghost(itp.knots[d], x[d]), N)
             indices = ntuple(d -> iw[d][1], N)
@@ -74,11 +93,9 @@ function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
         end
     end
 
-    # === Uniform path (existing code) ===
+    # === Uniform path ===
 
-    # Compute i_float once per dimension
     i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
-    # Find knot indices for each dimension
     pos_ids = if itp.lazy
         ntuple(d -> clamp(floor(Int, i_floats[d]), 1, length(itp.knots[d]) - 1), N)
     else
@@ -96,27 +113,13 @@ function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
             coef = lazy_ghost_value(itp.coefs, vidx, itp.eqs, kernel_type)
             result += coef * prod(itp.kernel(s[d] - T(offsets[d])) for d in 1:N)
         end
-    elseif DO.parameters[1] == -1
-        x_lefts = ntuple(d -> itp.knots[d][itp.eqs], N)
-        ns = ntuple(d -> size(itp.coefs, d), N)
-        @inbounds for idx in Iterators.product(ntuple(d -> 1:ns[d], N)...)
-            dx = prod(d -> begin
-                xd = itp.knots[d][itp.eqs] + (idx[d] - itp.eqs) * itp.h[d]
-                itp.kernel((x[d]        - xd) / itp.h[d]) -
-                itp.kernel((x_lefts[d]  - xd) / itp.h[d])
-            end, 1:N)
-            result += itp.coefs[idx...] * dx
-        end
-        return result * prod(itp.h[d] for d in 1:N)
     else
         @inbounds for offsets in Iterators.product(ntuple(_ -> -(itp.eqs-1):itp.eqs, N)...)
-            result += itp.coefs[(pos_ids .+ offsets)...] * 
+            result += itp.coefs[(pos_ids .+ offsets)...] *
                       prod(itp.kernel((x[d] - itp.knots[d][pos_ids[d] + offsets[d]]) / itp.h[d]) for d in 1:N)
         end
     end
-    
-    do_val = DO.parameters[1]
-    scale = do_val >= 0 ? prod((one(T)/itp.h[d])^do_val for d in 1:N) :
-                          prod(itp.h[d]^(-do_val) for d in 1:N)
+    scale = DO >= 0 ? prod((one(T)/itp.h[d])^DO for d in 1:N) :
+                      prod(itp.h[d]^(-DO) for d in 1:N)
     return @inbounds @fastmath result * scale
 end

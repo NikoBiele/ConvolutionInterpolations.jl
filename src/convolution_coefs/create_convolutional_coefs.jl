@@ -140,9 +140,10 @@ See also: `apply_boundary_conditions_for_dim!`, `boundary_coefs`.
 
 function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs::P,
                                 kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}},
-                                kernel_type::Symbol) where {T,N,P}
-       
-    new_dims = size(vs) .+ 2*(eqs-1)
+                                kernel_type::Symbol,
+                                derivative::Int) where {T,N,P}
+    vs_size = size(vs)
+    new_dims = vs_size .+ 2*(eqs-1)
     c = zeros(T, new_dims)
     inner_indices = map(d -> (1+(eqs-1)):(d-(eqs-1)), new_dims)
     c[inner_indices...] = vs
@@ -153,7 +154,7 @@ function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs:
 
     # Apply boundary conditions in order
     for fixed_dim in 1:N
-        apply_boundary_conditions_for_dim!(c, vs, fixed_dim, h, eqs, kernel_bc, kernel_type, workspace)
+        apply_boundary_conditions_for_dim!(c, vs, fixed_dim, h, eqs, kernel_bc, kernel_type, workspace, derivative, vs_size)
     end
 
     return c
@@ -196,7 +197,8 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
                                            h::NTuple{N,T}, eqs::Int,
                                            kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}, 
                                            kernel_type::Symbol,
-                                           workspace::BoundaryWorkspace{T,N}) where {T,N}
+                                           workspace::BoundaryWorkspace{T,N},
+                                           derivative::Int, vs_size::NTuple{N,Int}) where {T,N}
     
     kernel_boundary_condition = if kernel_bc isa Symbol
         (kernel_bc, kernel_bc)
@@ -243,10 +245,10 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
         end
         
         if use_polynomial_left
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :left, eqs, workspace)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :left, eqs, workspace, derivative, vs_size)
         else
             coef = get_recursive_coefs(slice_view, h[dim], kernel_boundary_condition[1], :left)
-            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :left, eqs, size(vs), workspace)
+            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :left, eqs, workspace, derivative, vs_size)
         end
     end
     
@@ -267,10 +269,10 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
         end
         
         if use_polynomial_right
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :right, eqs, workspace)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :right, eqs, workspace, derivative, vs_size)
         else
             coef = get_recursive_coefs(slice_view, h[dim], kernel_boundary_condition[2], :right)
-            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :right, eqs, size(vs), workspace)
+            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :right, eqs, workspace, derivative, vs_size)
         end
     end
 end
@@ -297,7 +299,9 @@ function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
                                       c_offset::AbstractVector{CartesianIndex{N}},
                                       coef::Matrix, y_offset::T, y_centered::AbstractVector{T},
                                       side::Symbol, eqs::Int,
-                                      workspace::BoundaryWorkspace{T,N}) where {T,N}
+                                      workspace::BoundaryWorkspace{T,N},
+                                      derivative::Int,
+                                      vs_size::NTuple) where {T,N}
     num_interior = size(coef, 2)
     num_ghost = eqs - 1  # Always use exactly eqs-1, not the full matrix
 
@@ -319,7 +323,14 @@ function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
         y_temp_view = view(workspace.y_temp, 1:num_interior)
         ghost_vals_view = view(workspace.ghost_vals, 1:num_ghost)
         coef_view = view(coef, 1:num_ghost, 1:num_interior)  # Only use first eqs-1 rows
-        factor = length(size(c)) == 1 ? one(T) : -one(T)
+        # factor = length(size(c)) == 1 ? one(T) : -one(T)
+        factor = if derivative == -1
+            one(T)
+        elseif length(vs_size) == 1
+            one(T)
+        else
+            -one(T)
+        end
         
         mul!(ghost_vals_view, coef_view, y_temp_view)
             
@@ -352,8 +363,10 @@ See also: `fill_ghost_points_polynomial!`, `get_recursive_coefs`.
 function fill_ghost_points_recursive!(c::AbstractArray{T}, idx::CartesianIndex,
                                      c_offset::AbstractVector{CartesianIndex{N}},
                                      coef::Vector, y_offset::T, y_centered::AbstractVector{T},
-                                     side::Symbol, eqs::Int, vs_size::NTuple,
-                                     workspace::BoundaryWorkspace{T,N}) where {T,N}
+                                     side::Symbol, eqs::Int,
+                                     workspace::BoundaryWorkspace{T,N},
+                                     derivative::Int,
+                                     vs_size::NTuple) where {T,N}
     if side == :left
         y_len = length(y_centered)
         y_ext_view = view(workspace.y_extended, 1:((eqs-1) + y_len))
@@ -364,7 +377,14 @@ function fill_ghost_points_recursive!(c::AbstractArray{T}, idx::CartesianIndex,
             c[idx - c_offset[j]] = y_offset + y_ext_view[1+(eqs-1)-j]
         end
     else  # :right
-        factor = length(vs_size) == 1 ? one(T) : -one(T)
+        # factor = length(vs_size) == 1 ? one(T) : -one(T)
+        factor = if derivative == -1
+            one(T)
+        elseif length(vs_size) == 1
+            one(T)
+        else
+            -one(T)
+        end
         y_len = length(y_centered)
         y_ext_view = view(workspace.y_extended, 1:(y_len + eqs - 1))
         y_ext_view[1:end-(eqs-1)] .= y_centered

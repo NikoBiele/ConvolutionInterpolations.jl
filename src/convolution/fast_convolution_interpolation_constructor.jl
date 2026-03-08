@@ -57,7 +57,15 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         error("The :n3 kernel is not supported by FastConvolutionInterpolation. Use ConvolutionInterpolation instead.")
     end
 
-    subgrid = validate_subgrid_compatibility(degree::Symbol, derivative::Int, subgrid::Symbol)
+    subgrid = if derivative == -1
+        if degree == :a0
+            :linear
+        else
+            subgrid
+        end
+    else
+        validate_subgrid_compatibility(degree::Symbol, derivative::Int, subgrid::Symbol)
+    end
     if N >= 3 && subgrid in (:cubic, :quintic)
         subgrid = :linear
     end
@@ -78,21 +86,29 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         # EAGER: original path — expand knots and compute ghost points
         lazy = false  # ensure flag matches actual state
         knots_new = expand_knots(knots, eqs-1)
-        coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree)
+        coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree, derivative)
     end
-
     kernel = B === nothing ? ConvolutionKernel(Val(degree), Val(derivative)) : GaussianConvolutionKernel(Val(B))
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
     pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre = 
                   get_precomputed_kernel_and_range(degree; precompute=precompute, float_type=T,
                   derivative=derivative, subgrid=subgrid)
+    anchor = ntuple(d -> knots_new[d][eqs], N)
+    if derivative == -1
+        left_values = ntuple(d -> _compute_left_values(T, eqs, size(coefs, d),
+                             kernel_pre, kernel_d1_pre, kernel_d2_pre, subgrid), N)
+    else
+        left_values = ntuple(d -> [zero(T)], N)
+    end
+
     degree = degree == :a0 || degree == :a1 ? Val(degree) : HigherOrderKernel(Val(degree))
+    do_type = derivative == -1 ? IntegralOrder() : DerivativeOrder(Val(derivative))
 
     return FastConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel),typeof(dimension),
                                         typeof(degree),typeof(eqs),typeof(pre_range),typeof(kernel_pre),typeof(kernel_bc),
-                                        typeof(Val(derivative)), typeof(kernel_d1_pre),typeof(kernel_d2_pre),typeof(Val(subgrid))}(
-        coefs, knots_new, it, h, kernel, dimension, degree, eqs, pre_range, kernel_pre, kernel_bc, Val(derivative),
-        kernel_d1_pre, kernel_d2_pre, Val(subgrid), lazy, boundary_fallback
+                                        typeof(do_type), typeof(kernel_d1_pre),typeof(kernel_d2_pre),typeof(Val(subgrid))}(
+        coefs, knots_new, it, h, kernel, dimension, degree, eqs, pre_range, kernel_pre, kernel_bc, do_type,
+        kernel_d1_pre, kernel_d2_pre, Val(subgrid), lazy, boundary_fallback, left_values, anchor
     )
 end
 
@@ -129,7 +145,7 @@ const required_derivs = Dict(
 
 const max_smooth_derivative = Dict(
   :a0 => -1,
-  :a1 => -1,
+  :a1 => 0,
   :a3 => 1,
   :a4 => 1,
   :a5 => 1,
@@ -140,3 +156,39 @@ const max_smooth_derivative = Dict(
   :b11 => 6,
   :b13 => 6
 )
+
+function _compute_left_values(T, eqs, n_coefs_d, kernel_pre, kernel_d1_pre, kernel_d2_pre, sg)
+    n_pre_loc = size(kernel_pre, 1)
+    h_pre_loc = one(T) / T(n_pre_loc - 1)
+    lv = zeros(T, n_coefs_d)
+    @inbounds for j in 1:n_coefs_d
+        sj = T(eqs - j)
+        s_abs = abs(sj)
+        if s_abs >= T(eqs)
+            lv[j] = T(1//2) * T(sign(sj))
+        else
+            col_float = T(eqs) + sj
+            col = clamp(floor(Int, col_float) + 1, 1, 2 * eqs)
+            x_diff_right = col_float - T(col - 1)
+            continuous_idx = x_diff_right * T(n_pre_loc - 1) + one(T)
+            idx      = clamp(floor(Int, continuous_idx), 1, n_pre_loc - 1)
+            idx_next = idx + 1
+            t        = continuous_idx - T(idx)
+            lv[j] = if sg == Val(:quintic)
+                quintic_hermite(t,
+                    kernel_pre[idx,    col], kernel_pre[idx_next,    col],
+                    kernel_d1_pre[idx, col], kernel_d1_pre[idx_next, col],
+                    kernel_d2_pre[idx, col], kernel_d2_pre[idx_next, col],
+                    h_pre_loc)
+            elseif sg == Val(:cubic)
+                cubic_hermite(t,
+                    kernel_pre[idx,    col], kernel_pre[idx_next,    col],
+                    kernel_d1_pre[idx, col], kernel_d1_pre[idx_next, col],
+                    h_pre_loc)
+            else
+                (one(T) - t) * kernel_pre[idx, col] + t * kernel_pre[idx_next, col]
+            end
+        end
+    end
+    lv
+end

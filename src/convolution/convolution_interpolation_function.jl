@@ -132,16 +132,17 @@ function convolution_interpolation(knots, values::AbstractArray{T,N};
     end
 end
 
-function _build_fast(knots, values::AbstractArray{T,N}; degree::Symbol=:a4, precompute::Int=101, B::Union{Nothing,Float64}=B,
+function _build_fast(knots, values::AbstractArray{T,N}; degree::Symbol=:b5, precompute::Int=101, B::Union{Nothing,Float64}=B,
                     kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}=:auto,
-                    derivative=0, subgrid=:cubic, extrapolation_bc=Throw(), lazy=false, boundary_fallback=false) where {T,N}
+                    derivative::Int=0, subgrid::Symbol=:cubic, extrapolation_bc=Throw(),
+                    lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
     itp = FastConvolutionInterpolation(knots, values;
           degree=degree, precompute=precompute, B=B, kernel_bc=kernel_bc, derivative=derivative,
           subgrid=subgrid, lazy=lazy, boundary_fallback=boundary_fallback)
     return ConvolutionExtrapolation(itp, extrapolation_bc)
 end
 
-function _build_slow(knots, values::AbstractArray{T,N}; degree::Symbol=:a4, B::Union{Nothing,Float64}=nothing,
+function _build_slow(knots, values::AbstractArray{T,N}; degree::Symbol=:b5, B::Union{Nothing,Float64}=nothing,
                     kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}=:auto,
                     derivative::Int=0, extrapolation_bc=Throw(),
                     lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
@@ -150,7 +151,7 @@ function _build_slow(knots, values::AbstractArray{T,N}; degree::Symbol=:a4, B::U
     return ConvolutionExtrapolation(itp, extrapolation_bc)
 end
 
-function _build_natural(knots, values::AbstractArray{T,N}; degree::Symbol=:a4, fast::Bool=true, precompute::Int=101, B::Union{Nothing,Float64}=nothing,
+function _build_natural(knots, values::AbstractArray{T,N}; degree::Symbol=:b5, fast::Bool=true, precompute::Int=101, B::Union{Nothing,Float64}=nothing,
                         kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}=:auto,
                         derivative::Int=0, subgrid::Symbol=:cubic, lazy::Bool=false,
                         boundary_fallback::Bool=false) where {T,N}

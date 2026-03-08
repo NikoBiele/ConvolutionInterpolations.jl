@@ -30,7 +30,36 @@ less than or equal to `x₁`, `x₂`, and `x₃` respectively.
 # 3D eval with resolve pattern
 # ═══════════════════════════════════════════════════════════════
 
-function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},DG,EQ,KBC,DO})(x::Vararg{Number,3}) where {T,TCoefs,IT,Axs,KA,DG,EQ,KBC,DO}
+@inline function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
+                    DG,EQ,KBC,IntegralOrder,FD,SD,SG})(x::Vararg{Number,3}) where 
+                    {T,TCoefs,IT,Axs,KA,DG,EQ,KBC,FD,SD,SG}
+
+    result = zero(T)
+    n1 = size(itp.coefs, 1)
+    n2 = size(itp.coefs, 2)
+    n3 = size(itp.coefs, 3)
+    @inbounds for i1 in 1:n1
+        xi = itp.knots[1][itp.eqs] + (i1 - itp.eqs) * itp.h[1]
+        dx = itp.kernel((x[1]          - xi) / itp.h[1]) -
+             itp.kernel((itp.anchor[1] - xi) / itp.h[1])
+        for i2 in 1:n2
+            yj = itp.knots[2][itp.eqs] + (i2 - itp.eqs) * itp.h[2]
+            dy = itp.kernel((x[2]          - yj) / itp.h[2]) -
+                 itp.kernel((itp.anchor[2] - yj) / itp.h[2])
+            for i3 in 1:n3
+                zk = itp.knots[3][itp.eqs] + (i3 - itp.eqs) * itp.h[3]
+                dz = itp.kernel((x[3]          - zk) / itp.h[3]) -
+                     itp.kernel((itp.anchor[3] - zk) / itp.h[3])
+                result += itp.coefs[i1, i2, i3] * dx * dy * dz
+            end
+        end
+    end
+    return result * itp.h[1] * itp.h[2] * itp.h[3]
+end
+
+function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
+                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG})(x::Vararg{Number,3}) where 
+                    {T,TCoefs,IT,Axs,KA,DG,EQ,KBC,DO,FD,SD,SG}
 
     # Check if nonuniform lazy
     is_nonuniform = itp.lazy && any(d -> length(itp.knots[d]) != size(itp.coefs, d), 1:3)
@@ -65,19 +94,15 @@ function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},DG,EQ,KBC,DO
             return result
 
         else
-            # n3 nonuniform lazy — resolve_dim pattern
             k1 = itp.knots[1][ngs[1]+1:end-ngs[1]]
             k2 = itp.knots[2][ngs[2]+1:end-ngs[2]]
             k3 = itp.knots[3][ngs[3]+1:end-ngs[3]]
-
             ii, wi = _nonuniform_dim_ghost(itp.knots[1], x[1])
             jj, wj = _nonuniform_dim_ghost(itp.knots[2], x[2])
             kk, wk = _nonuniform_dim_ghost(itp.knots[3], x[3])
-
             res1 = ntuple(s -> _resolve_dim_nonuniform(k1, ii + s - 2, n1, T), 4)
             res2 = ntuple(s -> _resolve_dim_nonuniform(k2, jj + s - 2, n2, T), 4)
             res3 = ntuple(s -> _resolve_dim_nonuniform(k3, kk + s - 2, n3, T), 4)
-
             result = zero(T)
             @inbounds for s1 in 1:4
                 for (cw1, ri1) in res1[s1]
@@ -126,23 +151,19 @@ function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},DG,EQ,KBC,DO
                    (is_boundary_stencil(i, size(itp.coefs, 1), itp.eqs) ||
                     is_boundary_stencil(j, size(itp.coefs, 2), itp.eqs) ||
                     is_boundary_stencil(k, size(itp.coefs, 3), itp.eqs))
-        # Uniform lazy boundary — resolve_dim pattern
         ng = itp.eqs - 1
         ghost_matrix = get_polynomial_ghost_coeffs(_kernel_sym(itp.deg))
-        factor_nd = -one(T)  # 3D
+        factor_nd = -one(T)
         sw = 2 * itp.eqs
-
         n1 = size(itp.coefs, 1)
         n2 = size(itp.coefs, 2)
         n3 = size(itp.coefs, 3)
         res1 = ntuple(s -> _resolve_dim_uniform(n1, ng, i + ng + s - itp.eqs, ghost_matrix, factor_nd, 3), sw)
         res2 = ntuple(s -> _resolve_dim_uniform(n2, ng, j + ng + s - itp.eqs, ghost_matrix, factor_nd, 3), sw)
         res3 = ntuple(s -> _resolve_dim_uniform(n3, ng, k + ng + s - itp.eqs, ghost_matrix, factor_nd, 3), sw)
-
         s1_val = (x[1] - itp.knots[1][i]) / itp.h[1]
         s2_val = (x[2] - itp.knots[2][j]) / itp.h[2]
         s3_val = (x[3] - itp.knots[3][k]) / itp.h[3]
-
         @inbounds for (li, l) in enumerate(-(itp.eqs-1):itp.eqs)
             kx = itp.kernel(s1_val - T(l))
             for (cw1, ri1) in res1[li]
@@ -161,43 +182,17 @@ function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},DG,EQ,KBC,DO
                 end
             end
         end
-    elseif DO.parameters[1] == -1
-        x_left = itp.knots[1][itp.eqs]
-        y_left = itp.knots[2][itp.eqs]
-        z_left = itp.knots[3][itp.eqs]
-        n1 = size(itp.coefs, 1)
-        n2 = size(itp.coefs, 2)
-        n3 = size(itp.coefs, 3)
-        @inbounds for i1 in 1:n1
-            xi = itp.knots[1][itp.eqs] + (i1 - itp.eqs) * itp.h[1]
-            dx = itp.kernel((x[1]   - xi) / itp.h[1]) -
-                 itp.kernel((x_left - xi) / itp.h[1])
-            for i2 in 1:n2
-                yj = itp.knots[2][itp.eqs] + (i2 - itp.eqs) * itp.h[2]
-                dy = itp.kernel((x[2]   - yj) / itp.h[2]) -
-                     itp.kernel((y_left - yj) / itp.h[2])
-                for i3 in 1:n3
-                    zk = itp.knots[3][itp.eqs] + (i3 - itp.eqs) * itp.h[3]
-                    dz = itp.kernel((x[3]   - zk) / itp.h[3]) -
-                         itp.kernel((z_left - zk) / itp.h[3])
-                    result += itp.coefs[i1, i2, i3] * dx * dy * dz
-                end
-            end
-        end
-        return result * itp.h[1] * itp.h[2] * itp.h[3]
     else
         @inbounds for l = -(itp.eqs-1):itp.eqs,
-            m = -(itp.eqs-1):itp.eqs,
-            n = -(itp.eqs-1):itp.eqs
-                result += itp.coefs[i+l, j+m, k+n] * 
-                      itp.kernel((x[1] - itp.knots[1][i+l]) / itp.h[1]) * 
-                      itp.kernel((x[2] - itp.knots[2][j+m]) / itp.h[2]) * 
+                      m = -(itp.eqs-1):itp.eqs,
+                      n = -(itp.eqs-1):itp.eqs
+            result += itp.coefs[i+l, j+m, k+n] *
+                      itp.kernel((x[1] - itp.knots[1][i+l]) / itp.h[1]) *
+                      itp.kernel((x[2] - itp.knots[2][j+m]) / itp.h[2]) *
                       itp.kernel((x[3] - itp.knots[3][k+n]) / itp.h[3])
         end
     end
-
-    do_val = DO.parameters[1]
-    scale = do_val >= 0 ? (one(T)/itp.h[1])^do_val * (one(T)/itp.h[2])^do_val * (one(T)/itp.h[3])^do_val :
-                          itp.h[1]^(-do_val) * itp.h[2]^(-do_val) * itp.h[3]^(-do_val)
+    scale = DO >= 0 ? (one(T)/itp.h[1])^DO * (one(T)/itp.h[2])^DO * (one(T)/itp.h[3])^DO :
+                      itp.h[1]^(-DO) * itp.h[2]^(-DO) * itp.h[3]^(-DO)
     return @fastmath result * scale
 end

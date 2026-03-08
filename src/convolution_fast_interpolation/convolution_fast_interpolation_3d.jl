@@ -59,7 +59,7 @@ See also: `FastConvolutionInterpolation`.
     end
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},Val{:a1},EQ,PR,KP,KBC,DO})(x::Vararg{Number,3}) where {T,TCoefs,IT,Axs,KA,EQ,PR,KP,KBC,DO}
+@inline function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},Val{:a1},EQ,PR,KP,KBC,DerivativeOrder{DO}})(x::Vararg{Number,3}) where {T,TCoefs,IT,Axs,KA,EQ,PR,KP,KBC,DO}
     # specialized dispatch for 3d linear kernel
         # First dimension (x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
@@ -85,12 +85,12 @@ end
                     x_diff_left*(1-y_diff_left)*z_diff_left*itp.coefs[i+1, j, k+1] + 
                     (1-x_diff_left)*y_diff_left*z_diff_left*itp.coefs[i, j+1, k+1] + 
                     x_diff_left*y_diff_left*z_diff_left*itp.coefs[i+1, j+1, k+1]) *
-                    (-one(T)/itp.h[1])^(DO.parameters[1]) *
-                    (-one(T)/itp.h[2])^(DO.parameters[1]) *
-                    (-one(T)/itp.h[3])^(DO.parameters[1])
+                    (-one(T)/itp.h[1])^DO *
+                    (-one(T)/itp.h[2])^DO *
+                    (-one(T)/itp.h[3])^DO
 end
 
-function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},HigherOrderKernel{DG},EQ,PR,KP,KBC,DO})(x::Vararg{Number,3}) where {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,DO}
+function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO}})(x::Vararg{Number,3}) where {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,DO}
     # specialized dispatch for 3d higher order kernels (cubic and above)
 
     # First dimension (x)
@@ -208,7 +208,149 @@ function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},HigherOr
             t_x*(1-t_y)*t_z*result_101 + 
             (1-t_x)*t_y*t_z*result_011 + 
             t_x*t_y*t_z*result_111) *
-            (-one(T)/itp.h[1])^(DO.parameters[1]) * 
-            (-one(T)/itp.h[2])^(DO.parameters[1]) * 
-            (-one(T)/itp.h[3])^(DO.parameters[1])
+            (-one(T)/itp.h[1])^DO * 
+            (-one(T)/itp.h[2])^DO * 
+            (-one(T)/itp.h[3])^DO
+end
+
+@inline function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
+                    HigherOrderKernel{DG},EQ,PR,KP,KBC,IntegralOrder,FD,SD,SG})(x::Vararg{Number,3}) where 
+                    {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,FD,SD,SG}
+
+    eqs_int = itp.eqs
+    n_pre = length(itp.pre_range)
+    result = zero(T)
+
+    @inbounds for j3 in 1:size(itp.coefs, 3)
+        xj3 = itp.knots[3][eqs_int] + (j3 - eqs_int) * itp.h[3]
+        sj3 = (x[3] - xj3) / itp.h[3]
+
+        if abs(sj3) >= T(eqs_int)
+            kt3 = T(1//2) * T(sign(sj3))
+        else
+            col_float3 = T(eqs_int) + sj3
+            col3 = clamp(floor(Int, col_float3) + 1, 1, 2 * eqs_int)
+            x_diff_right3 = col_float3 - T(col3 - 1)
+            continuous_idx3 = x_diff_right3 * T(n_pre - 1) + one(T)
+            idx3      = clamp(floor(Int, continuous_idx3), 1, n_pre - 1)
+            idx3_next = idx3 + 1
+            t3        = continuous_idx3 - T(idx3)
+            kt3 = (one(T) - t3) * itp.kernel_pre[idx3, col3] + t3 * itp.kernel_pre[idx3_next, col3]
+        end
+
+        lv3 = kt3 - itp.left_values[3][j3]
+
+        @inbounds for j2 in 1:size(itp.coefs, 2)
+            xj2 = itp.knots[2][eqs_int] + (j2 - eqs_int) * itp.h[2]
+            sj2 = (x[2] - xj2) / itp.h[2]
+
+            if abs(sj2) >= T(eqs_int)
+                kt2 = T(1//2) * T(sign(sj2))
+            else
+                col_float2 = T(eqs_int) + sj2
+                col2 = clamp(floor(Int, col_float2) + 1, 1, 2 * eqs_int)
+                x_diff_right2 = col_float2 - T(col2 - 1)
+                continuous_idx2 = x_diff_right2 * T(n_pre - 1) + one(T)
+                idx2      = clamp(floor(Int, continuous_idx2), 1, n_pre - 1)
+                idx2_next = idx2 + 1
+                t2        = continuous_idx2 - T(idx2)
+                kt2 = (one(T) - t2) * itp.kernel_pre[idx2, col2] + t2 * itp.kernel_pre[idx2_next, col2]
+            end
+
+            lv2 = (kt2 - itp.left_values[2][j2]) * lv3
+
+            @inbounds for j1 in 1:size(itp.coefs, 1)
+                xj1 = itp.knots[1][eqs_int] + (j1 - eqs_int) * itp.h[1]
+                sj1 = (x[1] - xj1) / itp.h[1]
+
+                if abs(sj1) >= T(eqs_int)
+                    kt1 = T(1//2) * T(sign(sj1))
+                else
+                    col_float1 = T(eqs_int) + sj1
+                    col1 = clamp(floor(Int, col_float1) + 1, 1, 2 * eqs_int)
+                    x_diff_right1 = col_float1 - T(col1 - 1)
+                    continuous_idx1 = x_diff_right1 * T(n_pre - 1) + one(T)
+                    idx1      = clamp(floor(Int, continuous_idx1), 1, n_pre - 1)
+                    idx1_next = idx1 + 1
+                    t1        = continuous_idx1 - T(idx1)
+                    kt1 = (one(T) - t1) * itp.kernel_pre[idx1, col1] + t1 * itp.kernel_pre[idx1_next, col1]
+                end
+
+                result += itp.coefs[j1, j2, j3] * (kt1 - itp.left_values[1][j1]) * lv2
+            end
+        end
+    end
+
+    return result * itp.h[1] * itp.h[2] * itp.h[3]
+end
+
+@inline function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
+                    Val{:a1},EQ,PR,KP,KBC,IntegralOrder,FD,SD,SG})(x::Vararg{Number,3}) where 
+                    {T,TCoefs,IT,Axs,KA,EQ,PR,KP,KBC,FD,SD,SG}
+
+    eqs_int = itp.eqs
+    n_pre = length(itp.pre_range)
+    result = zero(T)
+
+    @inbounds for j3 in 1:size(itp.coefs, 3)
+        xj3 = itp.knots[3][eqs_int] + (j3 - eqs_int) * itp.h[3]
+        sj3 = (x[3] - xj3) / itp.h[3]
+
+        if abs(sj3) >= T(eqs_int)
+            kt3 = T(1//2) * T(sign(sj3))
+        else
+            col_float3 = T(eqs_int) + sj3
+            col3 = clamp(floor(Int, col_float3) + 1, 1, 2 * eqs_int)
+            x_diff_right3 = col_float3 - T(col3 - 1)
+            continuous_idx3 = x_diff_right3 * T(n_pre - 1) + one(T)
+            idx3      = clamp(floor(Int, continuous_idx3), 1, n_pre - 1)
+            idx3_next = idx3 + 1
+            t3        = continuous_idx3 - T(idx3)
+            kt3 = (one(T) - t3) * itp.kernel_pre[idx3, col3] + t3 * itp.kernel_pre[idx3_next, col3]
+        end
+
+        lv3 = kt3 - itp.left_values[3][j3]
+
+        @inbounds for j2 in 1:size(itp.coefs, 2)
+            xj2 = itp.knots[2][eqs_int] + (j2 - eqs_int) * itp.h[2]
+            sj2 = (x[2] - xj2) / itp.h[2]
+
+            if abs(sj2) >= T(eqs_int)
+                kt2 = T(1//2) * T(sign(sj2))
+            else
+                col_float2 = T(eqs_int) + sj2
+                col2 = clamp(floor(Int, col_float2) + 1, 1, 2 * eqs_int)
+                x_diff_right2 = col_float2 - T(col2 - 1)
+                continuous_idx2 = x_diff_right2 * T(n_pre - 1) + one(T)
+                idx2      = clamp(floor(Int, continuous_idx2), 1, n_pre - 1)
+                idx2_next = idx2 + 1
+                t2        = continuous_idx2 - T(idx2)
+                kt2 = (one(T) - t2) * itp.kernel_pre[idx2, col2] + t2 * itp.kernel_pre[idx2_next, col2]
+            end
+
+            lv2 = (kt2 - itp.left_values[2][j2]) * lv3
+
+            @inbounds for j1 in 1:size(itp.coefs, 1)
+                xj1 = itp.knots[1][eqs_int] + (j1 - eqs_int) * itp.h[1]
+                sj1 = (x[1] - xj1) / itp.h[1]
+
+                if abs(sj1) >= T(eqs_int)
+                    kt1 = T(1//2) * T(sign(sj1))
+                else
+                    col_float1 = T(eqs_int) + sj1
+                    col1 = clamp(floor(Int, col_float1) + 1, 1, 2 * eqs_int)
+                    x_diff_right1 = col_float1 - T(col1 - 1)
+                    continuous_idx1 = x_diff_right1 * T(n_pre - 1) + one(T)
+                    idx1      = clamp(floor(Int, continuous_idx1), 1, n_pre - 1)
+                    idx1_next = idx1 + 1
+                    t1        = continuous_idx1 - T(idx1)
+                    kt1 = (one(T) - t1) * itp.kernel_pre[idx1, col1] + t1 * itp.kernel_pre[idx1_next, col1]
+                end
+
+                result += itp.coefs[j1, j2, j3] * (kt1 - itp.left_values[1][j1]) * lv2
+            end
+        end
+    end
+
+    return result * itp.h[1] * itp.h[2] * itp.h[3]
 end

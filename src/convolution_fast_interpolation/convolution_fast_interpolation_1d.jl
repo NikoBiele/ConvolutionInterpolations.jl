@@ -23,7 +23,7 @@ See also: FastConvolutionInterpolation, cubic_hermite, quintic_hermite.
 """
 
 @inline function (itp::FastConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},Val{:a0},
-                EQ,PR,KP,KBC,DO,FD,SD,Val{:not_used}})(x::Vararg{Number,1}) where
+                EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{:not_used}})(x::Vararg{Number,1}) where
                 {T,TCoefs,IT,Axs,KA,EQ,PR,KP,KBC,DO,FD,SD}
 
     # specialized dispatch for 1d nearest neighbor kernel
@@ -38,7 +38,7 @@ See also: FastConvolutionInterpolation, cubic_hermite, quintic_hermite.
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},Val{:a1},
-                    EQ,PR,KP,KBC,DO,FD,SD,Val{:not_used}})(x::Vararg{Number,1}) where 
+                    EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{:not_used}})(x::Vararg{Number,1}) where 
                     {T,TCoefs,IT,Axs,KA,EQ,PR,KP,KBC,DO,FD,SD}
 
     # specialized dispatch for 1d linear kernel
@@ -49,7 +49,7 @@ end
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
-                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DO,FD,SD,Val{:nearest}})(x::Vararg{Number,1}) where 
+                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{:nearest}})(x::Vararg{Number,1}) where 
                     {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,DO,FD,SD}
  
     # Direct index calculation
@@ -92,11 +92,12 @@ end
     end
 
     # use the nearest neighbor directly
-    return result * (-one(T)/itp.h[1])^(DO.parameters[1])
+    scale = (-one(T)/itp.h[1])^DO
+    return result * scale
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
-                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DO,FD,SD,Val{:linear}})(x::Vararg{Number,1}) where 
+                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{:linear}})(x::Vararg{Number,1}) where 
                     {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,DO,FD,SD}
 
     # Direct index calculation
@@ -141,11 +142,13 @@ end
     end
 
     # linear interpolation
-    return ((one(T)-t) * result_lower + t * result_upper) * (-one(T)/itp.h[1])^(DO.parameters[1])
+    result = (one(T)-t) * result_lower + t * result_upper
+    scale = (-one(T)/itp.h[1])^DO
+    return result * scale
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
-                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DO,FD,SD,Val{:cubic}})(x::Vararg{Number,1}) where 
+                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{:cubic}})(x::Vararg{Number,1}) where 
                     {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,DO,FD,SD}
 
     # Direct index calculation
@@ -198,11 +201,13 @@ end
 
     # Cubic Hermite interpolation
     h_pre = one(T) / T(n_pre - 1)
-    return cubic_hermite(t, sum_f0, sum_f1, sum_di0, sum_di1, h_pre) * (-one(T)/itp.h[1])^(DO.parameters[1])
+    result = cubic_hermite(t, sum_f0, sum_f1, sum_di0, sum_di1, h_pre)
+    scale = (-one(T)/itp.h[1])^DO
+    return result * scale
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
-                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DO,FD,SD,Val{:quintic}})(x::Vararg{Number,1}) where 
+                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{:quintic}})(x::Vararg{Number,1}) where 
                     {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,DO,FD,SD}
 
     # Direct index calculation
@@ -260,5 +265,113 @@ end
 
     # Quintic Hermite interpolation
     h_pre = one(T) / T(n_pre - 1)
-    return quintic_hermite(t, sum_f0, sum_f1, sum_d0, sum_d1, sum_dd0, sum_dd1, h_pre) * (-one(T)/itp.h[1])^abs(DO.parameters[1])
+    result = quintic_hermite(t, sum_f0, sum_f1, sum_d0, sum_d1, sum_dd0, sum_dd1, h_pre)
+    scale = (-one(T)/itp.h[1])^DO
+    return result * scale
+end
+
+@inline function (itp::FastConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
+                    HigherOrderKernel{DG},EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{:quintic}})(x::Vararg{Number,1}) where 
+                    {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,FD,SD}
+
+    eqs_int = itp.eqs
+    n_pre = length(itp.pre_range)
+    h_pre = one(T) / T(n_pre - 1)
+    result = zero(T)
+
+    @inbounds for j in 1:length(itp.coefs)
+        xj = itp.knots[1][eqs_int] + (j - eqs_int) * itp.h[1]
+        sj = (x[1] - xj) / itp.h[1]
+
+        if abs(sj) >= T(eqs_int)
+            kt = T(1//2) * T(sign(sj))
+        else
+            col_float = T(eqs_int) + sj
+            col = clamp(floor(Int, col_float) + 1, 1, 2 * eqs_int)
+            x_diff_right = col_float - T(col - 1)
+            continuous_idx = x_diff_right * T(n_pre - 1) + one(T)
+            idx      = clamp(floor(Int, continuous_idx), 1, n_pre - 1)
+            idx_next = idx + 1
+            t        = continuous_idx - T(idx)
+            kt = quintic_hermite(t,
+                    itp.kernel_pre[idx,    col], itp.kernel_pre[idx_next,    col],
+                    itp.kernel_d1_pre[idx, col], itp.kernel_d1_pre[idx_next, col],
+                    itp.kernel_d2_pre[idx, col], itp.kernel_d2_pre[idx_next, col],
+                    h_pre)
+        end
+
+        result += itp.coefs[j] * (kt - itp.left_values[1][j])
+    end
+
+    return result * itp.h[1]
+end
+
+@inline function (itp::FastConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
+                    HigherOrderKernel{DG},EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{:cubic}})(x::Vararg{Number,1}) where 
+                    {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,FD,SD}
+
+    eqs_int = itp.eqs
+    n_pre = length(itp.pre_range)
+    h_pre = one(T) / T(n_pre - 1)
+    result = zero(T)
+
+    @inbounds for j in 1:length(itp.coefs)
+        xj = itp.knots[1][eqs_int] + (j - eqs_int) * itp.h[1]
+        sj = (x[1] - xj) / itp.h[1]
+
+        if abs(sj) >= T(eqs_int)
+            kt = T(1//2) * T(sign(sj))
+        else
+            col_float = T(eqs_int) + sj
+            col = clamp(floor(Int, col_float) + 1, 1, 2 * eqs_int)
+            x_diff_right = col_float - T(col - 1)
+            continuous_idx = x_diff_right * T(n_pre - 1) + one(T)
+            idx      = clamp(floor(Int, continuous_idx), 1, n_pre - 1)
+            idx_next = idx + 1
+            t        = continuous_idx - T(idx)
+            kt = cubic_hermite(t,
+                    itp.kernel_pre[idx,    col], itp.kernel_pre[idx_next,    col],
+                    itp.kernel_d1_pre[idx, col], itp.kernel_d1_pre[idx_next, col],
+                    h_pre)
+        end
+
+        result += itp.coefs[j] * (kt - itp.left_values[1][j])
+    end
+
+    return result * itp.h[1]
+end
+
+@inline function (itp::FastConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
+                    Val{:a1},EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{:cubic}})(x::Vararg{Number,1}) where 
+                    {T,TCoefs,IT,Axs,KA,EQ,PR,KP,KBC,FD,SD}
+
+    eqs_int = itp.eqs
+    n_pre = length(itp.pre_range)
+    h_pre = one(T) / T(n_pre - 1)
+    result = zero(T)
+
+    @inbounds for j in 1:length(itp.coefs)
+        xj = itp.knots[1][eqs_int] + (j - eqs_int) * itp.h[1]
+        sj = (x[1] - xj) / itp.h[1]
+
+        if abs(sj) >= T(eqs_int)
+            kt = T(1//2) * T(sign(sj))
+        else
+            col_float = T(eqs_int) + sj
+            col = clamp(floor(Int, col_float) + 1, 1, 2 * eqs_int)
+            x_diff_right = col_float - T(col - 1)
+            continuous_idx = x_diff_right * T(n_pre - 1) + one(T)
+            idx      = clamp(floor(Int, continuous_idx), 1, n_pre - 1)
+            idx_next = idx + 1
+            t        = continuous_idx - T(idx)
+            kt = cubic_hermite(t,
+                    itp.kernel_pre[idx,    col], itp.kernel_pre[idx_next,    col],
+                    itp.kernel_d1_pre[idx, col], itp.kernel_d1_pre[idx_next, col],
+                    h_pre)
+        end
+
+        result += itp.coefs[j] * (kt - itp.left_values[1][j])
+    end
+
+    return result * itp.h[1]
 end

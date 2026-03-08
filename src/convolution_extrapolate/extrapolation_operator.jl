@@ -28,7 +28,8 @@ See also: [`convolution_interpolation`](@ref), [`extrapolate_point`](@ref), [`_d
 """
 
 # For broadcasting (Adapted from Interpolations.jl)
-@inline function (etp::ConvolutionExtrapolation{T,N,AbstractConvolutionInterpolation,ET,DG,DO})(x::Vararg{Union{Number,AbstractVector,LinearAlgebra.Adjoint},N}) where {T,N,AbstractConvolutionInterpolation,ET,DG,DO}
+@inline function (etp::ConvolutionExtrapolation{T,N,AbstractConvolutionInterpolation,ET})(x::Vararg{Union{Number,AbstractVector,LinearAlgebra.Adjoint},N}) where 
+    {T,N,AbstractConvolutionInterpolation,ET}
     itp = etp.itp
     knots = itp.knots
     sh = shape(x...)

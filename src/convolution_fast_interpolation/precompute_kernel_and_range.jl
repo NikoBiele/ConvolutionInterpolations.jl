@@ -42,6 +42,21 @@ function precompute_kernel_and_range(degree::Symbol;
     eqs = get_equations_for_degree(degree)
     pre_range_exact = [big(0//1) + big(i//1-1//1)/big(precompute//1-1//1) for i in 1:precompute]
     pre_range = F.(pre_range_exact)
+    if derivative == -1
+        kernel_pre = precompute_kernel(F, degree, -1, eqs, precompute, pre_range_exact)
+        if degree == :a0
+            return pre_range, kernel_pre, [zero(F), zero(F)], [zero(F), zero(F)]
+        elseif degree == :a1
+            # K̃ of a1 is quadratic — kd1 = a1, no kd2
+            kernel_d1_pre = precompute_kernel(F, degree, 0, eqs, precompute, pre_range_exact)
+            return pre_range, kernel_pre, kernel_d1_pre, [zero(F), zero(F)]
+        else
+            # K̃ gains one smoothness order — kd1=K, kd2=K'
+            kernel_d1_pre = precompute_kernel(F, degree, 0, eqs, precompute, pre_range_exact)
+            kernel_d2_pre = precompute_kernel(F, degree, 1, eqs, precompute, pre_range_exact)
+            return pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre
+        end
+    end
     if degree in [:a0, :a1]
       kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
       return pre_range, kernel_pre, [zero(F), zero(F)], [zero(F), zero(F)]

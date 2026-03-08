@@ -3,6 +3,18 @@
 # Tables: 2 columns (2*eqs), 2 rows
 # Derivative orders: 0 through 0
 
+const KERNEL_PRE_a1_i1 = Float64[
+    -0.5 0.0;
+    0.0 0.5
+]
+
+
+const KERNEL_D1_PRE_a1_i1 = Float64[
+    0.0 1.0;
+    1.0 0.0
+]
+
+
 const KERNEL_PRE_a1_d0 = Float64[
     0.0 1.0;
     1.0 0.0

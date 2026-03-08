@@ -11,6 +11,7 @@ Smooth interpolation and derivatives from a discrete grid of samples.
 - **O(1) evaluation**: Interpolation time is independent of grid size (for uniform), with allocation-free evaluation
 - **N-dimensional**: Separable kernel design scales naturally from 1D to arbitrary dimensions
 - **Simple API**: A single interface covers nearest-neighbor through 13th-degree polynomial kernels
+- **Antiderivative support**: Compute ~7th order accurate smooth indefinite integrals (for uniform)
 
 ## Installation
 
@@ -135,32 +136,32 @@ Evaluation cost scales as (2×eqs)ᴺ across dimensions due to tensor product st
 
 Uniform grid kernels
 
-| Kernel | Degree | Continuity | Max derivative | Convergence | eqs |
-|--------|--------|------------|----------------|-------------|-----|
-| `:a0`  | 0      | —          | —              | 1st order   | 1   |
-| `:a1`  | 1      | C⁰         | —              | 2nd order   | 1   |
-| `:a3`  | 3      | C¹         | 1              | ~3rd order  | 2   |
-| `:a4`  | 3      | C¹         | 1              | ~4th order  | 3   |
-| `:a5`  | 5      | C¹         | 1              | ~3rd order  | 3   |
-| `:a7`  | 7      | C¹         | 1              | ~3rd order  | 4   |
-| `:b5`  | 5      | C³         | 3              | 7th order   | 5   |
-| `:b7`  | 7      | C⁴         | 4              | 7th order   | 6   |
-| `:b9`  | 9      | C⁵         | 5              | 7th order   | 7   |
-| `:b11` | 11     | C⁶         | 6              | 7th order   | 8   |
-| `:b13` | 13     | C⁶         | 6              | 7th order   | 9   |
+| Kernel | Degree | Continuity | Derivative range | Convergence | eqs |
+|--------|--------|------------|------------------|-------------|-----|
+| `:a0`  | 0      | —          | —                | 1st order   | 1   |
+| `:a1`  | 1      | C⁰         | -1..0            | 2nd order   | 1   |
+| `:a3`  | 3      | C¹         | -1..1            | ~3rd order  | 2   |
+| `:a4`  | 3      | C¹         | -1..1            | ~4th order  | 3   |
+| `:a5`  | 5      | C¹         | -1..1            | ~3rd order  | 3   |
+| `:a7`  | 7      | C¹         | -1..1            | ~3rd order  | 4   |
+| `:b5`  | 5      | C³         | -1..3            | 7th order   | 5   |
+| `:b7`  | 7      | C⁴         | -1..4            | 7th order   | 6   |
+| `:b9`  | 9      | C⁵         | -1..5            | 7th order   | 7   |
+| `:b11` | 11     | C⁶         | -1..6            | 7th order   | 8   |
+| `:b13` | 13     | C⁶         | -1..6            | 7th order   | 9   |
 
 Non-uniform grid kernels
 
-| Kernel | Degree | Continuity | Max derivative | Convergence | eqs |
-|--------|--------|------------|----------------|-------------|-----|
-| `:a0`  | 0      | —          | —              | 1st order   | 1   |
-| `:a1`  | 1      | C⁰         | —              | 2nd order   | 1   |
-| `:n3`  | 3      | C¹         | 0              | ~3rd order  | 4   |
-| `:b5`  | 5      | C³         | 3              | 7th order   | 5   |
-| `:b7`  | 7      | C⁴         | 4              | 7th order   | 6   |
-| `:b9`  | 9      | C⁵         | 5              | 7th order   | 7   |
-| `:b11` | 11     | C⁶         | 6              | 7th order   | 8   |
-| `:b13` | 13     | C⁶         | 6              | 7th order   | 9   |
+| Kernel | Degree | Continuity | Derivative range | Convergence | eqs |
+|--------|--------|------------|------------------|-------------|-----|
+| `:a0`  | 0      | —          | —                | 1st order   | 1   |
+| `:a1`  | 1      | C⁰         | 0..0             | 2nd order   | 1   |
+| `:n3`  | 3      | C¹         | 0..0             | ~3rd order  | 4   |
+| `:b5`  | 5      | C³         | 0..3             | 7th order   | 5   |
+| `:b7`  | 7      | C⁴         | 0..4             | 7th order   | 6   |
+| `:b9`  | 9      | C⁵         | 0..5             | 7th order   | 7   |
+| `:b11` | 11     | C⁶         | 0..6             | 7th order   | 8   |
+| `:b13` | 13     | C⁶         | 0..6             | 7th order   | 9   |
 
 The default kernel is `:b5`, which provides 7th-order accuracy and C³ continuity.
 It works across all modes: uniform, non-uniform, derivatives, lazy, and
@@ -222,6 +223,38 @@ itp_d1(1.0, 2.0)  # Returns cos(1.0) * cos(2.0)
 Approximately one order of convergence is lost per derivative order.
 
 Switching from `subgrid=:cubic` (default) to `subgrid=:linear` makes one additional derivative order available.
+
+### Antiderivative
+
+Pass `derivative=-1` to compute the indefinite integral of the interpolant:
+
+```julia
+x = range(0.0, 2π, length=100)
+y = sin.(x)
+
+itp = convolution_interpolation(x, y; derivative=-1)
+itp(1.0)   # ≈ 0.4597  (= 1 - cos(1), anchored at x=0)
+```
+
+The result is zero-anchored at the leftmost interior knot: `F(anchor) = 0` exactly.
+The fast path (default) precomputes the anchor-side contribution at construction time,
+so evaluation is zero-allocation and O(stencil) — the same cost as regular interpolation,
+scaled by the wider kernel sum.
+
+In N dimensions the result is the mixed partial antiderivative:
+
+```julia
+xs = range(0.0, 1.0, length=50)
+ys = range(0.0, 1.0, length=50)
+vs = [x + y for x in xs, y in ys]
+
+itp2 = convolution_interpolation((xs, ys), vs; derivative=-1)
+itp2(0.5, 0.5)   # ≈ ∫₀^0.5 ∫₀^0.5 (x+y) dx dy = 0.125
+```
+
+Antiderivative support is available for all uniform-grid kernels except `:a0`, and is
+not yet supported on non-uniform grids. The `subgrid` parameter has no effect when
+`derivative=-1`; cubic subgrid is used internally for coefficient solving.
 
 ### Extrapolation
 
@@ -319,7 +352,7 @@ Benchmarks in the [Speed](#speed) section use `:linear` subgrid.
 
 ## Technical Background
 
-This package introduces five main contributions:
+This package introduces six main contributions:
 
 **b-series kernel family.** A new family of high-order convolution kernels (b5, b7, b9, b11, b13) discovered through systematic analytical search using symbolic computation (SymPy), generalizing the approach of R. G. Keys (1981). All b-series kernels achieve 7th order convergence with polynomial reproduction far exceeding their own degree. Kernel coefficients are stored as exact rational numbers, enabling extended precision arithmetic with BigFloat.
 
@@ -330,6 +363,18 @@ This package introduces five main contributions:
 **Uniform evaluation paths.** On uniform grids, the package provides two evaluation strategies. Direct evaluation computes the piecewise polynomial kernel as written. Fast evaluation (default) looks up precomputed kernel values from shipped tables and interpolates between them using Hermite subgrid interpolation — `O(1)` with no per-evaluation polynomial work and more numerically stable than direct polynomial evaluation at high degree.
 
 **Non-uniform b-kernel extension.** On non-uniform grids, each interval requires its own weights adapted to the local grid geometry. This is achieved by expanding the kernel in a binomial series around each interval's local coordinate, then projecting through a Vandermonde system to enforce polynomial reproduction up to the kernel's design order. The result is a compact set of polynomial coefficients per interval, evaluated via Horner's method at query time. All weight generation uses exact `Rational{BigInt}` arithmetic to avoid floating-point contamination, with conversion to `Float64` only at the final storage step. The same framework extends to derivatives by applying the binomial expansion to analytically differentiated kernel coefficients. On mixed grids (some dimensions uniform, some not), each dimension independently selects the appropriate path through the separable tensor product.
+
+**Antiderivative via kernel integration.** For `derivative=-1`, each kernel `K` is
+analytically integrated to produce `K̃`, the antiderivative kernel, with coefficients
+stored as exact rational numbers alongside the derivative kernel tables. The interpolant
+antiderivative is then `F(x) = h · Σⱼ cⱼ · [K̃((x − xⱼ)/h) − K̃((anchor − xⱼ)/h)]`,
+where `anchor` is the leftmost interior knot and the subtracted term enforces
+`F(anchor) = 0`. In the fast path, the anchor-side sum `Σⱼ cⱼ · K̃((anchor − xⱼ)/h)`
+is computed once at construction (using exact arithmetic for b-series kernels, converted
+to Float64 on completion) and stored as `left_values`. At evaluation time only the
+`K̃(x)` half is computed, making repeated evaluation zero-allocation and O(stencil).
+In N dimensions the antiderivative is the tensor product of per-dimension antiderivatives,
+with one `left_values` vector stored per dimension.
 
 ## Comparison with Other Packages
 

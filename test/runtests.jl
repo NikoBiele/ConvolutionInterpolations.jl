@@ -22,4 +22,5 @@ end
     include("test_nonuniform_convergence.jl")
     include("test_lazy.jl")
     include("test_nonuniform_a0_a1.jl")
+    include("test_antiderivative.jl")
 end

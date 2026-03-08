@@ -5,17 +5,16 @@
     println("Testing low-level constructors...")
     x = range(0.0, 2π, length=30)
     vs = sin.(x)
-    knots = (x,)
 
     for degree in (:a0, :a1, :a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11, :b13)
         println("Testing kernel degree: $degree")
 
         # Direct constructor
-        itp_direct = ConvolutionInterpolation(knots, vs, degree=degree)
+        itp_direct = ConvolutionInterpolation(x, vs, degree=degree)
         @test itp_direct(1.0) ≈ sin(1.0) atol=0.1
 
         # Fast constructor
-        itp_fast = FastConvolutionInterpolation(knots, vs, degree=degree)
+        itp_fast = FastConvolutionInterpolation(x, vs, degree=degree)
         @test itp_fast(1.0) ≈ sin(1.0) atol=0.1
 
         # Direct and fast agree
@@ -30,8 +29,8 @@
         @test_throws ErrorException etp_throw(-0.5)
 
         # Lazy variants
-        itp_direct_lazy = ConvolutionInterpolation(knots, vs, degree=degree, lazy=true)
-        itp_fast_lazy = FastConvolutionInterpolation(knots, vs, degree=degree, lazy=true)
+        itp_direct_lazy = ConvolutionInterpolation(x, vs, degree=degree, lazy=true)
+        itp_fast_lazy = FastConvolutionInterpolation(x, vs, degree=degree, lazy=true)
         @test itp_direct_lazy(1.0) ≈ itp_direct(1.0) atol=1e-3
         @test itp_fast_lazy(1.0) ≈ itp_fast(1.0) atol=1e-3
 

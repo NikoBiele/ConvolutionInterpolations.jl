@@ -54,7 +54,7 @@ This preserves symmetry and avoids discontinuities at boundaries.
 The function handles each dimension independently.
 """
 
-function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET,O}, x::NTuple{N,Number}) where {T,N,ITPT,ET,O}
+function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET}, x::NTuple{N,Number}) where {T,N,ITPT,ET}
     itp = etp.itp
     knots = itp.knots
     

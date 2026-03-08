@@ -41,7 +41,7 @@ See also: `FastConvolutionInterpolation`.
     return itp.coefs[nearest_ids...]
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},Val{:a1},EQ,PR,KP,KBC,DO})(x::Vararg{Number,N}) where {T,N,TCoefs,IT,KA,Axs,EQ,PR,KP,KBC,DO}
+@inline function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},Val{:a1},EQ,PR,KP,KBC,DerivativeOrder{DO}})(x::Vararg{Number,N}) where {T,N,TCoefs,IT,KA,Axs,EQ,PR,KP,KBC,DO}
     # specialized dispatch for N-dimensional linear kernel
     
     # Compute i_float once per dimension
@@ -75,10 +75,10 @@ end
         result += tail_weight * interp_val
     end
     
-    return @inbounds @fastmath result * prod((-one(T)/itp.h[i])^(DO.parameters[1]) for i in 1:N)
+    return @inbounds @fastmath result * prod((-one(T)/itp.h[i])^DO for i in 1:N)
 end
 
-function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},HigherOrderKernel{DG},EQ,PR,KP,KBC,DO})(x::Vararg{Number,N}) where {T,N,TCoefs,IT,KA,Axs,DG,EQ,PR,KP,KBC,DO}
+function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO}})(x::Vararg{Number,N}) where {T,N,TCoefs,IT,KA,Axs,DG,EQ,PR,KP,KBC,DO}
     # specialized dispatch for N-dimensional higher-order kernel
     
     # Compute i_float once per dimension
@@ -135,5 +135,73 @@ function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension
         end
     end
     
-    return  @inbounds @fastmath result * prod((-one(T)/itp.h[i])^(DO.parameters[1]) for i in 1:N)
+    return  @inbounds @fastmath result * prod((-one(T)/itp.h[i])^DO for i in 1:N)
+end
+
+function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},HigherOrderKernel{DG},EQ,PR,KP,KBC,IntegralOrder,FD,SD,SG})(x::Vararg{Number,N}) where {T,N,TCoefs,IT,KA,Axs,DG,EQ,PR,KP,KBC,FD,SD,SG}
+
+    eqs_int = itp.eqs
+    n_pre = length(itp.pre_range)
+    result = zero(T)
+
+    @inbounds for idx in Iterators.product(ntuple(d -> 1:size(itp.coefs, d), N)...)
+        kt_prod = one(T)
+        @inbounds for d in 1:N
+            xjd = itp.knots[d][eqs_int] + (idx[d] - eqs_int) * itp.h[d]
+            sjd = (x[d] - xjd) / itp.h[d]
+
+            if abs(sjd) >= T(eqs_int)
+                ktd = T(1//2) * T(sign(sjd))
+            else
+                col_float = T(eqs_int) + sjd
+                col = clamp(floor(Int, col_float) + 1, 1, 2 * eqs_int)
+                x_diff_right = col_float - T(col - 1)
+                continuous_idx = x_diff_right * T(n_pre - 1) + one(T)
+                i      = clamp(floor(Int, continuous_idx), 1, n_pre - 1)
+                i_next = i + 1
+                t      = continuous_idx - T(i)
+                ktd = (one(T) - t) * itp.kernel_pre[i, col] + t * itp.kernel_pre[i_next, col]
+            end
+
+            kt_prod *= ktd - itp.left_values[d][idx[d]]
+        end
+
+        result += itp.coefs[idx...] * kt_prod
+    end
+
+    return result * prod(itp.h)
+end
+
+function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},Val{:a1},EQ,PR,KP,KBC,IntegralOrder,FD,SD,SG})(x::Vararg{Number,N}) where {T,N,TCoefs,IT,KA,Axs,EQ,PR,KP,KBC,FD,SD,SG}
+
+    eqs_int = itp.eqs
+    n_pre = length(itp.pre_range)
+    result = zero(T)
+
+    @inbounds for idx in Iterators.product(ntuple(d -> 1:size(itp.coefs, d), N)...)
+        kt_prod = one(T)
+        @inbounds for d in 1:N
+            xjd = itp.knots[d][eqs_int] + (idx[d] - eqs_int) * itp.h[d]
+            sjd = (x[d] - xjd) / itp.h[d]
+
+            if abs(sjd) >= T(eqs_int)
+                ktd = T(1//2) * T(sign(sjd))
+            else
+                col_float = T(eqs_int) + sjd
+                col = clamp(floor(Int, col_float) + 1, 1, 2 * eqs_int)
+                x_diff_right = col_float - T(col - 1)
+                continuous_idx = x_diff_right * T(n_pre - 1) + one(T)
+                i      = clamp(floor(Int, continuous_idx), 1, n_pre - 1)
+                i_next = i + 1
+                t      = continuous_idx - T(i)
+                ktd = (one(T) - t) * itp.kernel_pre[i, col] + t * itp.kernel_pre[i_next, col]
+            end
+
+            kt_prod *= ktd - itp.left_values[d][idx[d]]
+        end
+
+        result += itp.coefs[idx...] * kt_prod
+    end
+
+    return result * prod(itp.h)
 end

@@ -80,12 +80,12 @@ x = [0.0, 0.15, 0.4, 0.7, 1.5, 2.5, 3.8, 4.2, 4.6, 4.8, 5.0,
      5.3, 5.6, 6.0, 6.5, 7.0, 7.3, 7.8, 8.2, 8.5, 9.0, 9.5, 10.0]
 y = sin.(x) .* exp.(-x/5)
 
-itp   = convolution_interpolation(x, y; degree=:b11)                # f(x)
-itp_d1 = convolution_interpolation(x, y; degree=:b11, derivative=1)  # f'(x)
-itp_d2 = convolution_interpolation(x, y; degree=:b11, derivative=2)  # f''(x)
-itp_d3 = convolution_interpolation(x, y; degree=:b11, derivative=3)  # f'''(x)
-itp_d4 = convolution_interpolation(x, y; degree=:b11, derivative=4)  # f⁴(x)
-itp_d5 = convolution_interpolation(x, y; degree=:b11, derivative=5)  # f⁵(x)
+itp   = convolution_interpolation(x, y; degree=:b11);                # f(x)
+itp_d1 = convolution_interpolation(x, y; degree=:b11, derivative=1);  # f'(x)
+itp_d2 = convolution_interpolation(x, y; degree=:b11, derivative=2);  # f''(x)
+itp_d3 = convolution_interpolation(x, y; degree=:b11, derivative=3);  # f'''(x)
+itp_d4 = convolution_interpolation(x, y; degree=:b11, derivative=4);  # f⁴(x)
+itp_d5 = convolution_interpolation(x, y; degree=:b11, derivative=5);  # f⁵(x)
 ```
 
 [![Nonuniform derivatives](fig/nonuniform_derivatives.png)](fig/nonuniform_derivatives.png)
@@ -173,19 +173,19 @@ arbitrary dimensions.
 
 Gaussian smoothing, which does not interpolate data points exactly, is available via the `B` parameter:
 ```julia
-itp = convolution_interpolation(x, y; B=1.0)  # B controls smoothing width
+itp = convolution_interpolation(x, y; B=1.0);  # B controls smoothing width
 ```
 
 ### Boundary Conditions
 
 Control how ghost point values are computed near domain edges:
 ```julia
-itp = convolution_interpolation(x, y; kernel_bc=:auto)        # Default
-itp = convolution_interpolation(x, y; kernel_bc=:polynomial)   # Optimal for b-series
-itp = convolution_interpolation(x, y; kernel_bc=:detect)       # Periodic signal detection
-itp = convolution_interpolation(x, y; kernel_bc=:linear)
-itp = convolution_interpolation(x, y; kernel_bc=:quadratic)
-itp = convolution_interpolation(x, y; kernel_bc=:periodic)
+itp = convolution_interpolation(x, y; kernel_bc=:auto);        # Default
+itp = convolution_interpolation(x, y; kernel_bc=:polynomial);   # Optimal for b-series
+itp = convolution_interpolation(x, y; kernel_bc=:detect);       # Periodic signal detection
+itp = convolution_interpolation(x, y; kernel_bc=:linear);
+itp = convolution_interpolation(x, y; kernel_bc=:quadratic);
+itp = convolution_interpolation(x, y; kernel_bc=:periodic);
 ```
 
 The default `:auto` prioritizes `:polynomial`, which preserves each kernel's polynomial reproduction properties at domain edges. It falls back to `:detect` when there are insufficient grid points.
@@ -196,7 +196,7 @@ kernel_bcs = [
     (:linear, :quadratic),   # First dimension: linear at start, quadratic at end
     (:periodic, :detect)     # Second dimension: periodic at start, detect at end
 ]
-itp = convolution_interpolation((x, y), z; kernel_bc=kernel_bcs)
+itp = convolution_interpolation((x, y), z; kernel_bc=kernel_bcs);
 ```
 
 ### Derivatives
@@ -206,8 +206,8 @@ Derivatives are computed through analytically differentiated kernel coefficients
 x = range(0, 2π, length=100)
 y = sin.(x)
 
-itp_d1 = convolution_interpolation(x, y; derivative=1)  # cos(x)
-itp_d2 = convolution_interpolation(x, y; derivative=2)  # -sin(x)
+itp_d1 = convolution_interpolation(x, y; derivative=1);  # cos(x)
+itp_d2 = convolution_interpolation(x, y; derivative=2);  # -sin(x)
 ```
 
 The maximum supported derivative order is determined by the kernel's continuity class (see [Kernel Reference](#available-kernels)).
@@ -218,7 +218,7 @@ In multiple dimensions, `derivative=1` applies the derivative kernel along all d
 x = range(0, 2π, length=100)
 y = range(0, 2π, length=100)
 data = [sin(xi) * sin(yi) for xi in x, yi in y]
-itp_d1 = convolution_interpolation((x, y), data; derivative=1)
+itp_d1 = convolution_interpolation((x, y), data; derivative=1);
 itp_d1(1.0, 2.0)  # Returns cos(1.0) * cos(2.0)
 ```
 
@@ -236,7 +236,7 @@ Pass `derivative=-1` to compute the indefinite integral of the interpolant:
 x = range(0.0, 2π, length=100)
 y = sin.(x)
 
-itp = convolution_interpolation(x, y; derivative=-1)
+itp = convolution_interpolation(x, y; derivative=-1);
 itp(1.0)   # ≈ 0.4597  (= 1 - cos(1), anchored at x=0)
 ```
 
@@ -252,7 +252,7 @@ xs = range(0.0, 1.0, length=50)
 ys = range(0.0, 1.0, length=50)
 vs = [x + y for x in xs, y in ys]
 
-itp2 = convolution_interpolation((xs, ys), vs; derivative=-1)
+itp2 = convolution_interpolation((xs, ys), vs; derivative=-1);
 itp2(0.5, 0.5)   # ≈ ∫₀^0.5 ∫₀^0.5 (x+y) dx dy = 0.125
 ```
 
@@ -267,12 +267,12 @@ The figure below shows convergence of the antiderivative of Runge's function:
 
 Define behavior outside the data domain:
 ```julia
-itp = convolution_interpolation(x, y; extrapolation_bc=Throw())     # Error (default)
-itp = convolution_interpolation(x, y; extrapolation_bc=Line())      # Linear
-itp = convolution_interpolation(x, y; extrapolation_bc=Flat())      # Constant
-itp = convolution_interpolation(x, y; extrapolation_bc=Periodic())  # Periodic extension
-itp = convolution_interpolation(x, y; extrapolation_bc=Reflect())   # Reflection
-itp = convolution_interpolation(x, y; extrapolation_bc=Natural())   # Smooth boundary preservation
+itp = convolution_interpolation(x, y; extrapolation_bc=Throw());     # Error (default)
+itp = convolution_interpolation(x, y; extrapolation_bc=Line());      # Linear
+itp = convolution_interpolation(x, y; extrapolation_bc=Flat());      # Constant
+itp = convolution_interpolation(x, y; extrapolation_bc=Periodic());  # Periodic extension
+itp = convolution_interpolation(x, y; extrapolation_bc=Reflect());   # Reflection
+itp = convolution_interpolation(x, y; extrapolation_bc=Natural());   # Smooth boundary preservation
 ```
 
 The `Natural()` mode transforms extrapolation into interpolation by expanding the domain with boundary coefficients before applying linear extrapolation. This preserves the kernel's full smoothness across the boundary region, rather than abruptly transitioning at the domain edge.
@@ -303,7 +303,7 @@ t = range(0, 1, length=10)
 data_4d = [sin(2π*xi)*cos(2π*yi)*exp(-zi)*sqrt(ti+0.1)
            for xi in x, yi in y, zi in z, ti in t]
 
-itp_4d = convolution_interpolation((x, y, z, t), data_4d, lazy=true, degree=:a3)
+itp_4d = convolution_interpolation((x, y, z, t), data_4d, lazy=true, degree=:a3);
 itp_4d(0.42, 0.33, 0.77, 0.51)
 ```
 
@@ -336,9 +336,9 @@ remain available. Use this when exact boundary behavior is critical.
 The fast evaluation mode convolves data with precomputed kernel values, then interpolates between convolution results. 
 The `subgrid` parameter controls this inner interpolation:
 ```julia
-itp = convolution_interpolation(x, y; subgrid=:cubic)                    # Default, high accuracy
-itp = convolution_interpolation(x, y; subgrid=:quintic)                  # Even higher accuracy
-itp = convolution_interpolation(x, y; subgrid=:linear, precompute=10_000) # Fastest evaluation
+itp = convolution_interpolation(x, y; subgrid=:cubic);                    # Default, high accuracy
+itp = convolution_interpolation(x, y; subgrid=:quintic);                  # Even higher accuracy
+itp = convolution_interpolation(x, y; subgrid=:linear, precompute=10_000); # Fastest evaluation
 ```
 
 | Subgrid    | Method               | Kernel derivatives used | Speed   | Accuracy |

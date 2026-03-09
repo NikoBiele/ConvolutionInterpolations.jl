@@ -1,17 +1,18 @@
 # ConvolutionInterpolations.jl
 
-Smooth interpolation and derivatives from a discrete grid of samples.
+Smooth interpolation, derivatives and antiderivatives from a discrete grid of samples.
 
 [![Performance Comparison](fig/convolution_interpolation_kernels.png)](fig/convolution_interpolation_kernels.png)
 
 ## Why ConvolutionInterpolations.jl?
 
 - **High accuracy by default**: The default `:b5` kernel gives 7th-order convergence
-- **Uniform and non-uniform grids**: Uniform grids use optimized precomputed kernels; non-uniform grids are detected automatically
-- **O(1) evaluation**: Interpolation time is independent of grid size (for uniform), with allocation-free evaluation
+- **Uniform grids**: Uniform grids use optimized precomputed kernels
+- **Non-uniform grids**: Non-uniform grids are detected automatically
+- **O(1) evaluation (uniform)**: Query time is independent of grid size with allocation-free evaluation
 - **N-dimensional**: Separable kernel design scales naturally from 1D to arbitrary dimensions
 - **Simple API**: A single interface covers nearest-neighbor through 13th-degree polynomial kernels
-- **Antiderivative support**: Compute ~7th order accurate smooth indefinite integrals (for uniform)
+- **Antiderivative support (uniform)**: Compute 7th order accurate smooth indefinite integrals
 
 ## Installation
 
@@ -91,7 +92,9 @@ itp_d5 = convolution_interpolation(x, y; degree=:b11, derivative=5)  # f⁵(x)
 
 Dots are analytical values, solid lines are the `:b11` interpolant.
 Non-uniform interpolation works in any number of dimensions via tensor products.
-Non-uniform precomputation scales with the number of intervals; for performance-critical applications, non-uniform kernels can be used once to resample data onto a uniform grid, then efficient uniform kernels can be used for repeated evaluation.
+Non-uniform precomputation scales with the number of intervals; for performance-critical applications, 
+non-uniform kernels can be used once to resample data onto a uniform grid, 
+then efficient uniform kernels can be used for repeated evaluation.
 
 ## Accuracy
 
@@ -102,7 +105,8 @@ The 1D Runge function demonstrates convergence behavior across kernel families:
 [![Runge function convergence](fig/interpolation_1d_runge.png)](fig/interpolation_1d_runge.png)
 
 - `:b` kernels reach machine precision (~10⁻¹⁴) by 1000 sample points
-- All b-series kernels show 7th order convergence (slope ≈ -7 on the log-log plot), compared to 4th order for cubic splines
+- `:b`-series kernels show 7th order convergence (slope ≈ -7 on the log-log plot)
+- The `:a4` kernel show 4th order convergence, and is similar to cubic splines
 - The discretized kernel approach is both faster and more numerically stable than direct polynomial evaluation
 - Chebyshev interpolation shown for reference (requires non-uniform grid points)
 
@@ -118,7 +122,7 @@ Performance across dimensions and kernel families:
 
 [![Kernel performance heatmap](fig/kernel_performance_comparison.png)](fig/kernel_performance_comparison.png)
 
-**Initialization** (left panel): One-time setup cost in eager mode (`lazy=false`). Ranges from ~2 μs for linear kernels to ~4 s for 4D `:b9`. For kernels higher than `:a1`, setup time scales with the number of boundary points. Benchmarks use 100 grid points per dimension (100, 100², 100³, 100⁴). With `lazy=true`, construction is constant-time (~0.12 ms) regardless of grid size or dimension — see [High-Dimensional Interpolation](#high-dimensional-interpolation) for benchmarks.
+**Initialization** (left panel): One-time setup cost in eager mode (`lazy=false`). Ranges from ~2 μs for linear kernels to ~4 s for 4D `:b` kernels. For kernels higher than `:a1`, setup time scales with the number of boundary points. Benchmarks use 100 grid points per dimension (100, 100², 100³, 100⁴). With `lazy=true`, construction is constant-time (~0.12 ms) regardless of grid size or dimension — see [High-Dimensional Interpolation](#high-dimensional-interpolation) for benchmarks.
 
 **Evaluation** (right panel): Cost per interpolation call with default settings (`:cubic` subgrid, extrapolation wrapper). Representative `:b5` timings:
 
@@ -128,7 +132,7 @@ Performance across dimensions and kernel families:
 
 Lower times are achievable with lower order kernels, `:linear` subgrid or by bypassing the extrapolation wrapper (`itp.itp(x)`).
 
-Evaluation cost scales as (2×eqs)ᴺ across dimensions due to tensor product structure.
+Evaluation cost scales as (stencil)ᴺ across dimensions due to tensor product structure.
 
 ## Kernel Reference
 
@@ -136,38 +140,38 @@ Evaluation cost scales as (2×eqs)ᴺ across dimensions due to tensor product st
 
 Uniform grid kernels
 
-| Kernel | Degree | Continuity | Derivative range | Convergence | eqs |
+| Kernel | Degree | Continuity | Derivative range | Convergence | stencil |
 |--------|--------|------------|------------------|-------------|-----|
-| `:a0`  | 0      | —          | —                | 1st order   | 1   |
-| `:a1`  | 1      | C⁰         | -1..0            | 2nd order   | 1   |
-| `:a3`  | 3      | C¹         | -1..1            | ~3rd order  | 2   |
-| `:a4`  | 3      | C¹         | -1..1            | ~4th order  | 3   |
-| `:a5`  | 5      | C¹         | -1..1            | ~3rd order  | 3   |
-| `:a7`  | 7      | C¹         | -1..1            | ~3rd order  | 4   |
-| `:b5`  | 5      | C³         | -1..3            | 7th order   | 5   |
-| `:b7`  | 7      | C⁴         | -1..4            | 7th order   | 6   |
-| `:b9`  | 9      | C⁵         | -1..5            | 7th order   | 7   |
-| `:b11` | 11     | C⁶         | -1..6            | 7th order   | 8   |
-| `:b13` | 13     | C⁶         | -1..6            | 7th order   | 9   |
+| `:a0`  | 0      | —          | —                | 1st order   | 2ᴺ   |
+| `:a1`  | 1      | C⁰         | -1..0            | 2nd order   | 2ᴺ   |
+| `:a3`  | 3      | C¹         | -1..1            | ~3rd order  | 4ᴺ   |
+| `:a4`  | 3      | C¹         | -1..1            | ~4th order  | 6ᴺ   |
+| `:a5`  | 5      | C¹         | -1..1            | ~3rd order  | 6ᴺ   |
+| `:a7`  | 7      | C¹         | -1..1            | ~3rd order  | 8ᴺ   |
+| `:b5`  | 5      | C³         | -1..3            | 7th order   | 10ᴺ   |
+| `:b7`  | 7      | C⁴         | -1..4            | 7th order   | 12ᴺ   |
+| `:b9`  | 9      | C⁵         | -1..5            | 7th order   | 14ᴺ   |
+| `:b11` | 11     | C⁶         | -1..6            | 7th order   | 16ᴺ   |
+| `:b13` | 13     | C⁶         | -1..6            | 7th order   | 18ᴺ   |
 
 Non-uniform grid kernels
 
-| Kernel | Degree | Continuity | Derivative range | Convergence | eqs |
+| Kernel | Degree | Continuity | Derivative range | Convergence | stencil |
 |--------|--------|------------|------------------|-------------|-----|
-| `:a0`  | 0      | —          | —                | 1st order   | 1   |
-| `:a1`  | 1      | C⁰         | 0..0             | 2nd order   | 1   |
-| `:n3`  | 3      | C¹         | 0..0             | ~3rd order  | 4   |
-| `:b5`  | 5      | C³         | 0..3             | 7th order   | 5   |
-| `:b7`  | 7      | C⁴         | 0..4             | 7th order   | 6   |
-| `:b9`  | 9      | C⁵         | 0..5             | 7th order   | 7   |
-| `:b11` | 11     | C⁶         | 0..6             | 7th order   | 8   |
-| `:b13` | 13     | C⁶         | 0..6             | 7th order   | 9   |
+| `:a0`  | 0      | —          | —                | 1st order   | 2ᴺ  |
+| `:a1`  | 1      | C⁰         | 0..0             | 2nd order   | 2ᴺ  |
+| `:n3`  | 3      | C¹         | 0..0             | ~3rd order  | 4ᴺ  |
+| `:b5`  | 5      | C³         | 0..3             | 7th order   | 10ᴺ |
+| `:b7`  | 7      | C⁴         | 0..4             | 7th order   | 12ᴺ |
+| `:b9`  | 9      | C⁵         | 0..5             | 7th order   | 14ᴺ |
+| `:b11` | 11     | C⁶         | 0..6             | 7th order   | 16ᴺ |
+| `:b13` | 13     | C⁶         | 0..6             | 7th order   | 18ᴺ |
 
 The default kernel is `:b5`, which provides 7th-order accuracy and C³ continuity.
-It works across all modes: uniform, non-uniform, derivatives, lazy, and
+It works across all modes: uniform, non-uniform, derivatives, antiderivative, lazy, and
 arbitrary dimensions.
 
-Gaussian smoothing is also available via the `B` parameter, which does not interpolate data points exactly:
+Gaussian smoothing, which does not interpolate data points exactly, is available via the `B` parameter:
 ```julia
 itp = convolution_interpolation(x, y; B=1.0)  # B controls smoothing width
 ```
@@ -241,7 +245,7 @@ The fast path (default) precomputes the anchor-side contribution at construction
 so evaluation is zero-allocation and O(stencil) — the same cost as regular interpolation,
 scaled by the wider kernel sum.
 
-In N dimensions the result is the mixed partial antiderivative:
+In N dimensions the result is the iterated antiderivative:
 
 ```julia
 xs = range(0.0, 1.0, length=50)
@@ -252,9 +256,8 @@ itp2 = convolution_interpolation((xs, ys), vs; derivative=-1)
 itp2(0.5, 0.5)   # ≈ ∫₀^0.5 ∫₀^0.5 (x+y) dx dy = 0.125
 ```
 
-Antiderivative support is available for all uniform-grid kernels except `:a0`, and is
-not yet supported on non-uniform grids. The `subgrid` parameter has no effect when
-`derivative=-1`; cubic subgrid is used internally for coefficient solving.
+Antiderivative support is available for all uniform-grid kernels except `:a0`.
+It is not yet supported on non-uniform grids. 
 
 The figure below shows convergence of the antiderivative of Runge's function:
 
@@ -276,13 +279,18 @@ The `Natural()` mode transforms extrapolation into interpolation by expanding th
 
 ### High-Dimensional Interpolation
 
-The separable kernel design scales to arbitrary dimensions. For high-dimensional data,
-`lazy=true` is recommended. It automatically enables `boundary_fallback` and `Line()`
-extrapolation near boundaries.
+The separable kernel design scales to arbitrary dimensions.
+For two- or three-dimensional data `lazy=true` is recommended. 
+This computes ghost points on the fly near boundaries, saving considerable setup time, at the expense of near boundary query times.
 
-> **Note**: With `lazy=true`, values near domain boundaries are linearly extrapolated from the
+> **Note**: For very high dimensional data (N≥5), `lazy=true` performs a compromise:
+It automatically sets `boundary_fallback=true` and enables `Line()` extrapolation near boundaries.
+This truncates the domain and treats the outer interior points as ghost points.
+Values outside the truncated domain boundaries are linearly extrapolated from the
 interior rather than interpolated exactly with the full kernel.
 This tradeoff avoids expensive ghost point computation in high dimensions.
+Therefore, in high dimensions with `lazy=true`, `degree=:a3` is recommended, 
+since it truncates just one point on either side of the domain.
 For exact interpolation across the entire domain, use `lazy=false`.
 
 ```julia
@@ -295,21 +303,20 @@ t = range(0, 1, length=10)
 data_4d = [sin(2π*xi)*cos(2π*yi)*exp(-zi)*sqrt(ti+0.1)
            for xi in x, yi in y, zi in z, ti in t]
 
-itp_4d = convolution_interpolation((x, y, z, t), data_4d, lazy=true)
+itp_4d = convolution_interpolation((x, y, z, t), data_4d, lazy=true, degree=:a3)
 itp_4d(0.42, 0.33, 0.77, 0.51)
 ```
 
-Interior evaluation is identical in lazy and eager modes. Near boundaries, lazy mode
-linearly extrapolates from the interior using two evaluations regardless of dimensionality.
+Interior evaluation is identical in lazy and eager modes.
 
 #### Construction speedup with `lazy=true`
 
-| Grid | :a3 eager | :a3 lazy | Speedup | :a4 eager | :a4 lazy | Speedup | :b5 eager | :b5 lazy | Speedup |
-|------|-----------|----------|---------|-----------|----------|---------|-----------|----------|---------|
-| 3D 20³ | 0.31 ms | 0.11 ms | 3× | 0.38 ms | 0.13 ms | 3× | 0.51 ms | 0.16 ms | 3× |
-| 3D 100³ | 12.7 ms | 0.13 ms | 96× | 13.3 ms | 0.13 ms | 102× | 14.9 ms | 0.14 ms | 104× |
-| 4D 10⁴ | 0.84 ms | 0.12 ms | 7× | 1.33 ms | 0.12 ms | 11× | 3.19 ms | 0.15 ms | 22× |
-| 4D 30⁴ | 28.9 ms | 0.12 ms | 248× | 31.9 ms | 0.13 ms | 252× | 50.1 ms | 0.14 ms | 349× |
+| Grid | `:a3` | `:a4` | `:b5` |
+|------|------:|------:|------:|
+| 3D 20³ | 3× | 3× | 3× |
+| 3D 100³ | 96× | 102× | 104× |
+| 4D 10⁴ | 7× | 11× | 22× |
+| 4D 30⁴ | 248× | 252× | 349× |
 
 Lazy construction is constant-time (~0.12 ms) regardless of grid size; eager scales with the number of boundary points.
 
@@ -326,7 +333,8 @@ remain available. Use this when exact boundary behavior is critical.
 
 ### Subgrid Interpolation
 
-The fast evaluation mode convolves data with precomputed kernel values, then interpolates between convolution results. The `subgrid` parameter controls this inner interpolation:
+The fast evaluation mode convolves data with precomputed kernel values, then interpolates between convolution results. 
+The `subgrid` parameter controls this inner interpolation:
 ```julia
 itp = convolution_interpolation(x, y; subgrid=:cubic)                    # Default, high accuracy
 itp = convolution_interpolation(x, y; subgrid=:quintic)                  # Even higher accuracy
@@ -351,20 +359,18 @@ Benchmarks in the [Speed](#speed) section use `:linear` subgrid.
 
 - **Default `:b5` works everywhere**: 7th-order accuracy on uniform grids, non-uniform grids, high-order derivatives
 - **Use `lazy=true` in high dimensions**: Skips ghost point expansion, reducing construction time and memory
-- **Use `:a0`, `:a1`, `:a3` or `:a4` in high dimensions**: Evaluation time of narrower kernels scale better with dimensions
+- **Use `:a0`, `:a1` or `:a3` in high dimensions**: Evaluation time of narrower kernels scale better with dimensions
 - **Pre-shipped kernel tables**: The default `precompute=101` with `:cubic` or `:quintic` subgrid loads precomputed constants
 
 ## Technical Background
 
-This package introduces six main contributions:
+This package introduces five main contributions:
 
-**b-series kernel family.** A new family of high-order convolution kernels (b5, b7, b9, b11, b13) discovered through systematic analytical search using symbolic computation (SymPy), generalizing the approach of R. G. Keys (1981). All b-series kernels achieve 7th order convergence with polynomial reproduction far exceeding their own degree. Kernel coefficients are stored as exact rational numbers, enabling extended precision arithmetic with BigFloat.
+**b-series kernel family.** A new family of high-order convolution kernels (b5, b7, b9, b11, b13) discovered through systematic analytical search using symbolic computation (SymPy), generalizing the approach of R. G. Keys (1981). All b-series kernels achieve 7th order convergence. Kernel coefficients are stored as exact rational numbers, enabling extended precision arithmetic with BigFloat.
 
-**Hermite multilevel interpolation.** Rather than evaluating kernel polynomials directly, kernels are discretized at a small number of points (default 101) and shipped as package constants. Higher resolutions or non-standard precisions are computed on demand and cached to disk via Scratch.jl. During evaluation, data is convolved with these precomputed values, and the results are interpolated using cubic or quintic Hermite subgrid interpolation. This approach is both faster and more numerically stable than direct polynomial evaluation.
+**Hermite multilevel interpolation.** Rather than evaluating kernel polynomials directly, kernels are discretized at a small number of points (default 101) and shipped as package constants. Higher resolutions or non-standard precisions are computed on demand and cached to disk via Scratch.jl. During evaluation, data is convolved with these precomputed values, and the results are interpolated using cubic or quintic Hermite subgrid interpolation. This approach is both faster (`O(1)`) and more numerically stable than direct polynomial evaluation.
 
 **Polynomial boundary conditions.** A boundary handling method that computes optimal ghost point values that preserve each kernel's polynomial reproduction properties. This maintains convergence order across the entire domain rather than degrading near boundaries.
-
-**Uniform evaluation paths.** On uniform grids, the package provides two evaluation strategies. Direct evaluation computes the piecewise polynomial kernel as written. Fast evaluation (default) looks up precomputed kernel values from shipped tables and interpolates between them using Hermite subgrid interpolation — `O(1)` with no per-evaluation polynomial work and more numerically stable than direct polynomial evaluation at high degree.
 
 **Non-uniform b-kernel extension.** On non-uniform grids, each interval requires its own weights adapted to the local grid geometry. This is achieved by expanding the kernel in a binomial series around each interval's local coordinate, then projecting through a Vandermonde system to enforce polynomial reproduction up to the kernel's design order. The result is a compact set of polynomial coefficients per interval, evaluated via Horner's method at query time. All weight generation uses exact `Rational{BigInt}` arithmetic to avoid floating-point contamination, with conversion to `Float64` only at the final storage step. The same framework extends to derivatives by applying the binomial expansion to analytically differentiated kernel coefficients. On mixed grids (some dimensions uniform, some not), each dimension independently selects the appropriate path through the separable tensor product.
 
@@ -389,6 +395,7 @@ Key differences from existing interpolation packages:
 - Persistent kernel caching for near-instant subsequent initialization
 - Hermite multilevel interpolation for combined speed and stability
 - Single interface from nearest-neighbor to 13th-degree kernels
+- Support for both function values, derivatives and antiderivatives
 - Minimal dependencies (LinearAlgebra, Serialization, Scratch.jl)
 
 ## Acknowledgments

@@ -138,26 +138,32 @@ coefs = create_convolutional_coefs(vs, h, 5, bc, :b5)
 See also: `apply_boundary_conditions_for_dim!`, `boundary_coefs`.
 """
 
-function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs::P,
-                                kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}},
-                                kernel_type::Symbol,
-                                derivative::Int) where {T,N,P}
-    vs_size = size(vs)
-    new_dims = vs_size .+ 2*(eqs-1)
+function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, 
+                                    eqs::NTuple{N,Int},
+                                    kernel_bc, 
+                                    kernel_types::NTuple{N,Symbol},
+                                    derivatives::NTuple{N,Int}) where {T,N}
+    new_dims = ntuple(d -> size(vs, d) + 2*(eqs[d]-1), N)
     c = zeros(T, new_dims)
-    inner_indices = map(d -> (1+(eqs-1)):(d-(eqs-1)), new_dims)
+    inner_indices = ntuple(d -> (1+(eqs[d]-1)):(new_dims[d]-(eqs[d]-1)), N)
     c[inner_indices...] = vs
 
-    # Create workspace once
+    max_eqs = maximum(eqs)
     max_dim_size = maximum(size(vs))
-    workspace = BoundaryWorkspace(T, N, eqs, max_dim_size)
+    workspace = BoundaryWorkspace(T, N, max_eqs, max_dim_size)
 
-    # Apply boundary conditions in order
     for fixed_dim in 1:N
-        apply_boundary_conditions_for_dim!(c, vs, fixed_dim, h, eqs, kernel_bc, kernel_type, workspace, derivative, vs_size)
+        apply_boundary_conditions_for_dim!(c, vs, fixed_dim, h, eqs[fixed_dim], kernel_bc, 
+                                           kernel_types[fixed_dim], workspace, 
+                                           derivatives[fixed_dim], size(vs))
     end
-
     return c
+end
+function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs::Int,
+                                    kernel_bc, kernel_type::Symbol, derivative::Int) where {T,N}
+    create_convolutional_coefs(vs, h, ntuple(_ -> eqs, N), kernel_bc,
+                               ntuple(_ -> kernel_type, N),
+                               ntuple(_ -> derivative, N))
 end
 
 """

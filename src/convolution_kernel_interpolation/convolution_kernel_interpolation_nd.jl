@@ -32,13 +32,13 @@ is across all dimensions. This generalizes to any number of dimensions efficient
                     {T,N,TCoefs,IT,KA,Axs,DG,EQ,KBC,FD,SD,SG}
 
     result = zero(T)
-    x_lefts = ntuple(d -> itp.knots[d][itp.eqs], N)
     ns = ntuple(d -> size(itp.coefs, d), N)
     @inbounds for idx in Iterators.product(ntuple(d -> 1:ns[d], N)...)
         dx = prod(d -> begin
-            xd = itp.knots[d][itp.eqs] + (idx[d] - itp.eqs) * itp.h[d]
-            itp.kernel((x[d]       - xd) / itp.h[d]) -
-            itp.kernel((x_lefts[d] - xd) / itp.h[d])
+            eqs_d = _eqs_d(itp.eqs, d)
+            xd = itp.knots[d][eqs_d] + (idx[d] - eqs_d) * itp.h[d]
+            _kernel_d(itp.kernel, d)((x[d]          - xd) / itp.h[d]) -
+            _kernel_d(itp.kernel, d)((itp.anchor[d] - xd) / itp.h[d])
         end, 1:N)
         result += itp.coefs[idx...] * dx
     end
@@ -47,7 +47,7 @@ end
 
 function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
                     DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG})(x::Vararg{Number,N}) where 
-                    {T,N,TCoefs,IT,KA,Axs,DG,EQ,KBC,DO,FD,SD,SG}
+                    {T,N,TCoefs,IT,KA,Axs,DG,EQ<:Int,KBC,DO,FD,SD,SG}
 
     # Check if nonuniform lazy
     is_nonuniform = itp.lazy && any(d -> length(itp.knots[d]) != size(itp.coefs, d), 1:N)
@@ -121,5 +121,21 @@ function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
     end
     scale = DO >= 0 ? prod((one(T)/itp.h[d])^DO for d in 1:N) :
                       prod(itp.h[d]^(-DO) for d in 1:N)
+    return @inbounds @fastmath result * scale
+end
+
+@inline function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
+                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG})(x::Vararg{Number,N}) where 
+                    {T,N,TCoefs,IT,KA,Axs,DG,EQ<:Tuple,KBC,DO,FD,SD,SG}
+
+    i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
+    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[d], length(itp.knots[d]) - itp.eqs[d]), N)
+
+    result = zero(T)
+    @inbounds for offsets in Iterators.product(ntuple(d -> -(itp.eqs[d]-1):itp.eqs[d], N)...)
+        result += itp.coefs[(pos_ids .+ offsets)...] *
+                  prod(itp.kernel[d]((x[d] - itp.knots[d][pos_ids[d] + offsets[d]]) / itp.h[d]) for d in 1:N)
+    end
+    scale = prod(d -> DO[d] >= 0 ? one(T) / itp.h[d]^DO[d] : itp.h[d]^(-DO[d]), 1:N)
     return @inbounds @fastmath result * scale
 end

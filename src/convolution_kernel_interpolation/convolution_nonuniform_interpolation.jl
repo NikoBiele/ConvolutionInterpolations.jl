@@ -39,7 +39,7 @@ This is the fallback path for a-series kernels on nonuniform grids.
 
 @inline function (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
                     Val{:n3},EQ,KBC,DerivativeOrder{DO},FD,SD,SG})(x::Vararg{Number,1}) where
-                    {T,TCoefs,IT,Axs,KA,EQ,KBC,DO,FD,SD,SG}
+                    {T,TCoefs,IT,Axs,KA,EQ<:Int,KBC,DO,FD,SD,SG}
     if itp.lazy
         return _eval_n3_lazy(itp, x[1])
     end
@@ -56,7 +56,7 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
                     Val{:n3},EQ,KBC,DerivativeOrder{DO},FD,SD,SG})(x::Vararg{Number,2}) where
-                    {T,TCoefs,IT,Axs,KA,EQ,KBC,DO,FD,SD,SG}
+                    {T,TCoefs,IT,Axs,KA,EQ<:Int,KBC,DO,FD,SD,SG}
     if itp.lazy
         return _eval_n3_lazy(itp, x[1], x[2])
     end
@@ -77,7 +77,7 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
                     Val{:n3},EQ,KBC,DerivativeOrder{DO},FD,SD,SG})(x::Vararg{Number,3}) where
-                    {T,TCoefs,IT,Axs,KA,EQ,KBC,DO,FD,SD,SG}
+                    {T,TCoefs,IT,Axs,KA,EQ<:Int,KBC,DO,FD,SD,SG}
     if itp.lazy
         return _eval_n3_lazy(itp, x[1], x[2], x[3])
     end
@@ -101,7 +101,7 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
         Val{:n3},EQ,KBC,DerivativeOrder{DO},FD,SD,SG})(x::Vararg{Number,N}) where 
-        {T,N,TCoefs,IT,Axs,KA,EQ,KBC,DO,FD,SD,SG}
+        {T,N,TCoefs,IT,Axs,KA,EQ<:Int,KBC,DO,FD,SD,SG}
     if itp.lazy
         return _eval_n3_lazy(itp, x...)
     end
@@ -212,7 +212,7 @@ Derivative scaling uses local interval spacing `h0` per dimension.
 
 @inline function (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
                     DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG,NB})(x::Vararg{Number,1}) where 
-                    {T,TCoefs,IT,Axs,KA,DG,EQ,KBC,DO,FD,SD,SG,
+                    {T,TCoefs,IT,Axs,KA,DG,EQ<:Int,KBC,DO,FD,SD,SG,
                     NB<:Tuple{Vector{Matrix{Float64}}}}
 
     M_eqs = _nb_M_eqs(itp.deg)
@@ -230,7 +230,7 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
                     DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG,NB})(x::Vararg{Number,2}) where 
-                    {T,TCoefs,IT,Axs,KA,DG,EQ,KBC,DO,FD,SD,SG,
+                    {T,TCoefs,IT,Axs,KA,DG,EQ<:Int,KBC,DO,FD,SD,SG,
                     NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
 
     M_eqs = _nb_M_eqs(itp.deg)
@@ -251,7 +251,7 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
                     DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG,NB})(x::Vararg{Number,3}) where 
-                    {T,TCoefs,IT,Axs,KA,DG,EQ,KBC,DO,FD,SD,SG,
+                    {T,TCoefs,IT,Axs,KA,DG,EQ<:Int,KBC,DO,FD,SD,SG,
                      NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
     M_eqs = _nb_M_eqs(itp.deg)
     ns = _nb_n_stencil(itp.deg)
@@ -275,7 +275,7 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
                     DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG,NB})(x::Vararg{Number,N}) where 
-                    {T,TCoefs,IT,Axs,KA,DG,EQ,KBC,DO,FD,SD,SG,
+                    {T,TCoefs,IT,Axs,KA,DG,EQ<:Int,KBC,DO,FD,SD,SG,
                      NB<:Tuple{Vararg{Vector{Matrix{Float64}}}},N}
 
     M_eqs = _nb_M_eqs(itp.deg)

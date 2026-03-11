@@ -155,11 +155,12 @@ to the first and last non-ghost knot positions.
 """
 
 @inline function _domain_bounds(itp, d)
+    eqs_d = itp.eqs isa Tuple ? itp.eqs[d] : itp.eqs
     if itp.lazy && itp.boundary_fallback
         k = itp.knots[d]
         n_k = length(k)
         n_d = size(itp.coefs, d)
-        ng = itp.eqs - 1
+        ng = eqs_d - 1
         return k[1 + ng], k[end - ng]
     elseif itp.lazy
         k = itp.knots[d]
@@ -171,6 +172,6 @@ to the first and last non-ghost knot positions.
         ng = (n_k - n_d) ÷ 2
         return k[1 + ng], k[end - ng]
     else
-        return itp.knots[d][itp.eqs], itp.knots[d][end-(itp.eqs-1)]
+        return itp.knots[d][eqs_d], itp.knots[d][end-(eqs_d-1)]
     end
 end

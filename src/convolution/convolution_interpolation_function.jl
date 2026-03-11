@@ -77,14 +77,18 @@ See also: [`FastConvolutionInterpolation`](@ref), [`ConvolutionInterpolation`](@
 """
 
 function convolution_interpolation(knots, values::AbstractArray{T,N}; 
-        degree::Symbol=:b5, fast::Bool=true, precompute::Int=101,
+        degree::Union{Symbol,NTuple{N,Symbol}}=:b5, fast::Bool=true, precompute::Int=101,
         B=nothing, extrapolation_bc=Throw(),
         kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
-        derivative::Int=0, subgrid::Symbol=:cubic,
+        derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Symbol=:cubic,
         lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
     
     knots_tuple = knots isa AbstractVector || knots isa AbstractRange ? (knots,) : knots
     if any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || degree == :n3
+        fast = false
+    end
+    degrees_tuple = degree isa Symbol ? ntuple(_ -> degree, N) : degree
+    if any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || any(d -> degrees_tuple[d] == :n3, 1:N)
         fast = false
     end
 
@@ -132,9 +136,9 @@ function convolution_interpolation(knots, values::AbstractArray{T,N};
     end
 end
 
-function _build_fast(knots, values::AbstractArray{T,N}; degree::Symbol=:b5, precompute::Int=101, B::Union{Nothing,Float64}=B,
+function _build_fast(knots, values::AbstractArray{T,N}; degree::Union{Symbol,NTuple{N,Symbol}}=:b5, precompute::Int=101, B::Union{Nothing,Float64}=B,
                     kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}=:auto,
-                    derivative::Int=0, subgrid::Symbol=:cubic, extrapolation_bc=Throw(),
+                    derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Symbol=:cubic, extrapolation_bc=Throw(),
                     lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
     itp = FastConvolutionInterpolation(knots, values;
           degree=degree, precompute=precompute, B=B, kernel_bc=kernel_bc, derivative=derivative,
@@ -142,18 +146,19 @@ function _build_fast(knots, values::AbstractArray{T,N}; degree::Symbol=:b5, prec
     return ConvolutionExtrapolation(itp, extrapolation_bc)
 end
 
-function _build_slow(knots, values::AbstractArray{T,N}; degree::Symbol=:b5, B::Union{Nothing,Float64}=nothing,
+function _build_slow(knots, values::AbstractArray{T,N}; degree::Union{Symbol,NTuple{N,Symbol}}=:b5, B::Union{Nothing,Float64}=nothing,
                     kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}=:auto,
-                    derivative::Int=0, extrapolation_bc=Throw(),
+                    derivative::Union{Int,NTuple{N,Int}}=0, extrapolation_bc=Throw(),
                     lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
     itp = ConvolutionInterpolation(knots, values; degree=degree, B=B, kernel_bc=kernel_bc,
                                     derivative=derivative, lazy=lazy, boundary_fallback=boundary_fallback)
     return ConvolutionExtrapolation(itp, extrapolation_bc)
 end
 
-function _build_natural(knots, values::AbstractArray{T,N}; degree::Symbol=:b5, fast::Bool=true, precompute::Int=101, B::Union{Nothing,Float64}=nothing,
+function _build_natural(knots, values::AbstractArray{T,N}; degree::Union{Symbol,NTuple{N,Symbol}}=:b5, fast::Bool=true,
+                        precompute::Int=101, B::Union{Nothing,Float64}=nothing,
                         kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}=:auto,
-                        derivative::Int=0, subgrid::Symbol=:cubic, lazy::Bool=false,
+                        derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Symbol=:cubic, lazy::Bool=false,
                         boundary_fallback::Bool=false) where {T,N}
     # Natural extrapolation always uses eager mode (needs double-extrapolation)
     itp = ConvolutionInterpolation(knots, values; degree, B, kernel_bc, derivative, lazy=false)

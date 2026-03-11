@@ -49,9 +49,9 @@ See also: [`convolution_interpolation`](@ref), [`FastConvolutionInterpolation`](
 function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
                                         AbstractVector,AbstractRange,NTuple{N,AbstractRange}},
                                   vs::AbstractArray{T,N};
-                                  degree::Symbol=:b5, B=nothing,
+                                  degree::Union{Symbol,NTuple{N,Symbol}}=:b5, B=nothing,
                                   kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
-                                  derivative::Int=0,
+                                  derivative::Union{Int,NTuple{N,Int}}=0,
                                   lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
     # Convert knots to tuple if needed (if called directly)
     if knots isa AbstractVector || knots isa AbstractRange
@@ -61,6 +61,14 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
     # === Nonuniform path: if ANY dimension is nonuniform ===
     nonuniform_dims = [!is_uniform_grid(knots[d]) for d in 1:N]
     if any(nonuniform_dims)
+
+        if derivative < 0
+            error("Nonuniform antiderivative (derivative=-1) is not directly supported.\n" *
+                "Recommended workflow:\n" *
+                "       (1) construct a nonuniform derivative=0 interpolation,\n" *
+                "       (2) resample to a uniform grid,\n" *
+                "       (3) construct a uniform derivative=-1 interpolation.")
+        end
 
         if degree in (:b5, :b7, :b9, :b11, :b13)
             # Nonuniform b-kernels always uses eager mode
@@ -143,35 +151,65 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             )
         end
     end
-
+    
     # === Uniform path ===
-    eqs = B === nothing ? get_equations_for_degree(degree) : 50
+    degree     = N == 1 ? degree     : degree     isa Symbol ? ntuple(_ -> degree,     N) : degree
+    derivative = N == 1 ? derivative : derivative isa Int    ? ntuple(_ -> derivative, N) : derivative
+    
+    eqs = B === nothing ? N == 1 ? get_equations_for_degree(degree) : ntuple(d -> get_equations_for_degree(degree[d]), N) : ntuple(_ -> 50, N)
     h = map(k -> k[2] - k[1], knots)
     it = ntuple(_ -> ConvolutionMethod(), N)
 
     # ===== LAZY vs EAGER coefs/knots =====
-    if lazy && degree != :a0 && degree != :a1 && B === nothing
-        # LAZY: store raw values, original knots (not expanded)
-        coefs = vs
-        knots_new = ntuple(i -> collect(eltype(h), knots[i]), N)
+    if N == 1
+        if lazy && degree != :a0 && degree != :a1 && B === nothing
+            coefs = vs
+            knots_new = knots
+        else
+            lazy = false
+            knots_new = expand_knots(knots, eqs-1)
+            coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree, derivative)
+        end
     else
-        # EAGER: original path
-        lazy = false
-        knots_new = expand_knots(knots, eqs-1)
-        coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree, derivative)
+        if lazy && all(d -> degree[d] != :a0 && degree[d] != :a1, 1:N) && B === nothing
+            coefs = vs
+            knots_new = ntuple(i -> collect(eltype(h), knots[i]), N)
+        else
+            lazy = false
+            knots_new = expand_knots(knots, ntuple(d -> eqs[d]-1, N))
+            coefs = if all(d -> degree[d] in (:a0, :a1), 1:N)
+                vs
+            else
+                create_convolutional_coefs(vs, h, eqs, kernel_bc, degree, derivative)
+            end
+        end
     end
-    if derivative == -1
-        anchor = ntuple(d -> knots_new[d][eqs], N)
+    if N == 1
+        if derivative == -1
+            anchor = (knots_new[1][eqs],)
+        else
+            anchor = (zero(T),)
+        end
     else
-        anchor = ntuple(d -> zero(T), N)
+        if any(d -> derivative[d] == -1, 1:N)
+            anchor = ntuple(d -> knots_new[d][eqs[d]], N)
+        else
+            anchor = ntuple(d -> zero(T), N)
+        end
     end
 
-    kernel = B === nothing ? ConvolutionKernel(Val(degree), Val(derivative)) : GaussianConvolutionKernel(Val(B))
+    kernel = B === nothing ? N == 1 ? ConvolutionKernel(Val(degree), Val(derivative)) : 
+                            ntuple(d -> ConvolutionKernel(Val(degree[d]), Val(derivative[d])), N) :
+                            GaussianConvolutionKernel(Val(B))
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
-    do_type = derivative == -1 ? IntegralOrder() : DerivativeOrder(Val(derivative))
+    do_type = if N == 1
+        derivative == -1 ? IntegralOrder() : DerivativeOrder(Val(derivative))
+    else
+        all(d -> derivative[d] == -1, 1:N) ? IntegralOrder() : DerivativeOrder(Val(derivative))
+    end
     kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, :not_used)
     nb_wc = nothing
-    
+
     ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel),
                             typeof(dimension),typeof(Val(degree)),typeof(eqs),typeof(kernel_bc),
                             typeof(do_type),typeof(kernel_d1_pre),typeof(kernel_d2_pre),

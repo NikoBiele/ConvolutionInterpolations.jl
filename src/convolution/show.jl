@@ -28,8 +28,9 @@ end
 
 # --- Helpers ---
  
-_show_deg(::Val{S}) where S = S
-_show_deg(other)             = other
+_show_deg(::Val{S}) where S = S isa Tuple ? "(" * join((":$s" for s in S), ", ") * ")" : ":$S"
+_show_deg(::HigherOrderKernel{S}) where S = S isa Tuple ? "(" * join((":$s" for s in S), ", ") * ")" : ":$S"
+_show_deg(other) = other
  
 _show_do(::DerivativeOrder{DO}) where DO = "derivative=$DO"
 _show_do(::IntegralOrder)                = "antiderivative"

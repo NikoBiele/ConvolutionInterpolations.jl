@@ -62,12 +62,86 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
     nonuniform_dims = [!is_uniform_grid(knots[d]) for d in 1:N]
     if any(nonuniform_dims)
 
-        if derivative < 0
+        if (derivative isa Int && derivative < 0) || (derivative isa Tuple && any(d -> d < 0, derivative))
             error("Nonuniform antiderivative (derivative=-1) is not directly supported.\n" *
                 "Recommended workflow:\n" *
                 "       (1) construct a nonuniform derivative=0 interpolation,\n" *
                 "       (2) resample to a uniform grid,\n" *
                 "       (3) construct a uniform derivative=-1 interpolation.")
+        end
+
+        is_perdim_degree = degree isa NTuple{N,Symbol}
+        is_perdim_deriv  = derivative isa NTuple{N,Int}
+ 
+        if (is_perdim_degree || is_perdim_deriv)
+
+            if N == 1
+                error("Per-dimension degree/derivative specification is not meaningful in 1D. Use scalar values.")
+            end
+            
+            degrees     = degree     isa Symbol ? ntuple(_ -> degree,     N) : degree
+            derivatives = derivative isa Int    ? ntuple(_ -> derivative, N) : derivative
+ 
+            if any(d -> derivatives[d] == -1, 1:N)
+                error("Nonuniform antiderivative (derivative=-1) is not supported.")
+            end
+ 
+            # All per-dim degrees must be b-series for nonuniform
+            if !all(d -> degrees[d] in (:b5, :b7, :b9, :b11, :b13), 1:N)
+                error("Per-dimension nonuniform interpolation requires b-series kernels " *
+                      "in all dimensions. Got: $degrees")
+            end
+ 
+            lazy = false  # nonuniform b always eager
+ 
+            h = ntuple(d -> one(T), N)
+            it = ntuple(_ -> ConvolutionMethod(), N)
+            knots_new = ntuple(d -> collect(T, knots[d]), N)
+ 
+            # Per-dim params
+            params = ntuple(d -> nonuniform_b_params(degrees[d]), N)
+            M_eqs_d = ntuple(d -> params[d][1], N)
+ 
+            # Per-dim weight coefficients + expanded knots
+            nb_data = ntuple(N) do d
+                if nonuniform_dims[d]
+                    precompute_nonuniform_b_all(knots_new[d], degrees[d], derivatives[d])
+                else
+                    precompute_uniform_b_all(knots_new[d], degrees[d], derivatives[d])
+                end
+            end
+ 
+            knots_expanded = ntuple(d -> nb_data[d][2], N)
+            nb_wc = ntuple(d -> nb_data[d][1], N)
+ 
+            # Ghost coefs: use per-dim M_eqs
+            coefs = create_nonuniform_b_coefs_perdim(vs, knots_new, degrees)
+ 
+            eqs = M_eqs_d   # NTuple{N,Int}
+ 
+            kernel    = ntuple(d -> ConvolutionKernel(Val(degrees[d]), Val(derivatives[d])), N)
+            dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
+            kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, :not_used)
+            anchor = ntuple(d -> zero(T), N)
+ 
+            n_integral = count(d -> derivatives[d] == -1, 1:N)
+            do_type = if n_integral == 0
+                DerivativeOrder(Val(derivatives))
+            elseif n_integral == N
+                IntegralOrder()
+            else
+                MixedIntegralOrder{derivatives}()
+            end
+ 
+            deg_val = Val(degrees)   # Val{(:b5,:b7,...)} for dispatch
+ 
+            return ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_expanded),
+                                    typeof(kernel),typeof(dimension),typeof(deg_val),typeof(eqs),
+                                    typeof(kernel_bc),typeof(do_type),typeof(kernel_d1_pre),
+                                    typeof(kernel_d2_pre),typeof(Val(subgrid)),typeof(nb_wc)}(
+                coefs, knots_expanded, it, h, kernel, dimension, deg_val, eqs, kernel_bc, do_type,
+                kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, lazy, boundary_fallback, anchor
+            )
         end
 
         if degree in (:b5, :b7, :b9, :b11, :b13)
@@ -205,7 +279,14 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
     do_type = if N == 1
         derivative == -1 ? IntegralOrder() : DerivativeOrder(Val(derivative))
     else
-        all(d -> derivative[d] == -1, 1:N) ? IntegralOrder() : DerivativeOrder(Val(derivative))
+        n_int = count(d -> derivative[d] == -1, 1:N)
+        if n_int == 0
+            DerivativeOrder(Val(derivative))
+        elseif n_int == N
+            IntegralOrder()
+        else
+            MixedIntegralOrder{derivative}()
+        end
     end
     kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, :not_used)
     nb_wc = nothing

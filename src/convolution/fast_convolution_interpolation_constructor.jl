@@ -50,11 +50,99 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                                       degree::Union{Symbol,NTuple{N,Symbol}}=:b5, precompute::Int=101, B=nothing,
                                       kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
                                       derivative::Union{Int,NTuple{N,Int}}=0,
-                                      subgrid::Symbol=:cubic,
+                                      subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic,
                                       lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
 
     if degree == :n3
         error("The :n3 kernel is not supported by FastConvolutionInterpolation. Use ConvolutionInterpolation instead.")
+    end
+
+    is_perdim = degree isa NTuple{N,Symbol} || derivative isa NTuple{N,Int}
+ 
+    if is_perdim
+        degrees     = degree     isa Symbol ? ntuple(_ -> degree,     N) : degree
+        derivatives = derivative isa Int    ? ntuple(_ -> derivative, N) : derivative
+ 
+        n_integral = count(d -> derivatives[d] == -1, 1:N)
+ 
+        # Normalise subgrid to per-dim tuple.
+        # Integral dims are forced to :linear (K̃ uses linear table lookup).
+        # Derivative dims use normal subgrid validation.
+        subgrids = if subgrid isa Symbol
+            ntuple(d -> derivatives[d] == -1 ? :linear : subgrid, N)
+        else
+            ntuple(d -> derivatives[d] == -1 ? :linear : subgrid[d], N)
+        end
+ 
+        # Validate and possibly downgrade per dimension (3D+ forced to linear)
+        subgrids = if N >= 3
+            ntuple(_ -> :linear, N)
+        else
+            ntuple(d -> derivatives[d] == -1 ? :linear :
+                validate_subgrid_compatibility(degrees[d], derivatives[d], subgrids[d]), N)
+        end
+ 
+        eqs = ntuple(d -> get_equations_for_degree(degrees[d]), N)
+        h   = map(k -> k[2] - k[1], knots)
+        it  = ntuple(_ -> ConvolutionMethod(), N)
+ 
+        # precompute resolution: max needed across dims
+        precompute_actual = foldl(max,
+            (subgrids[d] == :linear ? max(precompute, 10_000) : precompute for d in 1:N);
+            init = precompute)
+ 
+        # Eager only for per-dim fast path
+        lazy      = false
+        knots_new = expand_knots(knots, ntuple(d -> eqs[d] - 1, N))
+        coefs     = create_convolutional_coefs(vs, h, eqs, kernel_bc, degrees, derivatives)
+ 
+        # Per-dim kernel tables — one call per dim, unpack into 4 NTuples
+        tables        = ntuple(d -> get_precomputed_kernel_and_range(degrees[d];
+                                    precompute=precompute_actual, float_type=T,
+                                    derivative=derivatives[d], subgrid=subgrids[d]), N)
+        pre_range_d   = ntuple(d -> tables[d][1], N)
+        kernel_pre_d  = ntuple(d -> tables[d][2], N)
+        kd1_pre_d     = ntuple(d -> tables[d][3], N)
+        kd2_pre_d     = ntuple(d -> tables[d][4], N)
+ 
+        # anchor: knots_new[d][eqs[d]] for integral dims, zero for derivative dims
+        anchor = ntuple(d -> derivatives[d] == -1 ? knots_new[d][eqs[d]] : zero(T), N)
+ 
+        # left_values: computed for integral dims, placeholder for derivative dims
+        left_values = ntuple(N) do d
+            if derivatives[d] == -1
+                _compute_left_values(T, eqs[d], size(coefs, d),
+                    tables[d][2], tables[d][3], tables[d][4], Val(:linear))
+            else
+                [zero(T)]
+            end
+        end
+ 
+        kernel    = ntuple(d -> degrees[d] in (:a0, :a1) ?
+                                Val(degrees[d]) : HigherOrderKernel(Val(degrees[d])), N)
+        dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
+ 
+        do_type = if n_integral == 0
+            DerivativeOrder(Val(derivatives))
+        elseif n_integral == N
+            IntegralOrder()
+        else
+            MixedIntegralOrder{derivatives}()
+        end
+ 
+        # SG dispatch tag: the subgrid tuple itself, e.g. Val{(:cubic,:quintic)}
+        sg_tag = Val(subgrids)
+ 
+        return FastConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),
+                                            typeof(kernel),typeof(dimension),typeof(Val(degrees)),
+                                            typeof(eqs),typeof(pre_range_d),typeof(kernel_pre_d),
+                                            typeof(kernel_bc),typeof(do_type),
+                                            typeof(kd1_pre_d),typeof(kd2_pre_d),typeof(sg_tag)}(
+            coefs, knots_new, it, h, kernel, dimension, Val(degrees), eqs,
+            pre_range_d, kernel_pre_d, kernel_bc, do_type,
+            kd1_pre_d, kd2_pre_d, sg_tag,
+            lazy, boundary_fallback, left_values, anchor
+        )
     end
 
     subgrid = if derivative == -1

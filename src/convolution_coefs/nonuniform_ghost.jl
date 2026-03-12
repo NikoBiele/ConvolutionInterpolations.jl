@@ -290,3 +290,54 @@ function create_nonuniform_b_coefs(vs::AbstractArray{T,N}, knots::NTuple{N},
 
     return c, knots_expanded
 end
+
+function create_nonuniform_b_coefs_perdim(vs::AbstractArray{T,N},
+                                           knots::NTuple{N},
+                                           degrees::NTuple{N,Symbol}) where {T,N}
+    params  = ntuple(d -> nonuniform_b_params(degrees[d]), N)
+    M_eqs_d = ntuple(d -> params[d][1], N)
+    p_deg_d = ntuple(d -> params[d][2], N)
+ 
+    # Each dim padded by its own M_eqs
+    new_dims = ntuple(d -> size(vs, d) + 2 * M_eqs_d[d], N)
+    c = zeros(T, new_dims...)
+ 
+    # Copy interior values — offset is M_eqs_d[d] per dim
+    inner = ntuple(d -> (1 + M_eqs_d[d]):(new_dims[d] - M_eqs_d[d]), N)
+    c[inner...] = vs
+ 
+    # Fill ghost points dimension by dimension
+    for dim in 1:N
+        ng = M_eqs_d[dim]
+        k  = knots[dim]
+        gc_left  = nonuniform_b_ghost_coefficients(k, ng, p_deg_d[dim], :left)
+        gc_right = nonuniform_b_ghost_coefficients(k, ng, p_deg_d[dim], :right)
+        n_interior_pts = size(gc_left, 2)
+        n_dim = size(vs, dim)
+ 
+        # Iterate over all slices perpendicular to dim
+        for idx in CartesianIndices(ntuple(d -> d == dim ? (1:1) : (1:new_dims[d]), N))
+            for g in 1:ng
+                ghost_idx = ntuple(d -> d == dim ? ng + 1 - g : idx[d], N)
+                val = zero(T)
+                for k_idx in 1:n_interior_pts
+                    src_idx = ntuple(d -> d == dim ? ng + k_idx : idx[d], N)
+                    val += gc_left[g, k_idx] * c[src_idx...]
+                end
+                c[ghost_idx...] = val
+            end
+ 
+            for g in 1:ng
+                ghost_idx = ntuple(d -> d == dim ? ng + n_dim + g : idx[d], N)
+                val = zero(T)
+                for k_idx in 1:n_interior_pts
+                    src_idx = ntuple(d -> d == dim ? ng + n_dim - n_interior_pts + k_idx : idx[d], N)
+                    val += gc_right[g, k_idx] * c[src_idx...]
+                end
+                c[ghost_idx...] = val
+            end
+        end
+    end
+ 
+    return c
+end

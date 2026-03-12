@@ -7,12 +7,23 @@ nu_kernels = [:n3, :b5, :b7, :b9, :b11] # :a3 kernel triggers nonuniform lower o
 N_nu = 12
 tolerance_nu = 1e-4
 
+# shared helper
+function make_nonuniform_grid_interpolation(n; a=0.0, b=1.0, strength=0.3)
+    x = collect(range(a, b, length=n))
+    h = (b - a) / (n - 1)
+    for i in 2:n-1
+        x[i] += strength * h * sin(3π * (x[i] - a) / (b - a))
+    end
+    sort!(x)
+    return x
+end
+
 println("Testing nonuniform kernel interpolation in 1D, 2D, 3D, 4D...")
 @testset "1D nonuniform kernels" begin
     for kernel in nu_kernels
         println("Testing 1D nonuniform kernel: ", kernel)
         # grid point reproduction with random data
-        x_nu = make_nonuniform_grid(N_nu)
+        x_nu = make_nonuniform_grid_interpolation(N_nu)
         vals_rand = rand(N_nu)
         itp_rand = convolution_interpolation(x_nu, vals_rand; degree=kernel)
         @test itp_rand.itp.(x_nu) ≈ vals_rand atol=tolerance_nu
@@ -28,8 +39,8 @@ end
 @testset "2D nonuniform kernels" begin
     for kernel in nu_kernels
         println("Testing 2D nonuniform kernel: ", kernel)
-        x_nu = make_nonuniform_grid(N_nu)
-        y_nu = make_nonuniform_grid(N_nu; strength=0.2)
+        x_nu = make_nonuniform_grid_interpolation(N_nu)
+        y_nu = make_nonuniform_grid_interpolation(N_nu; strength=0.2)
 
         # grid point reproduction with random data
         vals_rand = rand(N_nu, N_nu)
@@ -51,9 +62,9 @@ end
 @testset "3D nonuniform kernels" begin
     for kernel in nu_kernels
         println("Testing 3D nonuniform kernel: ", kernel)
-        x_nu = make_nonuniform_grid(N_nu)
-        y_nu = make_nonuniform_grid(N_nu; strength=0.2)
-        z_nu = make_nonuniform_grid(N_nu; strength=0.25)
+        x_nu = make_nonuniform_grid_interpolation(N_nu)
+        y_nu = make_nonuniform_grid_interpolation(N_nu; strength=0.2)
+        z_nu = make_nonuniform_grid_interpolation(N_nu; strength=0.25)
 
         # grid point reproduction with random data
         vals_rand = rand(N_nu, N_nu, N_nu)
@@ -67,10 +78,10 @@ end
 @testset "4D nonuniform kernels" begin
     for kernel in nu_kernels
         println("Testing 4D nonuniform kernel: ", kernel)
-        x_nu = make_nonuniform_grid(N_nu)
-        y_nu = make_nonuniform_grid(N_nu; strength=0.2)
-        z_nu = make_nonuniform_grid(N_nu; strength=0.25)
-        w_nu = make_nonuniform_grid(N_nu)
+        x_nu = make_nonuniform_grid_interpolation(N_nu)
+        y_nu = make_nonuniform_grid_interpolation(N_nu; strength=0.2)
+        z_nu = make_nonuniform_grid_interpolation(N_nu; strength=0.25)
+        w_nu = make_nonuniform_grid_interpolation(N_nu)
 
         # grid point reproduction with random data
         vals_rand = rand(N_nu, N_nu, N_nu, N_nu)

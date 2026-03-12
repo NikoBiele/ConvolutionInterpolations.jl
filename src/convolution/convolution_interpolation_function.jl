@@ -80,7 +80,7 @@ function convolution_interpolation(knots, values::AbstractArray{T,N};
         degree::Union{Symbol,NTuple{N,Symbol}}=:b5, fast::Bool=true, precompute::Int=101,
         B=nothing, extrapolation_bc=Throw(),
         kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
-        derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Symbol=:cubic,
+        derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic,
         lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
     
     knots_tuple = knots isa AbstractVector || knots isa AbstractRange ? (knots,) : knots
@@ -138,7 +138,7 @@ end
 
 function _build_fast(knots, values::AbstractArray{T,N}; degree::Union{Symbol,NTuple{N,Symbol}}=:b5, precompute::Int=101, B::Union{Nothing,Float64}=B,
                     kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}=:auto,
-                    derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Symbol=:cubic, extrapolation_bc=Throw(),
+                    derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic, extrapolation_bc=Throw(),
                     lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
     itp = FastConvolutionInterpolation(knots, values;
           degree=degree, precompute=precompute, B=B, kernel_bc=kernel_bc, derivative=derivative,

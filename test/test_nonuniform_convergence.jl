@@ -7,13 +7,24 @@ expected_order_nonuniform = Dict(
     :b5 => 7, :b7 => 7, :b9 => 7, :b11 => 6 # no accumulated floating point error (precomputed kernel)
 )
 
+# shared helper
+function make_nonuniform_grid_convergence(n; a=0.0, b=1.0, strength=0.3)
+    x = collect(range(a, b, length=n))
+    h = (b - a) / (n - 1)
+    for i in 2:n-1
+        x[i] += strength * h * sin(3π * (x[i] - a) / (b - a))
+    end
+    sort!(x)
+    return x
+end
+
 println("Testing nonuniform convergence of 0th, 1st, and 2nd derivatives in 1D and 2D...")
 @testset "1D nonuniform convergence d0" begin
     for kernel in convergence_nu_kernels
         println("Testing 1D nonuniform convergence d0: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
-            x_nu = make_nonuniform_grid(n)
+            x_nu = make_nonuniform_grid_convergence(n)
             vals = sin.(2π .* x_nu)
             itp = convolution_interpolation(x_nu, vals; degree=kernel)
             test_pts = range(x_nu[5], x_nu[end-4], length=100)
@@ -31,7 +42,7 @@ end
         println("Testing 1D nonuniform convergence d1: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
-            x_nu = make_nonuniform_grid(n; a=0.0, b=2π)
+            x_nu = make_nonuniform_grid_convergence(n; a=0.0, b=2π)
             vals = sin.(x_nu)
             itp_d1 = convolution_interpolation(x_nu, vals; degree=kernel, derivative=1)
             test_pts = range(x_nu[6], x_nu[end-5], length=100)
@@ -49,7 +60,7 @@ end
         println("Testing 1D nonuniform convergence d2: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
-            x_nu = make_nonuniform_grid(n; a=0.0, b=2π)
+            x_nu = make_nonuniform_grid_convergence(n; a=0.0, b=2π)
             vals = sin.(x_nu)
             itp_d2 = convolution_interpolation(x_nu, vals; degree=kernel, derivative=2)
             test_pts = range(x_nu[6], x_nu[end-5], length=100)
@@ -72,7 +83,7 @@ println("Testing nearly-uniform via nonuniform path in 1D...")
 @testset "1D nearly-uniform via nonuniform matches fast" begin
     for kernel in nu_regression_kernels
         println("Testing nearly-uniform via nonuniform path: ", kernel)
-        x_nu = make_nonuniform_grid(N_nu; strength=1e-8)
+        x_nu = make_nonuniform_grid_convergence(N_nu; strength=1e-8)
         vals_nu = sin.(2π .* x_nu)
 
         range_u = range(0.0, 1.0, length=N_nu)

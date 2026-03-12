@@ -149,3 +149,18 @@ See also: `IntegralOrder`, `convolution_interpolation`.
 """
 struct DerivativeOrder{DO} end
 DerivativeOrder(::Val{DO}) where DO = DerivativeOrder{DO}()
+
+"""
+    MixedIntegralOrder{DO}
+ 
+Dispatch type for per-dimension mixed antiderivative/derivative orders.
+`DO` is an `NTuple{N,Int}` where `DO[d] == -1` means integrate along
+dimension `d`, and `DO[d] >= 0` means differentiate to that order.
+ 
+Used when at least one but not all dimensions have `derivative == -1`.
+`IntegralOrder` is still used when ALL dimensions are `-1`.
+`DerivativeOrder{DO}` is still used when NO dimensions are `-1`.
+ 
+See also: `IntegralOrder`, `DerivativeOrder`.
+"""
+struct MixedIntegralOrder{DO} end

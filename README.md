@@ -228,6 +228,24 @@ Approximately one order of convergence is lost per derivative order.
 
 Switching from `subgrid=:cubic` (default) to `subgrid=:linear` makes one additional derivative order available.
 
+Per-dimension derivative orders are supported by passing a tuple to `derivative`:
+```julia
+# d/dx only (derivative order 1 in x, 0 in y)
+itp = convolution_interpolation((x, y), data; derivative=(1, 0))
+
+# d²/dx² in x, d/dy in y
+itp = convolution_interpolation((x, y), data; derivative=(2, 1))
+```
+
+Per-dimension kernels are also supported, allowing different accuracy/cost tradeoffs per axis:
+```julia
+itp = convolution_interpolation((x, y), data; degree=(:b9, :b5))
+```
+
+This works on both uniform and non-uniform grids. On non-uniform grids, each dimension
+independently selects its kernel and derivative order, and the ghost point arrays are
+padded per-dimension by each kernel's own stencil radius.
+
 ### Antiderivative
 
 Pass `derivative=-1` to compute the indefinite integral of the interpolant:
@@ -259,6 +277,18 @@ itp2(0.5, 0.5)   # ≈ ∫₀^0.5 ∫₀^0.5 (x+y) dx dy = 0.125
 Antiderivative support is available for all uniform-grid kernels except `:a0`.
 It is not yet supported on non-uniform grids. 
 
+Mixed antiderivative/derivative orders are supported on uniform grids via a tuple,
+enabling e.g. Leibniz-rule-style operations — integrate in one variable, differentiate in another:
+```julia
+xs = range(0.0, 2π, length=100)
+ys = range(0.0, 2π, length=100)
+vs = [sin(x) * cos(y) for x in xs, y in ys]
+
+# ∂/∂x ∫ f dy  (differentiate x, integrate y)
+itp = convolution_interpolation((xs, ys), vs; degree=:b7, derivative=(1, -1))
+itp(1.0, 2.0)  # ≈ cos(1.0) * sin(2.0)
+```
+
 The figure below shows convergence of the antiderivative of Runge's function:
 
 [![Antiderivative convergence](fig/integration_1d_runge.png)](fig/integration_1d_runge.png)
@@ -280,8 +310,14 @@ The `Natural()` mode transforms extrapolation into interpolation by expanding th
 ### High-Dimensional Interpolation
 
 The separable kernel design scales to arbitrary dimensions.
-For two- or three-dimensional data `lazy=true` is recommended. 
+For large three-dimensional grids or any four-dimensional and higher data, `lazy=true` is recommended.
 This computes ghost points on the fly near boundaries, saving considerable setup time, at the expense of near boundary query times.
+
+`lazy=true` requires a uniform grid. It is compatible with per-dimension kernel and derivative tuples:
+```julia
+itp = convolution_interpolation((x, y, z), data; degree=(:b5, :b7, :b9), lazy=true, fast=false)
+itp = convolution_interpolation((x, y, z), data; degree=(:b5, :b7, :b9), derivative=(1, 0, 2), lazy=true, fast=false)
+```
 
 > **Note**: For very high dimensional data (N≥5), `lazy=true` performs a compromise:
 It automatically sets `boundary_fallback=true` and enables `Line()` extrapolation near boundaries.
@@ -372,7 +408,9 @@ This package introduces five main contributions:
 
 **Polynomial boundary conditions.** A boundary handling method that computes optimal ghost point values that preserve each kernel's polynomial reproduction properties. This maintains convergence order across the entire domain rather than degrading near boundaries.
 
-**Non-uniform b-kernel extension.** On non-uniform grids, each interval requires its own weights adapted to the local grid geometry. This is achieved by expanding the kernel in a binomial series around each interval's local coordinate, then projecting through a Vandermonde system to enforce polynomial reproduction up to the kernel's design order. The result is a compact set of polynomial coefficients per interval, evaluated via Horner's method at query time. All weight generation uses exact `Rational{BigInt}` arithmetic to avoid floating-point contamination, with conversion to `Float64` only at the final storage step. The same framework extends to derivatives by applying the binomial expansion to analytically differentiated kernel coefficients. On mixed grids (some dimensions uniform, some not), each dimension independently selects the appropriate path through the separable tensor product.
+**Non-uniform b-kernel extension.** On non-uniform grids, each interval requires its own weights adapted to the local grid geometry. This is achieved by expanding the kernel in a binomial series around each interval's local coordinate, then projecting through a Vandermonde system to enforce polynomial reproduction up to the kernel's design order. The result is a compact set of polynomial coefficients per interval, evaluated via Horner's method at query time. All weight generation uses exact `Rational{BigInt}` arithmetic to avoid floating-point contamination, with conversion to `Float64` only at the final storage step. The same framework extends to derivatives by applying the binomial expansion to analytically differentiated kernel coefficients. On mixed grids (some dimensions uniform, some not), each dimension independently
+selects the appropriate path through the separable tensor product. Per-dimension kernel degrees are supported on both uniform and non-uniform grids: ghost point
+arrays are padded per-dimension by each kernel's own stencil radius, and derivative scaling factors are applied independently per axis.
 
 **Antiderivative via kernel integration.** For `derivative=-1`, each kernel `K` is
 analytically integrated to produce `K̃`, the antiderivative kernel, with coefficients

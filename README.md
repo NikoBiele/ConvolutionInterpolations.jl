@@ -182,19 +182,19 @@ Control how ghost point values are computed near domain edges:
 ```julia
 itp = convolution_interpolation(x, y; kernel_bc=:auto);        # Default
 itp = convolution_interpolation(x, y; kernel_bc=:polynomial);   # Optimal for b-series
-itp = convolution_interpolation(x, y; kernel_bc=:detect);       # Periodic signal detection
 itp = convolution_interpolation(x, y; kernel_bc=:linear);
 itp = convolution_interpolation(x, y; kernel_bc=:quadratic);
 itp = convolution_interpolation(x, y; kernel_bc=:periodic);
 ```
 
-The default `:auto` prioritizes `:polynomial`, which preserves each kernel's polynomial reproduction properties at domain edges. It falls back to `:detect` when there are insufficient grid points.
+The default `:auto` prioritizes `:polynomial`, which preserves each kernel's polynomial reproduction properties at domain edges.
+It falls back to `:linear` when there are insufficient grid points.
 
 Per-dimension and per-direction boundary conditions are supported:
 ```julia
 kernel_bcs = [
     (:linear, :quadratic),   # First dimension: linear at start, quadratic at end
-    (:periodic, :detect)     # Second dimension: periodic at start, detect at end
+    (:periodic, :polynomial)     # Second dimension: periodic at start, polynomial at end
 ]
 itp = convolution_interpolation((x, y), z; kernel_bc=kernel_bcs);
 ```

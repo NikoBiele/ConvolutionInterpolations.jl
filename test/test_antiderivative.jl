@@ -173,6 +173,28 @@ end
     end
 end
 
+# ── 2D fast/direct even/odd functions ─────────────────────────────────
+
+@testset "2D antiderivative fast/direct even/odd functions" begin
+    for (fname, f, F) in [
+        ("sincos", (x,y)->sin(x)*cos(y), (x,y)->(1-cos(x))*sin(y)),
+        ("cossin", (x,y)->cos(x)*sin(y), (x,y)->sin(x)*(1-cos(y))),
+        ("sinsin", (x,y)->sin(x)*sin(y), (x,y)->(1-cos(x))*(1-cos(y))),
+        ("coscos", (x,y)->cos(x)*cos(y), (x,y)->sin(x)*sin(y)),
+    ]
+        xs = range(0.0, 2π, length=40)
+        ys = range(0.0, 2π, length=40)
+        vs = [f(x,y) for x in xs, y in ys]
+        itp_f = convolution_interpolation((xs,ys), vs; degree=:b5, derivative=-1, fast=true)
+        itp_s = convolution_interpolation((xs,ys), vs; degree=:b5, derivative=-1, fast=false)
+        pts = interior_pts_2d(collect(xs), collect(ys))
+        err_f = maximum(abs(itp_f(p...) - F(p...)) for p in pts)
+        err_s = maximum(abs(itp_s(p...) - F(p...)) for p in pts)
+        @test err_f < 1e-6
+        @test err_f < 10 * err_s  # fast should be close to slow
+    end
+end
+
 # ── 3D fast ───────────────────────────────────────────────────────────
 
 @testset "3D antiderivative convergence fast" begin

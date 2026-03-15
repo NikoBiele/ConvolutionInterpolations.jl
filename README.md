@@ -397,6 +397,7 @@ Benchmarks in the [Speed](#speed) section use `:linear` subgrid.
 - **Use `lazy=true` in high dimensions**: Skips ghost point expansion, reducing construction time and memory
 - **Use `:a0`, `:a1` or `:a3` in high dimensions**: Evaluation time of narrower kernels scale better with dimensions
 - **Pre-shipped kernel tables**: The default `precompute=101` with `:cubic` or `:quintic` subgrid loads precomputed constants
+- **Orthogonal grids assumption**: The separable kernel design requires mutually orthogonal grid axes.
 
 ## Technical Background
 

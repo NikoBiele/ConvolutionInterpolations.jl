@@ -23,8 +23,8 @@
 #######################################################################
 
 perdim_deriv_kernels = [:b5, :b7, :b9, :b11]
-N_pd = 12
-tolerance_pd = 0.01
+N_pd = 20
+tolerance_pd = 0.005
 
 println("Testing per-dimension derivative orders in 2D and 3D...")
 
@@ -45,7 +45,7 @@ const perdim_2d_cases = [
         println("Testing 2D per-dim derivative direct: ", kernel)
         r = range(0.0, 2π, length=N_pd)
         vals = [sin(x)*sin(y) for x in r, y in r]
-        test_pts = [(r[i] + r[i+1]) / 2 for i in 3:N_pd-3]
+        test_pts = [(r[i] + r[i+1]) / 2 for i in 5:N_pd-5]
         for (deriv, exact) in perdim_2d_cases
             itp = convolution_interpolation((r, r), vals; degree=(kernel,kernel),
                       derivative=deriv, fast=false, kernel_bc=:polynomial)
@@ -63,7 +63,7 @@ end
         println("Testing 2D per-dim derivative fast: ", kernel)
         r = range(0.0, 2π, length=N_pd)
         vals = [sin(x)*sin(y) for x in r, y in r]
-        test_pts = [(r[i] + r[i+1]) / 2 for i in 3:N_pd-3]
+        test_pts = [(r[i] + r[i+1]) / 2 for i in 5:N_pd-5]
         for (deriv, exact) in perdim_2d_cases
             itp = convolution_interpolation((r, r), vals; degree=(kernel,kernel),
                       derivative=deriv, fast=true, kernel_bc=:polynomial)
@@ -81,7 +81,7 @@ end
         println("Testing 2D per-dim derivative fast vs direct: ", kernel)
         r = range(0.0, 2π, length=N_pd)
         vals = [sin(x)*sin(y) for x in r, y in r]
-        test_pts = [(r[i] + r[i+1]) / 2 for i in 3:N_pd-3]
+        test_pts = [(r[i] + r[i+1]) / 2 for i in 5:N_pd-5]
         for (deriv, _) in perdim_2d_cases
             itp_fast   = convolution_interpolation((r, r), vals; degree=(kernel,kernel),
                              derivative=deriv, fast=true,  kernel_bc=:polynomial)
@@ -112,7 +112,7 @@ const perdim_3d_cases = [
         println("Testing 3D per-dim derivative direct: ", kernel)
         r = range(0.0, 2π, length=N_pd)
         vals = [sin(x)*sin(y)*sin(z) for x in r, y in r, z in r]
-        test_pts = [(r[i] + r[i+1]) / 2 for i in 3:N_pd-3]
+        test_pts = [(r[i] + r[i+1]) / 2 for i in 6:N_pd-6]
         for (deriv, exact) in perdim_3d_cases
             itp = convolution_interpolation((r, r, r), vals; degree=(kernel,kernel,kernel),
                       derivative=deriv, fast=false, kernel_bc=:polynomial)
@@ -130,7 +130,7 @@ end
         println("Testing 3D per-dim derivative fast: ", kernel)
         r = range(0.0, 2π, length=N_pd)
         vals = [sin(x)*sin(y)*sin(z) for x in r, y in r, z in r]
-        test_pts = [(r[i] + r[i+1]) / 2 for i in 3:N_pd-3]
+        test_pts = [(r[i] + r[i+1]) / 2 for i in 6:N_pd-6]
         for (deriv, exact) in perdim_3d_cases
             itp = convolution_interpolation((r, r, r), vals; degree=(kernel,kernel,kernel),
                       derivative=deriv, fast=true, kernel_bc=:polynomial)

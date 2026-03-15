@@ -141,8 +141,7 @@ See also: `apply_boundary_conditions_for_dim!`, `boundary_coefs`.
 function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, 
                                     eqs::NTuple{N,Int},
                                     kernel_bc, 
-                                    kernel_types::NTuple{N,Symbol},
-                                    derivatives::NTuple{N,Int}) where {T,N}
+                                    kernel_types::NTuple{N,Symbol}) where {T,N}
     new_dims = ntuple(d -> size(vs, d) + 2*(eqs[d]-1), N)
     c = zeros(T, new_dims)
     inner_indices = ntuple(d -> (1+(eqs[d]-1)):(new_dims[d]-(eqs[d]-1)), N)
@@ -154,16 +153,14 @@ function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T},
 
     for fixed_dim in 1:N
         apply_boundary_conditions_for_dim!(c, vs, fixed_dim, h, eqs[fixed_dim], kernel_bc, 
-                                           kernel_types[fixed_dim], workspace, 
-                                           derivatives[fixed_dim], size(vs))
+                                           kernel_types[fixed_dim], workspace, size(vs))
     end
     return c
 end
 function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs::Int,
-                                    kernel_bc, kernel_type::Symbol, derivative::Int) where {T,N}
+                                    kernel_bc, kernel_type::Symbol) where {T,N}
     create_convolutional_coefs(vs, h, ntuple(_ -> eqs, N), kernel_bc,
-                               ntuple(_ -> kernel_type, N),
-                               ntuple(_ -> derivative, N))
+                               ntuple(_ -> kernel_type, N))
 end
 
 """
@@ -204,7 +201,7 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
                                            kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}, 
                                            kernel_type::Symbol,
                                            workspace::BoundaryWorkspace{T,N},
-                                           derivative::Int, vs_size::NTuple{N,Int}) where {T,N}
+                                           vs_size::NTuple{N,Int}) where {T,N}
     
     kernel_boundary_condition = if kernel_bc isa Symbol
         (kernel_bc, kernel_bc)
@@ -227,10 +224,11 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
     ghost_matrix = get_polynomial_ghost_coeffs(kernel_type)
     n_dim = size(vs, dim)
     n_interior = size(ghost_matrix, 2)
+    few_points = n_dim < n_interior
     use_polynomial_left = kernel_boundary_condition[1] == :polynomial || 
-                          (kernel_boundary_condition[1] == :auto && n_dim >= n_interior)
+                          (kernel_boundary_condition[1] == :auto && !few_points)
     use_polynomial_right = kernel_boundary_condition[2] == :polynomial || 
-                           (kernel_boundary_condition[2] == :auto && n_dim >= n_interior)
+                           (kernel_boundary_condition[2] == :auto && !few_points)
     
     c_offset_view = view(workspace.c_offset, 1:(eqs-1))
     
@@ -251,10 +249,12 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
         end
         
         if use_polynomial_left
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :left, eqs, workspace, derivative, vs_size)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :left, eqs,
+                                            workspace, vs_size)
         else
             coef = get_recursive_coefs(slice_view, h[dim], kernel_boundary_condition[1], :left)
-            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :left, eqs, workspace, derivative, vs_size)
+            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :left, eqs,
+                                                workspace, vs_size)
         end
     end
     
@@ -275,10 +275,12 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
         end
         
         if use_polynomial_right
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :right, eqs, workspace, derivative, vs_size)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :right, eqs,
+                                            workspace, vs_size)
         else
             coef = get_recursive_coefs(slice_view, h[dim], kernel_boundary_condition[2], :right)
-            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :right, eqs, workspace, derivative, vs_size)
+            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :right, eqs, 
+                                            workspace, vs_size)
         end
     end
 end
@@ -306,7 +308,6 @@ function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
                                       coef::Matrix, y_offset::T, y_centered::AbstractVector{T},
                                       side::Symbol, eqs::Int,
                                       workspace::BoundaryWorkspace{T,N},
-                                      derivative::Int,
                                       vs_size::NTuple) where {T,N}
     num_interior = size(coef, 2)
     num_ghost = eqs - 1  # Always use exactly eqs-1, not the full matrix
@@ -329,17 +330,24 @@ function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
         y_temp_view = view(workspace.y_temp, 1:num_interior)
         ghost_vals_view = view(workspace.ghost_vals, 1:num_ghost)
         coef_view = view(coef, 1:num_ghost, 1:num_interior)  # Only use first eqs-1 rows
-        # factor = length(size(c)) == 1 ? one(T) : -one(T)
-        factor = if derivative == -1
-            one(T)
-        elseif length(vs_size) == 1
-            one(T)
-        else
-            -one(T)
-        end
         
         mul!(ghost_vals_view, coef_view, y_temp_view)
             
+        # curvature using last interior point and two ghost points
+        if num_ghost >= 2
+            interior_curv = y_temp_view[3] - 2*y_temp_view[2] + y_temp_view[1]
+            boundary_curv = ghost_vals_view[1] - 2*y_temp_view[1] + y_temp_view[2]
+        end
+        if num_ghost == 1 || abs(interior_curv) < 1000*eps(T) || abs(boundary_curv) < 1000*eps(T)
+            interior_curv = y_temp_view[2] - y_temp_view[1]
+            boundary_curv = ghost_vals_view[1] - y_temp_view[1]
+        end
+        factor = if sign(interior_curv) != sign(boundary_curv) && length(vs_size) >= 2
+            -one(T)
+        else
+            one(T)
+        end
+
         for j in 1:num_ghost
             c[idx + c_offset[j]] = y_offset + factor * workspace.ghost_vals[j]
         end
@@ -371,7 +379,6 @@ function fill_ghost_points_recursive!(c::AbstractArray{T}, idx::CartesianIndex,
                                      coef::Vector, y_offset::T, y_centered::AbstractVector{T},
                                      side::Symbol, eqs::Int,
                                      workspace::BoundaryWorkspace{T,N},
-                                     derivative::Int,
                                      vs_size::NTuple) where {T,N}
     if side == :left
         y_len = length(y_centered)
@@ -383,21 +390,33 @@ function fill_ghost_points_recursive!(c::AbstractArray{T}, idx::CartesianIndex,
             c[idx - c_offset[j]] = y_offset + y_ext_view[1+(eqs-1)-j]
         end
     else  # :right
-        # factor = length(vs_size) == 1 ? one(T) : -one(T)
-        factor = if derivative == -1
-            one(T)
-        elseif length(vs_size) == 1
-            one(T)
-        else
-            -one(T)
-        end
         y_len = length(y_centered)
-        y_ext_view = view(workspace.y_extended, 1:(y_len + eqs - 1))
-        y_ext_view[1:end-(eqs-1)] .= y_centered
-        
+
+        # reverse into y_temp, like polynomial path
+        for k in 1:y_len
+            workspace.y_temp[k] = y_centered[end - k + 1]
+        end
+
+        # mirror left side approach on reversed signal
+        y_ext_view = view(workspace.y_extended, 1:((eqs-1) + y_len))
+        y_ext_view[1+(eqs-1):end] .= view(workspace.y_temp, 1:y_len)
+
         for j in 1:(eqs-1)
-            y_ext_view[y_len+j] = sum(coef[k] * y_ext_view[y_len + j - k] for k = 1:length(coef))
-            c[idx + c_offset[j]] = y_offset + factor * y_ext_view[y_len+j]
+            y_ext_view[1+(eqs-1)-j] = sum(coef[k] * y_ext_view[1 + (eqs-1) - j + k] for k = 1:length(coef))
+        end
+
+        # gradient check for factor
+        y_temp_view = view(workspace.y_temp, 1:y_len)
+        interior_curv = y_temp_view[2] - y_temp_view[1]
+        boundary_curv = y_ext_view[eqs-1] - y_temp_view[1]
+        factor = if sign(interior_curv) != sign(boundary_curv) && length(vs_size) >= 2
+            -one(T)
+        else
+            one(T)
+        end
+
+        for j in 1:(eqs-1)
+            c[idx + c_offset[j]] = y_offset + factor * y_ext_view[1+(eqs-1)-j]
         end
     end
 end

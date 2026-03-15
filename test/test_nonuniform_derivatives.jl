@@ -4,8 +4,8 @@
 
 ### Nonuniform b-kernel derivatives
 nu_deriv_kernels = [:b5, :b7, :b9, :b11]
-N_nu_deriv = 12
-tolerance_nu_deriv = 0.05
+N_nu_deriv = 20
+tolerance_nu_deriv = 0.001
 
 # shared helper
 function make_nonuniform_grid_derivatives(n; a=0.0, b=1.0, strength=0.3)
@@ -36,11 +36,11 @@ end
 @testset "1D nonuniform derivative d2" begin
     for kernel in nu_deriv_kernels
         println("Testing 1D nonuniform derivative d2: ", kernel)
-        x_nu = make_nonuniform_grid_derivatives(N_nu_deriv; a=0.0, b=2π)
+        x_nu = make_nonuniform_grid_derivatives(N_nu_deriv*2; a=0.0, b=2π) # double the number of points
         vals = sin.(x_nu)
         itp_d2 = convolution_interpolation(x_nu, vals; degree=kernel, derivative=2)
 
-        test_points = [(x_nu[i] + x_nu[i+1]) / 2 for i in 4:N_nu_deriv-4]
+        test_points = [(x_nu[i] + x_nu[i+1]) / 2 for i in 4:(N_nu_deriv*2)-4]
         analytical = -sin.(test_points)
         interpolated = Float64[itp_d2(x) for x in test_points]
         @test interpolated ≈ analytical atol=tolerance_nu_deriv

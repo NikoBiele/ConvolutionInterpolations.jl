@@ -4,8 +4,8 @@
 
 ### Per-dimension nonuniform b-kernel derivatives
 nu_pd_kernels = [:b5, :b7, :b9, :b11]
-N_nu_pd = 12
-tolerance_nu_pd = 0.05
+N_nu_pd = 20
+tolerance_nu_pd = 0.005
 
 # shared helper
 function make_nonuniform_grid_perdim_derivatives(n; a=0.0, b=1.0, strength=0.3)

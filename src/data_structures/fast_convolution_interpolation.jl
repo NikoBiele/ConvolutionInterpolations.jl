@@ -66,4 +66,10 @@ struct FastConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,Convo
     boundary_fallback::Bool
     left_values::NTuple{N, Vector{T}}
     anchor::NTuple{N, T}
+    cumcoefs_left::NTuple{N, Array{T}}
+    cumcoefs_right::NTuple{N, Array{T}}
+    cross_ll::NTuple{N, Array{T}}
+    cross_rl::NTuple{N, Array{T}}
+    cross_lr::NTuple{N, Array{T}}
+    cross_rr::NTuple{N, Array{T}}
 end

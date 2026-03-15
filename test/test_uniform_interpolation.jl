@@ -3,7 +3,7 @@
 ###############################################################################
 
 N = 4 # number of samples in each dimension
-tolerance = 1e-4 # tight tolerance
+tolerance = 1e-6 # tight tolerance
 # test all kernels
 kernels = [:a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11] #, :b13] :a0, :a1, # only test kernels with cubic subgrid
 kernel_bc = :linear # control kernel boundary conditions

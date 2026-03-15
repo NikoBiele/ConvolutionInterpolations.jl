@@ -2,6 +2,7 @@
 ### TEST LAZY BOUNDARY CORRECTNESS ######################################
 #########################################################################
 println("Testing lazy boundary correctness...")
+lazy_tolerance = 1e-6
 @testset "Lazy boundary correctness" begin
     # Test that lazy matches eager for a few key cases
     for degree in (:a3, :b5, :b7)
@@ -11,7 +12,7 @@ println("Testing lazy boundary correctness...")
         itp_e = convolution_interpolation(knots_1d, vs_1d, degree=degree, lazy=false)
         itp_l = convolution_interpolation(knots_1d, vs_1d, degree=degree, lazy=true)
         for x in [0.5, 4.5, 8.5]
-            @test itp_e(x) ≈ itp_l(x) atol=1e-4
+            @test itp_e(x) ≈ itp_l(x) atol=lazy_tolerance
         end
 
         # 2D
@@ -20,7 +21,7 @@ println("Testing lazy boundary correctness...")
         itp_e = convolution_interpolation(knots_2d, vs_2d, degree=degree, lazy=false)
         itp_l = convolution_interpolation(knots_2d, vs_2d, degree=degree, lazy=true)
         for (x, y) in [(0.5, 0.5), (4.5, 4.5), (8.5, 8.5), (0.5, 8.5)]
-            @test itp_e(x, y) ≈ itp_l(x, y) atol=1e-4
+            @test itp_e(x, y) ≈ itp_l(x, y) atol=lazy_tolerance
         end
     end
 
@@ -49,7 +50,7 @@ println("Testing lazy nonuniform correctness...")
 
     # Interior, boundary, and near-boundary points
     for x in [0.1, 0.5, 1.0, 1.3, 1.9]
-        @test itp_e(x) ≈ itp_l(x) atol=1e-4
+        @test itp_e(x) ≈ itp_l(x) atol=lazy_tolerance
     end
 
     # 2D: eager vs lazy match
@@ -63,7 +64,7 @@ println("Testing lazy nonuniform correctness...")
     @test itp_l.itp.coefs === vs_2d
 
     for (x, y) in [(0.2, 0.5), (1.0, 1.0), (0.2, 1.8), (1.8, 0.2), (1.8, 1.8)]
-        @test itp_e(x, y) ≈ itp_l(x, y) atol=1e-4
+        @test itp_e(x, y) ≈ itp_l(x, y) atol=lazy_tolerance
     end
 
     # 3D: eager vs lazy match
@@ -76,7 +77,7 @@ println("Testing lazy nonuniform correctness...")
     @test itp_l.itp.coefs === vs_3d
 
     for (x, y, z) in [(0.5, 0.5, 0.5), (0.2, 1.5, 0.8), (1.8, 0.2, 1.5)]
-        @test itp_e(x, y, z) ≈ itp_l(x, y, z) atol=1e-4
+        @test itp_e(x, y, z) ≈ itp_l(x, y, z) atol=lazy_tolerance
     end
 
     # Nonuniform b-kernels still force eager

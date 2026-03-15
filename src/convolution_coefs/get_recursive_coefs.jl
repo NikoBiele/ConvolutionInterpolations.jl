@@ -11,7 +11,7 @@ ghost coefficient matrix requires.
 # Arguments
 - `y_centered`: Mean-centered signal values (already in-place in workspace)
 - `h::T`: Grid spacing
-- `bc::Symbol`: Boundary condition type (`:auto`, `:detect`, `:linear`, `:quadratic`, `:periodic`)
+- `bc::Symbol`: Boundary condition type (`:auto`, `:linear`, `:quadratic`, `:periodic`)
 - `which_end::Symbol`: `:left` or `:right` boundary
 
 # Returns
@@ -32,17 +32,14 @@ See also: `apply_boundary_conditions_for_dim!`, `fill_ghost_points_recursive!`.
 """
 
 function get_recursive_coefs(y_centered, h::T, bc::Symbol, which_end::Symbol) where T
-    n = length(y_centered)
-    if bc == :auto || bc == :detect
-        return detect_boundary_signal_fast(y_centered, n, h; which_end=which_end)
-    elseif bc == :linear
+    if bc == :linear || bc == :auto
         return T[T(2), T(-1), T(0)]
-    elseif bc == :quadratic
-        return T[T(3), T(-3), T(1)]
     elseif bc == :periodic
         return periodic_boundary(y_centered)
+    elseif bc == :quadratic
+        return T[T(3), T(-3), T(1)]
     else
         error("Unsupported kernel boundary condition: kernel_bc = $bc. " *
-              "Supported: :polynomial, :auto, :detect, :linear, :quadratic, :periodic.")
+              "Supported: :polynomial, :auto, :linear, :quadratic, :periodic.")
     end
 end

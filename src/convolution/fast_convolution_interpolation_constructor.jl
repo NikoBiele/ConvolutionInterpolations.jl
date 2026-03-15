@@ -94,7 +94,7 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         # Eager only for per-dim fast path
         lazy      = false
         knots_new = expand_knots(knots, ntuple(d -> eqs[d] - 1, N))
-        coefs     = create_convolutional_coefs(vs, h, eqs, kernel_bc, degrees, derivatives)
+        coefs     = create_convolutional_coefs(vs, h, eqs, kernel_bc, degrees)
  
         # Per-dim kernel tables — one call per dim, unpack into 4 NTuples
         tables        = ntuple(d -> get_precomputed_kernel_and_range(degrees[d];
@@ -117,7 +117,36 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                 [zero(T)]
             end
         end
- 
+        placeholder = Array{T}(undef, ntuple(_ -> 0, N))
+        cumcoefs_left = ntuple(N) do d
+            derivatives[d] == -1 ?
+                cumsum(coefs .* (T(1//2) .- left_values[d]), dims=d) :
+                placeholder
+        end
+        cumcoefs_right = ntuple(N) do d
+            derivatives[d] == -1 ?
+                _suffix_sum(coefs .* (-T(1//2) .- left_values[d]), d) :
+                placeholder
+        end
+        if n_integral == 2
+            lv1 = reshape(left_values[1], (size(coefs,1), 1))
+            lv2 = reshape(left_values[2], (1, size(coefs,2)))
+            wll = coefs .* (T(1//2) .- lv1) .* (T(1//2) .- lv2)
+            wrl = coefs .* (-T(1//2) .- lv1) .* (T(1//2) .- lv2)
+            wlr = coefs .* (T(1//2) .- lv1) .* (-T(1//2) .- lv2)
+            wrr = coefs .* (-T(1//2) .- lv1) .* (-T(1//2) .- lv2)
+            cross_ll = ntuple(d -> cumsum(cumsum(wll, dims=1), dims=2), N)
+            cross_rl = ntuple(d -> _suffix_sum(cumsum(wrl, dims=2), 1), N)
+            cross_lr = ntuple(d -> cumsum(_suffix_sum(wlr, 2), dims=1), N)
+            cross_rr = ntuple(d -> _suffix_sum(_suffix_sum(wrr, 2), 1), N)
+        else
+            ph = Array{T}(undef, ntuple(_ -> 0, N))
+            cross_ll = ntuple(_ -> ph, N)
+            cross_rl = ntuple(_ -> ph, N)
+            cross_lr = ntuple(_ -> ph, N)
+            cross_rr = ntuple(_ -> ph, N)
+        end
+            
         kernel    = ntuple(d -> degrees[d] in (:a0, :a1) ?
                                 Val(degrees[d]) : HigherOrderKernel(Val(degrees[d])), N)
         dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
@@ -141,7 +170,8 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
             coefs, knots_new, it, h, kernel, dimension, Val(degrees), eqs,
             pre_range_d, kernel_pre_d, kernel_bc, do_type,
             kd1_pre_d, kd2_pre_d, sg_tag,
-            lazy, boundary_fallback, left_values, anchor
+            lazy, boundary_fallback, left_values, anchor, 
+            cumcoefs_left, cumcoefs_right, cross_ll, cross_rl, cross_lr, cross_rr
         )
     end
 
@@ -174,7 +204,7 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         # EAGER: original path — expand knots and compute ghost points
         lazy = false  # ensure flag matches actual state
         knots_new = expand_knots(knots, eqs-1)
-        coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree, derivative)
+        coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree)
     end
     kernel = B === nothing ? ConvolutionKernel(Val(degree), Val(derivative)) : GaussianConvolutionKernel(Val(B))
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
@@ -188,6 +218,38 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
     else
         left_values = ntuple(d -> [zero(T)], N)
     end
+    if derivative == -1
+        cumcoefs_left = ntuple(N) do d
+            lv = reshape(left_values[d], ntuple(i -> i == d ? length(left_values[d]) : 1, N))
+            cumsum(coefs .* (T(1//2) .- lv), dims=d)
+        end
+        cumcoefs_right = ntuple(N) do d
+            lv = reshape(left_values[d], ntuple(i -> i == d ? length(left_values[d]) : 1, N))
+            _suffix_sum(coefs .* (-T(1//2) .- lv), d)
+        end
+    else
+        placeholder = Array{T}(undef, ntuple(_ -> 0, N))
+        cumcoefs_left  = ntuple(_ -> placeholder, N)
+        cumcoefs_right = ntuple(_ -> placeholder, N)
+    end
+    if derivative == -1 && N == 2
+        lv1 = reshape(left_values[1], (size(coefs,1), 1))
+        lv2 = reshape(left_values[2], (1, size(coefs,2)))
+        wll = coefs .* (T(1//2) .- lv1) .* (T(1//2) .- lv2)
+        wrl = coefs .* (-T(1//2) .- lv1) .* (T(1//2) .- lv2)
+        wlr = coefs .* (T(1//2) .- lv1) .* (-T(1//2) .- lv2)
+        wrr = coefs .* (-T(1//2) .- lv1) .* (-T(1//2) .- lv2)
+        cross_ll = ntuple(d -> cumsum(cumsum(wll, dims=1), dims=2), N)
+        cross_rl = ntuple(d -> _suffix_sum(cumsum(wrl, dims=2), 1), N)
+        cross_lr = ntuple(d -> cumsum(_suffix_sum(wlr, 2), dims=1), N)
+        cross_rr = ntuple(d -> _suffix_sum(_suffix_sum(wrr, 2), 1), N)
+    else
+        ph = Array{T}(undef, ntuple(_ -> 0, N))
+        cross_ll = ntuple(_ -> ph, N)
+        cross_rl = ntuple(_ -> ph, N)
+        cross_lr = ntuple(_ -> ph, N)
+        cross_rr = ntuple(_ -> ph, N)
+    end
 
     degree = degree == :a0 || degree == :a1 ? Val(degree) : HigherOrderKernel(Val(degree))
     do_type = derivative == -1 ? IntegralOrder() : DerivativeOrder(Val(derivative))
@@ -196,7 +258,8 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                                         typeof(degree),typeof(eqs),typeof(pre_range),typeof(kernel_pre),typeof(kernel_bc),
                                         typeof(do_type), typeof(kernel_d1_pre),typeof(kernel_d2_pre),typeof(Val(subgrid))}(
         coefs, knots_new, it, h, kernel, dimension, degree, eqs, pre_range, kernel_pre, kernel_bc, do_type,
-        kernel_d1_pre, kernel_d2_pre, Val(subgrid), lazy, boundary_fallback, left_values, anchor
+        kernel_d1_pre, kernel_d2_pre, Val(subgrid), lazy, boundary_fallback, left_values, anchor,
+        cumcoefs_left, cumcoefs_right, cross_ll, cross_rl, cross_lr, cross_rr
     )
 end
 
@@ -279,4 +342,10 @@ function _compute_left_values(T, eqs, n_coefs_d, kernel_pre, kernel_d1_pre, kern
         end
     end
     lv
+end
+
+# Computes the suffix (reverse cumulative) sum of A along dimension `dims`.
+# suffix_sum[i] = sum of A[i], A[i+1], ..., A[end] along that dimension.
+function _suffix_sum(A::AbstractArray, dims::Int)
+    reverse(cumsum(reverse(A, dims=dims), dims=dims), dims=dims)
 end

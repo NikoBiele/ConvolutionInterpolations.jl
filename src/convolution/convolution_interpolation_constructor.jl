@@ -242,7 +242,7 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
         else
             lazy = false
             knots_new = expand_knots(knots, eqs-1)
-            coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree, derivative)
+            coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree)
         end
     else
         if lazy && all(d -> degree[d] != :a0 && degree[d] != :a1, 1:N) && B === nothing
@@ -254,7 +254,7 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             coefs = if all(d -> degree[d] in (:a0, :a1), 1:N)
                 vs
             else
-                create_convolutional_coefs(vs, h, eqs, kernel_bc, degree, derivative)
+                create_convolutional_coefs(vs, h, eqs, kernel_bc, degree)
             end
         end
     end

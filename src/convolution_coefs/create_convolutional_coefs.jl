@@ -250,7 +250,7 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
         
         if use_polynomial_left
             fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :left, eqs,
-                                            workspace, vs_size)
+                                            workspace)
         else
             coef = get_recursive_coefs(slice_view, h[dim], kernel_boundary_condition[1], :left)
             fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :left, eqs,
@@ -264,7 +264,7 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
             workspace.slice[1:length(vs)] .= vs
         else
             for j in 1:n_dim
-                workspace.slice[j] = c[idx - workspace.slice_offset[j]]
+                workspace.slice[j] = c[idx - workspace.slice_offset[n_dim - j + 1]]
             end
         end
         
@@ -276,7 +276,7 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
         
         if use_polynomial_right
             fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :right, eqs,
-                                            workspace, vs_size)
+                                            workspace)
         else
             coef = get_recursive_coefs(slice_view, h[dim], kernel_boundary_condition[2], :right)
             fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :right, eqs, 
@@ -286,19 +286,37 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
 end
 
 """
-    fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
-        c_offset::AbstractVector{CartesianIndex{N}},
-        coef::Matrix, y_offset::T, y_centered::AbstractVector{T},
-        side::Symbol, eqs::Int,
-        workspace::BoundaryWorkspace{T,N}) where {T,N}
+    fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex, 
+                                  c_offset::AbstractVector{CartesianIndex{N}},
+                                  coef::Matrix, y_offset::T, y_centered::Vector{T},
+                                  side::Symbol, eqs::Int,
+                                  workspace::BoundaryWorkspace{T,N}) where {T,N}
 
-Fill ghost points using polynomial boundary conditions via direct matrix-vector multiplication.
+Fill ghost points using polynomial boundary conditions (non-recursive, direct computation).
 
-Computes `ghost[j] = y_offset + coef[j,:] ⋅ y_centered` using preallocated workspace arrays.
-For right boundaries, reverses the signal into `workspace.y_temp` before multiplication.
-Uses `mul!` into `workspace.ghost_vals` for allocation-free computation.
+# Arguments
+- `c::AbstractArray{T}`: Coefficient array to modify
+- `idx::CartesianIndex`: Index of the boundary point (interior grid point nearest to boundary)
+- `c_offset::AbstractVector{CartesianIndex{N}}`: Precomputed offsets for ghost point positions
+- `coef::Matrix`: Coefficient matrix where row j gives coefficients for ghost point g_{-j}
+- `y_offset::T`: Mean offset of the signal
+- `y_centered::Vector{T}`: Mean-centered signal values
+- `side::Symbol`: `:left` or `:right` boundary
+- `eqs::Int`: Number of equations (determines number of ghost points: eqs-1)
+- `workspace::BoundaryWorkspace{T,N}`: Workspace for temporary arrays
 
-`y_centered` is an `AbstractVector{T}` (typically a view into the workspace slice).
+# Details
+Polynomial boundary conditions compute ghost points directly from interior values using
+optimal kernel-specific coefficient matrices. This method:
+
+- Preserves the polynomial reproduction property of the kernel
+- Uses matrix-vector multiplication for efficiency
+- Handles signal reversal automatically for right boundaries
+- Adds back the mean offset to get final ghost point values
+
+The computation is: `ghost[j] = y_offset + coef[j,:] ⋅ y_centered`
+
+This is the recommended boundary condition method for most use cases.
 
 See also: `fill_ghost_points_recursive!`, `get_polynomial_ghost_coeffs`.
 """
@@ -307,16 +325,15 @@ function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
                                       c_offset::AbstractVector{CartesianIndex{N}},
                                       coef::Matrix, y_offset::T, y_centered::AbstractVector{T},
                                       side::Symbol, eqs::Int,
-                                      workspace::BoundaryWorkspace{T,N},
-                                      vs_size::NTuple) where {T,N}
+                                      workspace::BoundaryWorkspace{T,N}) where {T,N}
     num_interior = size(coef, 2)
     num_ghost = eqs - 1  # Always use exactly eqs-1, not the full matrix
-
+    
     if side == :left
         y_view = view(y_centered, 1:num_interior)
         ghost_vals_view = view(workspace.ghost_vals, 1:num_ghost)
-        coef_view = view(coef, 1:num_ghost, 1:num_interior)  # Only use first eqs-1 rows
-
+        coef_view = view(coef, 1:num_ghost, :)  # Only use first eqs-1 rows
+        
         mul!(ghost_vals_view, coef_view, y_view)
         
         for j in 1:num_ghost
@@ -329,27 +346,12 @@ function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
         end
         y_temp_view = view(workspace.y_temp, 1:num_interior)
         ghost_vals_view = view(workspace.ghost_vals, 1:num_ghost)
-        coef_view = view(coef, 1:num_ghost, 1:num_interior)  # Only use first eqs-1 rows
+        coef_view = view(coef, 1:num_ghost, :)  # Only use first eqs-1 rows
         
         mul!(ghost_vals_view, coef_view, y_temp_view)
-            
-        # curvature using last interior point and two ghost points
-        if num_ghost >= 2
-            interior_curv = y_temp_view[3] - 2*y_temp_view[2] + y_temp_view[1]
-            boundary_curv = ghost_vals_view[1] - 2*y_temp_view[1] + y_temp_view[2]
-        end
-        if num_ghost == 1 || abs(interior_curv) < 1000*eps(T) || abs(boundary_curv) < 1000*eps(T)
-            interior_curv = y_temp_view[2] - y_temp_view[1]
-            boundary_curv = ghost_vals_view[1] - y_temp_view[1]
-        end
-        factor = if sign(interior_curv) != sign(boundary_curv) && length(vs_size) >= 2
-            -one(T)
-        else
-            one(T)
-        end
-
+        
         for j in 1:num_ghost
-            c[idx + c_offset[j]] = y_offset + factor * workspace.ghost_vals[j]
+            c[idx + c_offset[j]] = y_offset + workspace.ghost_vals[j]
         end
     end
 end
@@ -405,18 +407,8 @@ function fill_ghost_points_recursive!(c::AbstractArray{T}, idx::CartesianIndex,
             y_ext_view[1+(eqs-1)-j] = sum(coef[k] * y_ext_view[1 + (eqs-1) - j + k] for k = 1:length(coef))
         end
 
-        # gradient check for factor
-        y_temp_view = view(workspace.y_temp, 1:y_len)
-        interior_curv = y_temp_view[2] - y_temp_view[1]
-        boundary_curv = y_ext_view[eqs-1] - y_temp_view[1]
-        factor = if sign(interior_curv) != sign(boundary_curv) && length(vs_size) >= 2
-            -one(T)
-        else
-            one(T)
-        end
-
         for j in 1:(eqs-1)
-            c[idx + c_offset[j]] = y_offset + factor * y_ext_view[1+(eqs-1)-j]
+            c[idx + c_offset[j]] = y_offset + y_ext_view[1+(eqs-1)-j]
         end
     end
 end

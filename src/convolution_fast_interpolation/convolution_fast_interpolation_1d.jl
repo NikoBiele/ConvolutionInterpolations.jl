@@ -76,7 +76,7 @@ end
     result = zero(T)
     
     if itp.lazy && is_boundary_stencil(i, length(itp.coefs), itp.eqs)
-        kernel_type = _kernel_sym(itp.deg)
+        kernel_type = _kernel_sym(itp.kernel_sym)
         ng = itp.eqs - 1
         @inbounds for j in -(itp.eqs-1):itp.eqs
             coef = lazy_ghost_value(itp.coefs, (i + ng + j,), itp.eqs, kernel_type)
@@ -122,7 +122,7 @@ end
     result_upper = zero(T)
     
     if itp.lazy && is_boundary_stencil(i, length(itp.coefs), itp.eqs)
-        kernel_type = _kernel_sym(itp.deg)
+        kernel_type = _kernel_sym(itp.kernel_sym)
         ng = itp.eqs - 1
         @inbounds for j in -(itp.eqs-1):itp.eqs
             coef = lazy_ghost_value(itp.coefs, (i + ng + j,), itp.eqs, kernel_type)
@@ -178,7 +178,7 @@ end
 
     # Single pass: accumulate both results simultaneously
     if itp.lazy && is_boundary_stencil(i, length(itp.coefs), itp.eqs)
-        kernel_type = _kernel_sym(itp.deg)
+        kernel_type = _kernel_sym(itp.kernel_sym)
         ng = itp.eqs - 1
         @inbounds for j in -(itp.eqs-1):itp.eqs
             coef = lazy_ghost_value(itp.coefs, (i + ng + j,), itp.eqs, kernel_type)
@@ -238,7 +238,7 @@ end
     sum_dd1 = zero(T)
 
     if itp.lazy && is_boundary_stencil(i, length(itp.coefs), itp.eqs)
-        kernel_type = _kernel_sym(itp.deg)
+        kernel_type = _kernel_sym(itp.kernel_sym)
         ng = itp.eqs - 1
         @inbounds for j in -(itp.eqs-1):itp.eqs
             coef = lazy_ghost_value(itp.coefs, (i + ng + j,), itp.eqs, kernel_type)

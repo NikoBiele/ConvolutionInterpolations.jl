@@ -1,14 +1,15 @@
-# ==============================================================
-# Per-dimension fast convolution interpolation functors
-#
-# Dispatch: EQ<:NTuple{N,Int} (per-dim eqs), Val{SG} where
-#   SG::NTuple{N,Symbol} is the per-dim subgrid tuple.
-#
-# 2D: 9 explicit functors for all (sg_x, sg_y) combinations.
-# 3D: 1 functor (linear only).
-# ND: 1 functor (linear only).
-# ==============================================================
+"""
+Per-dimension fast convolution interpolation functors for `FastConvolutionInterpolation`.
 
+Dispatches on per-dim eqs `EQ<:NTuple{N,Int}` and per-dim subgrid tuple `Val{SG}` where
+`SG::NTuple{N,Symbol}`. Supports mixed kernel and derivative orders per dimension.
+
+2D: 9 explicit functors covering all (sg_x, sg_y) subgrid combinations.
+3D: 1 functor (`:linear` subgrid only).
+ND: 1 functor (`:linear` subgrid only).
+
+See also: FastConvolutionInterpolation, convolution_fast_interpolation_1d, convolution_fast_interpolation_2d.
+"""
 # ---------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------

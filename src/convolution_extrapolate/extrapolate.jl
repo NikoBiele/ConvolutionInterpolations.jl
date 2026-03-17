@@ -19,6 +19,6 @@ parameters to ensure compatibility with both standard and fast interpolation imp
 # Recommendation
 These constructors are not simple to use manually, so it is recommended to use the `convolution_interpolation` function.
 """
-function ConvolutionExtrapolation(itp::AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG}, et::ET) where {T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,ET<:BoundaryCondition}
+function ConvolutionExtrapolation(itp::AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG}, et::ET) where {T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,ET}
     ConvolutionExtrapolation{T,N,typeof(itp),ET}(itp, et)
 end

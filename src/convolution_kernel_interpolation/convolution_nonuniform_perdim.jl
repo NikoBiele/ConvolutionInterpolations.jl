@@ -1,9 +1,13 @@
-# ============================================================
-# Per-dimension nonuniform b-kernel evaluation functors
-#
-# Dispatches on EQ<:NTuple{N,Int} (vs EQ<:Int for scalar path).
-# Each dim has its own M_eqs, stencil size, and derivative order.
-# ============================================================
+"""
+Per-dimension nonuniform b-kernel evaluation functors for `ConvolutionInterpolation`.
+
+Dispatches on `EQ<:NTuple{N,Int}` (per-dim stencil sizes), versus `EQ<:Int` for the
+scalar path. Each dimension has its own `M_eqs`, stencil size, and derivative order,
+allowing mixed kernel and derivative orders across dimensions on nonuniform grids.
+
+Covers 2D, 3D, and ND paths.
+See also: ConvolutionInterpolation, convolution_nonuniform_interpolation.
+"""
 
 # ── Per-dim helpers ──────────────────────────────────────────
 
@@ -17,10 +21,10 @@
                     {T,TCoefs,IT,Axs,KA,DG,EQ<:NTuple{2,Int},KBC,DO,FD,SD,SG,
                     NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
 
-    M_eqs_x = _nb_M_eqs_perdim(itp.deg, 1)
-    M_eqs_y = _nb_M_eqs_perdim(itp.deg, 2)
-    ns_x    = _nb_n_stencil_perdim(itp.deg, 1)
-    ns_y    = _nb_n_stencil_perdim(itp.deg, 2)
+    M_eqs_x = _nb_M_eqs_perdim(itp.kernel_sym, 1)
+    M_eqs_y = _nb_M_eqs_perdim(itp.kernel_sym, 2)
+    ns_x    = _nb_n_stencil_perdim(itp.kernel_sym, 1)
+    ns_y    = _nb_n_stencil_perdim(itp.kernel_sym, 2)
     ix, wx, h0x = _nb_dim(itp.knots[1], itp.nb_weight_coeffs[1], M_eqs_x, x[1], ns_x)
     iy, wy, h0y = _nb_dim(itp.knots[2], itp.nb_weight_coeffs[2], M_eqs_y, x[2], ns_y)
 
@@ -40,12 +44,12 @@ end
                     {T,TCoefs,IT,Axs,KA,DG,EQ<:NTuple{3,Int},KBC,DO,FD,SD,SG,
                     NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
 
-    M_eqs_x = _nb_M_eqs_perdim(itp.deg, 1)
-    M_eqs_y = _nb_M_eqs_perdim(itp.deg, 2)
-    M_eqs_z = _nb_M_eqs_perdim(itp.deg, 3)
-    ns_x    = _nb_n_stencil_perdim(itp.deg, 1)
-    ns_y    = _nb_n_stencil_perdim(itp.deg, 2)
-    ns_z    = _nb_n_stencil_perdim(itp.deg, 3)
+    M_eqs_x = _nb_M_eqs_perdim(itp.kernel_sym, 1)
+    M_eqs_y = _nb_M_eqs_perdim(itp.kernel_sym, 2)
+    M_eqs_z = _nb_M_eqs_perdim(itp.kernel_sym, 3)
+    ns_x    = _nb_n_stencil_perdim(itp.kernel_sym, 1)
+    ns_y    = _nb_n_stencil_perdim(itp.kernel_sym, 2)
+    ns_z    = _nb_n_stencil_perdim(itp.kernel_sym, 3)
     ix, wx, h0x = _nb_dim(itp.knots[1], itp.nb_weight_coeffs[1], M_eqs_x, x[1], ns_x)
     iy, wy, h0y = _nb_dim(itp.knots[2], itp.nb_weight_coeffs[2], M_eqs_y, x[2], ns_y)
     iz, wz, h0z = _nb_dim(itp.knots[3], itp.nb_weight_coeffs[3], M_eqs_z, x[3], ns_z)
@@ -69,8 +73,8 @@ end
                     {N,T,TCoefs,IT,Axs,KA,DG,EQ<:NTuple{N,Int},KBC,DO,FD,SD,SG,
                     NB<:Tuple{Vararg{Vector{Matrix{Float64}}}}}
 
-    M_eqs_d = ntuple(d -> _nb_M_eqs_perdim(itp.deg, d), N)
-    ns_d    = ntuple(d -> _nb_n_stencil_perdim(itp.deg, d), N)
+    M_eqs_d = ntuple(d -> _nb_M_eqs_perdim(itp.kernel_sym, d), N)
+    ns_d    = ntuple(d -> _nb_n_stencil_perdim(itp.kernel_sym, d), N)
 
     iw = ntuple(d -> _nb_dim(itp.knots[d], itp.nb_weight_coeffs[d], M_eqs_d[d], x[d], ns_d[d]), N)
     indices = ntuple(d -> iw[d][1], N)

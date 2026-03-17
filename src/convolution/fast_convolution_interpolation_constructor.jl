@@ -12,7 +12,7 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
 - `vs`: Array of values at the grid points.
 
 # Keyword Arguments
-- `degree::Symbol=:a4`: Convolution kernel to use.
+- `kernel::Symbol=:b5`: Convolution kernel to use.
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a4` (quartic), `:a5` (quintic), `:a7` (septic)
   - `b`-series: `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
 - `precompute::Int=101`: Resolution of the precomputed kernel table. The default uses
@@ -20,8 +20,8 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
   `:linear` subgrid mode.
 - `B=nothing`: If provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
   Forces eager mode.
-- `kernel_bc=:auto`: Boundary condition for kernel evaluation at domain edges.
-  Options: `:auto`, `:polynomial`, `:linear`, `:quadratic`, `:periodic`, `:detect`.
+- `bc=:auto`: Boundary condition for kernel evaluation at domain edges.
+  Options: `:auto`, `:polynomial`, `:linear`, `:quadratic`, `:periodic`.
 - `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
   kernels. For `a`-series kernels the top derivative automatically uses linear interpolation
   to match the kernel's continuity class.
@@ -33,9 +33,10 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
   The raw values are stored directly and ghost points are computed on the fly during
   evaluation near boundaries. Interior evaluation has zero overhead compared to eager mode.
   Automatically disabled for `:a0`, `:a1`, and Gaussian kernels.
-- `boundary_fallback::Bool=false`: When `true`, throw an error instead of computing ghost
-  points when evaluating near boundaries in lazy mode. Prevents expensive tensor-product
-  ghost computation in high dimensions. Only active when `lazy=true`.
+- `boundary_fallback::Bool=false`: When `true`, near-boundary evaluations are linearly
+  extrapolated from interior points rather than computing full ghost point stencils.
+  Prevents expensive tensor-product ghost computation in high dimensions.
+  Only active when `lazy=true`.
 
 # Returns
 A `FastConvolutionInterpolation` object callable at arbitrary points within the grid domain.
@@ -47,20 +48,20 @@ See also: [`convolution_interpolation`](@ref), [`ConvolutionInterpolation`](@ref
 
 function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector},AbstractRange,NTuple{N,AbstractRange}},
                                       vs::AbstractArray{T,N};
-                                      degree::Union{Symbol,NTuple{N,Symbol}}=:b5, precompute::Int=101, B=nothing,
-                                      kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
+                                      kernel::Union{Symbol,NTuple{N,Symbol}}=:b5, precompute::Int=101, B=nothing,
+                                      bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
                                       derivative::Union{Int,NTuple{N,Int}}=0,
                                       subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic,
                                       lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
 
-    if degree == :n3
+    if kernel == :n3
         error("The :n3 kernel is not supported by FastConvolutionInterpolation. Use ConvolutionInterpolation instead.")
     end
 
-    is_perdim = degree isa NTuple{N,Symbol} || derivative isa NTuple{N,Int}
+    is_perdim = kernel isa NTuple{N,Symbol} || derivative isa NTuple{N,Int}
  
     if is_perdim
-        degrees     = degree     isa Symbol ? ntuple(_ -> degree,     N) : degree
+        kernels     = kernel     isa Symbol ? ntuple(_ -> kernel,     N) : kernel
         derivatives = derivative isa Int    ? ntuple(_ -> derivative, N) : derivative
  
         n_integral = count(d -> derivatives[d] == -1, 1:N)
@@ -79,10 +80,10 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
             ntuple(_ -> :linear, N)
         else
             ntuple(d -> derivatives[d] == -1 ? :linear :
-                validate_subgrid_compatibility(degrees[d], derivatives[d], subgrids[d]), N)
+                validate_subgrid_compatibility(kernels[d], derivatives[d], subgrids[d]), N)
         end
  
-        eqs = ntuple(d -> get_equations_for_degree(degrees[d]), N)
+        eqs = ntuple(d -> get_equations_for_degree(kernels[d]), N)
         h   = map(k -> k[2] - k[1], knots)
         it  = ntuple(_ -> ConvolutionMethod(), N)
  
@@ -94,10 +95,10 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         # Eager only for per-dim fast path
         lazy      = false
         knots_new = expand_knots(knots, ntuple(d -> eqs[d] - 1, N))
-        coefs     = create_convolutional_coefs(vs, h, eqs, kernel_bc, degrees)
+        coefs     = create_convolutional_coefs(vs, h, eqs, bc, kernels)
  
         # Per-dim kernel tables — one call per dim, unpack into 4 NTuples
-        tables        = ntuple(d -> get_precomputed_kernel_and_range(degrees[d];
+        tables        = ntuple(d -> get_precomputed_kernel_and_range(kernels[d];
                                     precompute=precompute_actual, float_type=T,
                                     derivative=derivatives[d], subgrid=subgrids[d]), N)
         pre_range_d   = ntuple(d -> tables[d][1], N)
@@ -147,8 +148,8 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
             cross_rr = ntuple(_ -> ph, N)
         end
             
-        kernel    = ntuple(d -> degrees[d] in (:a0, :a1) ?
-                                Val(degrees[d]) : HigherOrderKernel(Val(degrees[d])), N)
+        kernel_type    = ntuple(d -> kernels[d] in (:a0, :a1) ?
+                                Val(kernels[d]) : HigherOrderKernel(Val(kernels[d])), N)
         dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
  
         do_type = if n_integral == 0
@@ -163,12 +164,12 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         sg_tag = Val(subgrids)
  
         return FastConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),
-                                            typeof(kernel),typeof(dimension),typeof(Val(degrees)),
+                                            typeof(kernel_type),typeof(dimension),typeof(Val(kernels)),
                                             typeof(eqs),typeof(pre_range_d),typeof(kernel_pre_d),
-                                            typeof(kernel_bc),typeof(do_type),
+                                            typeof(bc),typeof(do_type),
                                             typeof(kd1_pre_d),typeof(kd2_pre_d),typeof(sg_tag)}(
-            coefs, knots_new, it, h, kernel, dimension, Val(degrees), eqs,
-            pre_range_d, kernel_pre_d, kernel_bc, do_type,
+            coefs, knots_new, it, h, kernel_type, dimension, Val(kernels), eqs,
+            pre_range_d, kernel_pre_d, bc, do_type,
             kd1_pre_d, kd2_pre_d, sg_tag,
             lazy, boundary_fallback, left_values, anchor, 
             cumcoefs_left, cumcoefs_right, cross_ll, cross_rl, cross_lr, cross_rr
@@ -176,13 +177,13 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
     end
 
     subgrid = if derivative == -1
-        if degree == :a0
+        if kernel == :a0
             :linear
         else
             subgrid
         end
     else
-        validate_subgrid_compatibility(degree::Symbol, derivative::Int, subgrid::Symbol)
+        validate_subgrid_compatibility(kernel::Symbol, derivative::Int, subgrid::Symbol)
     end
     if N >= 3 && subgrid in (:cubic, :quintic)
         subgrid = :linear
@@ -191,12 +192,12 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
     if knots isa AbstractVector || knots isa AbstractRange
         knots = (knots,) # Convert knots to tuple if needed (if called directly)
     end
-    eqs = B === nothing ? get_equations_for_degree(degree) : 50
+    eqs = B === nothing ? get_equations_for_degree(kernel) : 50
     h = map(k -> k[2] - k[1], knots)
     it = ntuple(_ -> ConvolutionMethod(), N)
 
     # ===== LAZY vs EAGER coefs/knots =====
-    if lazy && degree != :a0 && degree != :a1 && B === nothing
+    if lazy && kernel != :a0 && kernel != :a1 && B === nothing
         # LAZY: store raw values directly, original knots (not expanded)
         coefs = vs
         knots_new = ntuple(i -> collect(eltype(h), knots[i]), N)
@@ -204,12 +205,12 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         # EAGER: original path — expand knots and compute ghost points
         lazy = false  # ensure flag matches actual state
         knots_new = expand_knots(knots, eqs-1)
-        coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree)
+        coefs = kernel == :a0 || kernel == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, bc, kernel)
     end
-    kernel = B === nothing ? ConvolutionKernel(Val(degree), Val(derivative)) : GaussianConvolutionKernel(Val(B))
+    kernel_type = B === nothing ? ConvolutionKernel(Val(kernel), Val(derivative)) : GaussianConvolutionKernel(Val(B))
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
     pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre = 
-                  get_precomputed_kernel_and_range(degree; precompute=precompute, float_type=T,
+                  get_precomputed_kernel_and_range(kernel; precompute=precompute, float_type=T,
                   derivative=derivative, subgrid=subgrid)
     anchor = ntuple(d -> knots_new[d][eqs], N)
     if derivative == -1
@@ -251,29 +252,29 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         cross_rr = ntuple(_ -> ph, N)
     end
 
-    degree = degree == :a0 || degree == :a1 ? Val(degree) : HigherOrderKernel(Val(degree))
+    kernel = kernel == :a0 || kernel == :a1 ? Val(kernel) : HigherOrderKernel(Val(kernel))
     do_type = derivative == -1 ? IntegralOrder() : DerivativeOrder(Val(derivative))
 
-    return FastConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel),typeof(dimension),
-                                        typeof(degree),typeof(eqs),typeof(pre_range),typeof(kernel_pre),typeof(kernel_bc),
+    return FastConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel_type),typeof(dimension),
+                                        typeof(kernel),typeof(eqs),typeof(pre_range),typeof(kernel_pre),typeof(bc),
                                         typeof(do_type), typeof(kernel_d1_pre),typeof(kernel_d2_pre),typeof(Val(subgrid))}(
-        coefs, knots_new, it, h, kernel, dimension, degree, eqs, pre_range, kernel_pre, kernel_bc, do_type,
+        coefs, knots_new, it, h, kernel_type, dimension, kernel, eqs, pre_range, kernel_pre, bc, do_type,
         kernel_d1_pre, kernel_d2_pre, Val(subgrid), lazy, boundary_fallback, left_values, anchor,
         cumcoefs_left, cumcoefs_right, cross_ll, cross_rl, cross_lr, cross_rr
     )
 end
 
-function validate_subgrid_compatibility(degree::Symbol, derivative::Int, subgrid::Symbol)
-    if degree == :a0 || degree == :a1
+function validate_subgrid_compatibility(kernel::Symbol, derivative::Int, subgrid::Symbol)
+    if kernel == :a0 || kernel == :a1
         return :not_used
     end 
-    max_deriv = max_smooth_derivative[degree]  # e.g., 3 for b5
+    max_deriv = max_smooth_derivative[kernel]  # e.g., 3 for b5
     available_derivs = max_deriv - derivative
 
     if available_derivs == 0 && subgrid != :linear
         subgrid = :linear # force linear subgrid for top derivatives
     elseif available_derivs < 0
-        error("Cannot compute derivative $(derivative) for kernel $degree with subgrid $subgrid." * 
+        error("Cannot compute derivative $(derivative) for kernel $kernel with subgrid $subgrid." * 
                 "Maximum available derivative with this kernel and subgrid: $(available_derivs)."*
                 "Try a different kernel or subgrid.")
     end

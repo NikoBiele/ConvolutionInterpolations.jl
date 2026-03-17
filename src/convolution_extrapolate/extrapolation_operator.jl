@@ -5,7 +5,7 @@ Evaluate the extrapolation object at the given coordinates.
 
 For points inside the interpolation domain, delegates directly to the underlying
 interpolation object. For points outside, applies the extrapolation boundary condition
-(`Throw()`, `Flat()`, `Line()`, `Periodic()`).
+(`:throw`, `:flat`, `:line`, `:natural`).
 
 Domain bounds are determined by `_domain_bounds`, which accounts for lazy mode and
 boundary fallback settings — in lazy mode with `boundary_fallback=true`, the valid
@@ -17,7 +17,7 @@ adapted from [Interpolations.jl](https://github.com/JuliaMath/Interpolations.jl)
 # Examples
 ```julia
 knots = range(0, 2π, length=50)
-etp = convolution_interpolation(knots, sin.(knots), extrapolation_bc=Line())
+etp = convolution_interpolation(knots, sin.(knots), extrap=:line)
 
 etp(1.0)                         # interior: direct interpolation
 etp(7.0)                         # exterior: linear extrapolation

@@ -1,3 +1,18 @@
+"""
+(itp::FastConvolutionInterpolation{T,1,...})(x::Number) — IntegralOrder
+Evaluate 1D fast antiderivative at coordinate x.
+Dispatches on subgrid mode: :quintic, :cubic, :linear.
+
+Evaluation decomposes into three parts:
+  local stencil — O(eqs) K̃ lookups via Hermite/linear subgrid interpolation
+  left tail     — O(1) prefix sum lookup (cumcoefs_left)
+  right tail    — O(1) suffix sum lookup (cumcoefs_right)
+
+Result is (local + left_tail + right_tail) * h, anchored to zero at the
+leftmost interior knot. O(1) in grid size, allocation-free.
+See also: FastConvolutionInterpolation, convolution_fast_integration_2d.
+"""
+
 @inline function (itp::FastConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
                     HigherOrderKernel{DG},EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{:quintic}})(x::Vararg{Number,1}) where 
                     {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,FD,SD}

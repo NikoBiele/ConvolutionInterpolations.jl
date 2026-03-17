@@ -11,7 +11,7 @@ Abstract supertype for all convolution-based interpolation types.
 - `Axs`: The type of the knot points (typically a tuple of ranges)
 - `KA`: The kernel type
 - `DT`: The dimension type (Val{N} for N≤3, HigherDimension{N} otherwise)
-- `DG`: The degree type (Val{degree})
+- `DG`: The kernel type (Val{degree})
 - `EQ`: The equation order type
 - `KBC`: The type of the kernel boundary condition
 - `DO`: The derivative order type

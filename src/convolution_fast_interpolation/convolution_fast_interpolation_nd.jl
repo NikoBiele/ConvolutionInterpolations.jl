@@ -105,7 +105,7 @@ function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension
     result = zero(T)
     
     if itp.lazy && any(d -> is_boundary_stencil(pos_ids[d], size(itp.coefs, d), itp.eqs), 1:N)
-        kernel_type = _kernel_sym(itp.deg)
+        kernel_type = _kernel_sym(itp.kernel_sym)
         ng = itp.eqs - 1
         @inbounds for offsets in Iterators.product(ntuple(_ -> -(itp.eqs-1):itp.eqs, N)...)
             vidx = ntuple(d -> pos_ids[d] + ng + offsets[d], N)

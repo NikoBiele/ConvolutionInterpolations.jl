@@ -18,7 +18,7 @@ ghost coefficient matrix requires.
 `Vector{T}` of prediction coefficients for iterative ghost point computation.
 
 # Methods
-- `:auto` / `:detect`: Analyzes signal structure via `detect_boundary_signal_fast`
+- `:auto`: prioritizes `:polynomial`, falls back to `:linear`
 - `:linear`: Returns `[2, -1, 0]` (first-order extrapolation)
 - `:quadratic`: Returns `[3, -3, 1]` (second-order extrapolation)
 - `:periodic`: Blends autocorrelation prediction with quadratic extrapolation

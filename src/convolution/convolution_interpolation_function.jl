@@ -8,7 +8,7 @@ Create a convolution-based interpolation object with automatic optimization and 
 - `values`: Array of values at the grid points.
 
 # Keyword Arguments
-- `degree::Symbol=:a4`: Convolution kernel to use.
+- `kernel::Symbol=:b5`: Convolution kernel to use.
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a4` (quartic), `:a5` (quintic), `:a7` (septic)
   - `b`-series: `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
   - Nonuniform-only: `:n3` (cubic)
@@ -20,10 +20,10 @@ Create a convolution-based interpolation object with automatic optimization and 
   pre-shipped tables (zero computation). Higher values (e.g. 10_000) trigger on-demand
   computation and disk caching for the `:linear` subgrid mode.
 - `B=nothing`: If provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
-- `extrapolation_bc=Throw()`: Behavior outside the grid domain.
-  Options: `Throw()`, `Flat()`, `Line()`, `Periodic()`, or `Natural()`.
-- `kernel_bc=:auto`: Boundary condition for kernel evaluation at domain edges.
-  Options: `:auto`, `:polynomial`, `:linear`, `:quadratic`, `:periodic`, `:detect`.
+- `extrap=:throw`: Behavior outside the grid domain.
+  Options: `:throw`, `:flat`, `:line` or `:natural`.
+- `bc=:auto`: Boundary condition for kernel evaluation at domain edges.
+  Options: `:auto`, `:polynomial`, `:linear`, `:quadratic`, `:periodic`.
 - `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
   kernels. For `a`-series kernels the top derivative automatically uses linear interpolation
   to match the kernel's continuity class.
@@ -33,14 +33,14 @@ Create a convolution-based interpolation object with automatic optimization and 
   Ghost values are computed on the fly only when evaluating near boundaries, saving memory
   and speeding up construction — especially in high dimensions. Interior evaluation is
   unaffected. Set to `false` (default) for eager expansion.
-- `boundary_fallback::Bool=false`: When `true`, throw an error instead of computing ghost
-  points when evaluating near boundaries in lazy mode. This prevents expensive tensor-product
-  ghost computation in high dimensions. Automatically forced to `true` for `b`-series kernels
-  in 4D and for all kernels in 5D+. Only active when `lazy=true`.
+- `boundary_fallback::Bool=false`: When `true`, near-boundary evaluations are linearly
+  extrapolated from interior points rather than computing full ghost point stencils.
+  Prevents expensive tensor-product ghost computation in high dimensions.
+  Only active when `lazy=true`.
 
 # Returns
 A `ConvolutionExtrapolation` object callable at arbitrary points within (or, depending on
-`extrapolation_bc`, outside) the grid domain.
+`extrap`, outside) the grid domain.
 
 # Performance
 - Construction: ~3μs for 1D with 100 points (`:a4` kernel, `lazy=false`).
@@ -70,107 +70,101 @@ itp_d(1.0)  # ≈ cos(1.0)
 knots_5d = ntuple(_ -> range(0, 1, length=20), 5)
 vals_5d = rand(20,20,20,20,20)
 itp = convolution_interpolation(knots_5d, vals_5d, lazy=true)
-itp(0.5, 0.5, 0.5, 0.5, 0.5)  # boundary_fallback automatically active
+itp(0.5, 0.5, 0.5, 0.5, 0.5)
 ```
 
 See also: [`FastConvolutionInterpolation`](@ref), [`ConvolutionInterpolation`](@ref), [`ConvolutionExtrapolation`](@ref).
 """
 
 function convolution_interpolation(knots, values::AbstractArray{T,N}; 
-        degree::Union{Symbol,NTuple{N,Symbol}}=:b5, fast::Bool=true, precompute::Int=101,
-        B=nothing, extrapolation_bc=Throw(),
-        kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
+        kernel::Union{Symbol,NTuple{N,Symbol}}=:b5, fast::Bool=true, precompute::Int=101,
+        B=nothing, extrap=:throw,
+        bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
         derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic,
         lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
     
     knots_tuple = knots isa AbstractVector || knots isa AbstractRange ? (knots,) : knots
-    if any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || degree == :n3
+    if any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || kernel == :n3
         fast = false
     end
-    degrees_tuple = degree isa Symbol ? ntuple(_ -> degree, N) : degree
-    if any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || any(d -> degrees_tuple[d] == :n3, 1:N)
+    kernels_tuple = kernel isa Symbol ? ntuple(_ -> kernel, N) : kernel
+    if any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || any(d -> kernels_tuple[d] == :n3, 1:N)
         fast = false
     end
 
-    if lazy == true && N == 4 && degree in (:b5, :b7, :b9, :b11, :b13)
-      boundary_fallback = true # in lazy mode for 4D, force extrapolation near boundaries for high kernels
-    elseif lazy == true && N >= 5
-      boundary_fallback = true # in lazy mode for 5D+, force extrapolation near boundaries for all kernels
-    end
-
-    # Normalize kernel_bc to per-dimension, per-side tuples
-    kernel_bcs = if kernel_bc isa Symbol
-        ntuple(_ -> (kernel_bc, kernel_bc), N)
-    elseif kernel_bc isa Vector{Tuple{Symbol,Symbol}}
-        ntuple(d -> kernel_bc[d], N)
-    elseif kernel_bc isa NTuple{N,Tuple{Symbol,Symbol}}
-        kernel_bc  # already a tuple of tuples
+    # Normalize bc to per-dimension, per-side tuples
+    bcs = if bc isa Symbol
+        ntuple(_ -> (bc, bc), N)
+    elseif bc isa Vector{Tuple{Symbol,Symbol}}
+        ntuple(d -> bc[d], N)
+    elseif bc isa NTuple{N,Tuple{Symbol,Symbol}}
+        bc  # already a tuple of tuples
     else
-        error("Unsupported kernel_bc type: $(typeof(kernel_bc)), must be Symbol, Vector{Tuple{Symbol,Symbol}}, or NTuple{N,Tuple{Symbol,Symbol}}.")
+        error("Unsupported bc type: $(typeof(bc)), must be Symbol, Vector{Tuple{Symbol,Symbol}}, or NTuple{N,Tuple{Symbol,Symbol}}.")
     end
 
     # Check sufficiency per dimension
     if lazy && boundary_fallback
-        eqs = get_equations_for_degree(degree)
-        extrapolation_bc = ConvolutionInterpolations.Line()
-        kernel_bcs = ntuple(N) do d
+        eqs = get_equations_for_degree(kernel)
+        extrap = :line
+        bcs = ntuple(N) do d
             if size(values, d) < 3*eqs-2
                 (:detect, :detect)
             else
-                kernel_bcs[d]
+                bcs[d]
             end
         end
     end
 
-    if extrapolation_bc isa Natural
-        return _build_natural(knots, values; degree=degree, fast=fast, precompute=precompute, B=B,
-                              kernel_bc=kernel_bcs, derivative=derivative, subgrid=subgrid,
+    if extrap == :natural
+        return _build_natural(knots, values; kernel=kernel, fast=fast, precompute=precompute, B=B,
+                              bc=bcs, derivative=derivative, subgrid=subgrid,
                               lazy=lazy, boundary_fallback=boundary_fallback)
     elseif fast
-        return _build_fast(knots, values; degree=degree, precompute=precompute, B=B, kernel_bc=kernel_bcs,
-                          derivative=derivative, subgrid=subgrid, extrapolation_bc=extrapolation_bc,
+        return _build_fast(knots, values; kernel=kernel, precompute=precompute, B=B, bc=bcs,
+                          derivative=derivative, subgrid=subgrid, extrap=extrap,
                           lazy=lazy, boundary_fallback=boundary_fallback)
     else
-        return _build_slow(knots, values; degree=degree, B=B, kernel_bc=kernel_bcs, derivative=derivative,
-                          extrapolation_bc=extrapolation_bc, lazy=lazy, boundary_fallback=boundary_fallback)
+        return _build_slow(knots, values; kernel=kernel, B=B, bc=bcs, derivative=derivative,
+                          extrap=extrap, lazy=lazy, boundary_fallback=boundary_fallback)
     end
 end
 
-function _build_fast(knots, values::AbstractArray{T,N}; degree::Union{Symbol,NTuple{N,Symbol}}=:b5, precompute::Int=101, B::Union{Nothing,Float64}=B,
-                    kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}=:auto,
-                    derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic, extrapolation_bc=Throw(),
+function _build_fast(knots, values::AbstractArray{T,N}; kernel::Union{Symbol,NTuple{N,Symbol}}=:b5, precompute::Int=101, B::Union{Nothing,Float64}=B,
+                    bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
+                    derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic, extrap=:throw,
                     lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
     itp = FastConvolutionInterpolation(knots, values;
-          degree=degree, precompute=precompute, B=B, kernel_bc=kernel_bc, derivative=derivative,
+          kernel=kernel, precompute=precompute, B=B, bc=bc, derivative=derivative,
           subgrid=subgrid, lazy=lazy, boundary_fallback=boundary_fallback)
-    return ConvolutionExtrapolation(itp, extrapolation_bc)
+    return ConvolutionExtrapolation(itp, extrap)
 end
 
-function _build_slow(knots, values::AbstractArray{T,N}; degree::Union{Symbol,NTuple{N,Symbol}}=:b5, B::Union{Nothing,Float64}=nothing,
-                    kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}=:auto,
-                    derivative::Union{Int,NTuple{N,Int}}=0, extrapolation_bc=Throw(),
+function _build_slow(knots, values::AbstractArray{T,N}; kernel::Union{Symbol,NTuple{N,Symbol}}=:b5, B::Union{Nothing,Float64}=nothing,
+                    bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
+                    derivative::Union{Int,NTuple{N,Int}}=0, extrap=:throw,
                     lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
-    itp = ConvolutionInterpolation(knots, values; degree=degree, B=B, kernel_bc=kernel_bc,
+    itp = ConvolutionInterpolation(knots, values; kernel=kernel, B=B, bc=bc,
                                     derivative=derivative, lazy=lazy, boundary_fallback=boundary_fallback)
-    return ConvolutionExtrapolation(itp, extrapolation_bc)
+    return ConvolutionExtrapolation(itp, extrap)
 end
 
-function _build_natural(knots, values::AbstractArray{T,N}; degree::Union{Symbol,NTuple{N,Symbol}}=:b5, fast::Bool=true,
+function _build_natural(knots, values::AbstractArray{T,N}; kernel::Union{Symbol,NTuple{N,Symbol}}=:b5, fast::Bool=true,
                         precompute::Int=101, B::Union{Nothing,Float64}=nothing,
-                        kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}=:auto,
+                        bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
                         derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Symbol=:cubic, lazy::Bool=false,
                         boundary_fallback::Bool=false) where {T,N}
     # Natural extrapolation always uses eager mode (needs double-extrapolation)
-    itp = ConvolutionInterpolation(knots, values; degree, B, kernel_bc, derivative, lazy=false)
+    itp = ConvolutionInterpolation(knots, values; kernel, B, bc, derivative, lazy=false)
     if fast
         itp = FastConvolutionInterpolation(itp.knots, itp.coefs;
-              degree=degree, precompute=precompute, B=B, kernel_bc=:linear,
+              kernel=kernel, precompute=precompute, B=B, bc=:linear,
               derivative=derivative, subgrid=subgrid, lazy=lazy,
               boundary_fallback=boundary_fallback)
     else
         itp = ConvolutionInterpolation(itp.knots, itp.coefs;
-              degree=degree, B=B, kernel_bc=:linear, derivative=derivative, lazy=lazy,
+              kernel=kernel, B=B, bc=:linear, derivative=derivative, lazy=lazy,
               boundary_fallback=boundary_fallback)
     end
-    return ConvolutionExtrapolation(itp, Line())
+    return ConvolutionExtrapolation(itp, :line)
 end

@@ -10,7 +10,7 @@ wraps this with extrapolation handling.
 - `vs`: Array of values at the grid points.
 
 # Keyword Arguments
-- `degree::Symbol=:a4`: Convolution kernel to use.
+- `kernel::Symbol=:b5`: Convolution kernel to use.
   - `a`-series (uniform): `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a4` (quartic), `:a5` (quintic), `:a7` (septic)
   - `b`-series (uniform and nonuniform): `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
   - Nonuniform-only: `:n3` (cubic)
@@ -18,8 +18,8 @@ wraps this with extrapolation handling.
   Higher `a`-series kernels (`:a3`, `:a4`, `:a5`, `:a7`) fall back to `:n3` on nonuniform grids.
 - `B=nothing`: If provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
   Forces eager mode.
-- `kernel_bc=:auto`: Boundary condition for kernel evaluation at domain edges.
-  Options: `:auto`, `:polynomial`, `:linear`, `:quadratic`, `:periodic`, `:detect`.
+- `bc=:auto`: Boundary condition for kernel evaluation at domain edges.
+  Options: `:auto`, `:polynomial`, `:linear`, `:quadratic`, `:periodic`.
 - `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
   kernels. For `a`-series kernels the top derivative automatically uses linear interpolation
   to match the kernel's continuity class.
@@ -28,10 +28,11 @@ wraps this with extrapolation handling.
   evaluation near boundaries. This saves memory and speeds up construction, especially
   in high dimensions. Automatically disabled for `:a0`, `:a1`, Gaussian kernels, and
   nonuniform `b`-series paths.
-- `boundary_fallback::Bool=false`: When `true`, throw an error instead of computing ghost
-  points when evaluating near boundaries in lazy mode. Prevents expensive tensor-product
-  ghost computation in high dimensions. Only active when `lazy=true`.
-
+- `boundary_fallback::Bool=false`: When `true`, near-boundary evaluations are linearly
+  extrapolated from interior points rather than computing full ghost point stencils.
+  Prevents expensive tensor-product ghost computation in high dimensions.
+  Only active when `lazy=true`.
+  
 # Grid handling
 Uniform and nonuniform grids are detected automatically per dimension. On nonuniform grids:
 - `:a0` and `:a1` work natively (no ghost points needed).
@@ -49,8 +50,8 @@ See also: [`convolution_interpolation`](@ref), [`FastConvolutionInterpolation`](
 function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
                                         AbstractVector,AbstractRange,NTuple{N,AbstractRange}},
                                   vs::AbstractArray{T,N};
-                                  degree::Union{Symbol,NTuple{N,Symbol}}=:b5, B=nothing,
-                                  kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
+                                  kernel::Union{Symbol,NTuple{N,Symbol}}=:b5, B=nothing,
+                                  bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
                                   derivative::Union{Int,NTuple{N,Int}}=0,
                                   lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
     # Convert knots to tuple if needed (if called directly)
@@ -70,26 +71,26 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
                 "       (3) construct a uniform derivative=-1 interpolation.")
         end
 
-        is_perdim_degree = degree isa NTuple{N,Symbol}
+        is_perdim_kernel = kernel isa NTuple{N,Symbol}
         is_perdim_deriv  = derivative isa NTuple{N,Int}
  
-        if (is_perdim_degree || is_perdim_deriv)
+        if (is_perdim_kernel || is_perdim_deriv)
 
             if N == 1
-                error("Per-dimension degree/derivative specification is not meaningful in 1D. Use scalar values.")
+                error("Per-dimension kernel/derivative specification is not meaningful in 1D. Use scalar values.")
             end
             
-            degrees     = degree     isa Symbol ? ntuple(_ -> degree,     N) : degree
+            kernels     = kernel     isa Symbol ? ntuple(_ -> kernel,     N) : kernel
             derivatives = derivative isa Int    ? ntuple(_ -> derivative, N) : derivative
  
             if any(d -> derivatives[d] == -1, 1:N)
                 error("Nonuniform antiderivative (derivative=-1) is not supported.")
             end
  
-            # All per-dim degrees must be b-series for nonuniform
-            if !all(d -> degrees[d] in (:b5, :b7, :b9, :b11, :b13), 1:N)
+            # All per-dim kernels must be b-series for nonuniform
+            if !all(d -> kernels[d] in (:b5, :b7, :b9, :b11, :b13), 1:N)
                 error("Per-dimension nonuniform interpolation requires b-series kernels " *
-                      "in all dimensions. Got: $degrees")
+                      "in all dimensions. Got: $kernels")
             end
  
             lazy = false  # nonuniform b always eager
@@ -99,15 +100,15 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             knots_new = ntuple(d -> collect(T, knots[d]), N)
  
             # Per-dim params
-            params = ntuple(d -> nonuniform_b_params(degrees[d]), N)
+            params = ntuple(d -> nonuniform_b_params(kernels[d]), N)
             M_eqs_d = ntuple(d -> params[d][1], N)
  
             # Per-dim weight coefficients + expanded knots
             nb_data = ntuple(N) do d
                 if nonuniform_dims[d]
-                    precompute_nonuniform_b_all(knots_new[d], degrees[d], derivatives[d])
+                    precompute_nonuniform_b_all(knots_new[d], kernels[d], derivatives[d])
                 else
-                    precompute_uniform_b_all(knots_new[d], degrees[d], derivatives[d])
+                    precompute_uniform_b_all(knots_new[d], kernels[d], derivatives[d])
                 end
             end
  
@@ -115,11 +116,11 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             nb_wc = ntuple(d -> nb_data[d][1], N)
  
             # Ghost coefs: use per-dim M_eqs
-            coefs = create_nonuniform_b_coefs_perdim(vs, knots_new, degrees)
+            coefs = create_nonuniform_b_coefs_perdim(vs, knots_new, kernels)
  
             eqs = M_eqs_d   # NTuple{N,Int}
  
-            kernel    = ntuple(d -> ConvolutionKernel(Val(degrees[d]), Val(derivatives[d])), N)
+            kernel_type    = ntuple(d -> ConvolutionKernel(Val(kernels[d]), Val(derivatives[d])), N)
             dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
             kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, :not_used)
             anchor = ntuple(d -> zero(T), N)
@@ -133,23 +134,23 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
                 MixedIntegralOrder{derivatives}()
             end
  
-            deg_val = Val(degrees)   # Val{(:b5,:b7,...)} for dispatch
+            kernels_val = Val(kernels)   # Val{(:b5,:b7,...)} for dispatch
  
             return ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_expanded),
-                                    typeof(kernel),typeof(dimension),typeof(deg_val),typeof(eqs),
-                                    typeof(kernel_bc),typeof(do_type),typeof(kernel_d1_pre),
+                                    typeof(kernel_type),typeof(dimension),typeof(kernels_val),typeof(eqs),
+                                    typeof(bc),typeof(do_type),typeof(kernel_d1_pre),
                                     typeof(kernel_d2_pre),typeof(Val(subgrid)),typeof(nb_wc)}(
-                coefs, knots_expanded, it, h, kernel, dimension, deg_val, eqs, kernel_bc, do_type,
+                coefs, knots_expanded, it, h, kernel_type, dimension, kernels_val, eqs, bc, do_type,
                 kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, lazy, boundary_fallback, anchor
             )
         end
 
-        if degree in (:b5, :b7, :b9, :b11, :b13)
+        if kernel in (:b5, :b7, :b9, :b11, :b13)
             # Nonuniform b-kernels always uses eager mode
             lazy = false
 
             # Nonuniform b-kernel path: precomputed polynomial weights
-            M_eqs, p_deg = nonuniform_b_params(degree)
+            M_eqs, p_deg = nonuniform_b_params(kernel)
             eqs = M_eqs
             h = ntuple(d -> one(T), N) # dummy
             it = ntuple(_ -> ConvolutionMethod(), N)
@@ -158,9 +159,9 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             # Precompute weight coefficients for each dimension
             nb_data = ntuple(N) do d
                 if nonuniform_dims[d]
-                    precompute_nonuniform_b_all(knots_new[d], degree, derivative)
+                    precompute_nonuniform_b_all(knots_new[d], kernel, derivative)
                 else
-                    precompute_uniform_b_all(knots_new[d], degree, derivative)
+                    precompute_uniform_b_all(knots_new[d], kernel, derivative)
                 end
             end
 
@@ -168,29 +169,29 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             nb_wc = ntuple(d -> nb_data[d][1], N)
 
             # Build coefficient array with ghost points
-            coefs, _ = create_nonuniform_b_coefs(vs, knots_new, degree)
+            coefs, _ = create_nonuniform_b_coefs(vs, knots_new, kernel)
 
-            kernel = ConvolutionKernel(Val(degree), Val(derivative))
+            kernel_type = ConvolutionKernel(Val(kernel), Val(derivative))
             dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
             kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, :not_used)
             anchor = ntuple(d -> zero(T), N)
             do_type = derivative == -1 ? IntegralOrder() : DerivativeOrder(Val(derivative))
 
-            return ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_expanded),typeof(kernel),
-                                    typeof(dimension),typeof(Val(degree)),typeof(eqs),typeof(kernel_bc),
+            return ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_expanded),typeof(kernel_type),
+                                    typeof(dimension),typeof(Val(kernel)),typeof(eqs),typeof(bc),
                                     typeof(do_type),typeof(kernel_d1_pre),typeof(kernel_d2_pre),
                                     typeof(Val(subgrid)),typeof(nb_wc)}(
-                coefs, knots_expanded, it, h, kernel, dimension, Val(degree), eqs, kernel_bc, do_type,
+                coefs, knots_expanded, it, h, kernel_type, dimension, Val(kernel), eqs, bc, do_type,
                 kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, lazy, boundary_fallback, anchor
             )
         else
             # nonuniform path: a-series → :n3, or explicit :n3
-            nu_degree, lazy = if degree in (:a0, :a1)
-                degree, true
-            elseif degree in (:n3, :a3, :a4, :a5, :a7)
+            nu_kernel, lazy = if kernel in (:a0, :a1)
+                kernel, true
+            elseif kernel in (:n3, :a3, :a4, :a5, :a7)
                 :n3, lazy
             else
-                error("Nonuniform interpolation not supported for degree=$degree. " *
+                error("Nonuniform interpolation not supported for kernel=$kernel. " *
                       "Use a b-series kernel (:b5, :b7, ...) or :n3.")
             end
 
@@ -206,55 +207,55 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
                     vcat(k[1] - h_first, k, k[end] + h_last)
                 end
             else
-                create_nonuniform_coefs(vs, knots_new, degree=nu_degree)
+                create_nonuniform_coefs(vs, knots_new, degree=nu_kernel)
             end
 
-            kernel = ConvolutionKernel(Val(nu_degree), Val(derivative))
+            kernel_type = ConvolutionKernel(Val(nu_kernel), Val(derivative))
             dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
             kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, :not_used)
             nb_wc = nothing
             anchor = ntuple(d -> zero(T), N)
             do_type = derivative == -1 ? IntegralOrder() : DerivativeOrder(Val(derivative))
 
-            return ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_expanded),typeof(kernel),
-                                    typeof(dimension),typeof(Val(nu_degree)),typeof(eqs),typeof(kernel_bc),
+            return ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_expanded),typeof(kernel_type),
+                                    typeof(dimension),typeof(Val(nu_kernel)),typeof(eqs),typeof(bc),
                                     typeof(do_type),typeof(kernel_d1_pre),typeof(kernel_d2_pre),
                                     typeof(Val(subgrid)),typeof(nb_wc)}(
-                coefs, knots_expanded, it, h, kernel, dimension, Val(nu_degree), eqs, kernel_bc, do_type,
+                coefs, knots_expanded, it, h, kernel_type, dimension, Val(nu_kernel), eqs, bc, do_type,
                 kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, lazy, boundary_fallback, anchor
             )
         end
     end
     
     # === Uniform path ===
-    degree     = N == 1 ? degree     : degree     isa Symbol ? ntuple(_ -> degree,     N) : degree
+    kernel     = N == 1 ? kernel     : kernel     isa Symbol ? ntuple(_ -> kernel,     N) : kernel
     derivative = N == 1 ? derivative : derivative isa Int    ? ntuple(_ -> derivative, N) : derivative
     
-    eqs = B === nothing ? N == 1 ? get_equations_for_degree(degree) : ntuple(d -> get_equations_for_degree(degree[d]), N) : ntuple(_ -> 50, N)
+    eqs = B === nothing ? N == 1 ? get_equations_for_degree(kernel) : ntuple(d -> get_equations_for_degree(kernel[d]), N) : ntuple(_ -> 50, N)
     h = map(k -> k[2] - k[1], knots)
     it = ntuple(_ -> ConvolutionMethod(), N)
 
     # ===== LAZY vs EAGER coefs/knots =====
     if N == 1
-        if lazy && degree != :a0 && degree != :a1 && B === nothing
+        if lazy && kernel != :a0 && kernel != :a1 && B === nothing
             coefs = vs
             knots_new = knots
         else
             lazy = false
             knots_new = expand_knots(knots, eqs-1)
-            coefs = degree == :a0 || degree == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, kernel_bc, degree)
+            coefs = kernel == :a0 || kernel == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, bc, kernel)
         end
     else
-        if lazy && all(d -> degree[d] != :a0 && degree[d] != :a1, 1:N) && B === nothing
+        if lazy && all(d -> kernel[d] != :a0 && kernel[d] != :a1, 1:N) && B === nothing
             coefs = vs
             knots_new = ntuple(i -> collect(eltype(h), knots[i]), N)
         else
             lazy = false
             knots_new = expand_knots(knots, ntuple(d -> eqs[d]-1, N))
-            coefs = if all(d -> degree[d] in (:a0, :a1), 1:N)
+            coefs = if all(d -> kernel[d] in (:a0, :a1), 1:N)
                 vs
             else
-                create_convolutional_coefs(vs, h, eqs, kernel_bc, degree)
+                create_convolutional_coefs(vs, h, eqs, bc, kernel)
             end
         end
     end
@@ -272,8 +273,8 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
         end
     end
 
-    kernel = B === nothing ? N == 1 ? ConvolutionKernel(Val(degree), Val(derivative)) : 
-                            ntuple(d -> ConvolutionKernel(Val(degree[d]), Val(derivative[d])), N) :
+    kernel_type = B === nothing ? N == 1 ? ConvolutionKernel(Val(kernel), Val(derivative)) : 
+                            ntuple(d -> ConvolutionKernel(Val(kernel[d]), Val(derivative[d])), N) :
                             GaussianConvolutionKernel(Val(B))
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
     do_type = if N == 1
@@ -291,11 +292,11 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
     kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, :not_used)
     nb_wc = nothing
 
-    ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel),
-                            typeof(dimension),typeof(Val(degree)),typeof(eqs),typeof(kernel_bc),
+    ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel_type),
+                            typeof(dimension),typeof(Val(kernel)),typeof(eqs),typeof(bc),
                             typeof(do_type),typeof(kernel_d1_pre),typeof(kernel_d2_pre),
                             typeof(Val(subgrid)),typeof(nb_wc)}(
-        coefs, knots_new, it, h, kernel, dimension, Val(degree), eqs, kernel_bc, do_type,
+        coefs, knots_new, it, h, kernel_type, dimension, Val(kernel), eqs, bc, do_type,
         kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, lazy, boundary_fallback, anchor
     )
 end

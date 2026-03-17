@@ -152,7 +152,7 @@ function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
                     is_boundary_stencil(j, size(itp.coefs, 2), itp.eqs) ||
                     is_boundary_stencil(k, size(itp.coefs, 3), itp.eqs))
         ng = itp.eqs - 1
-        ghost_matrix = get_polynomial_ghost_coeffs(_kernel_sym(itp.deg))
+        ghost_matrix = get_polynomial_ghost_coeffs(_kernel_sym(itp.kernel_sym))
         factor_nd = -one(T)
         sw = 2 * itp.eqs
         n1 = size(itp.coefs, 1)

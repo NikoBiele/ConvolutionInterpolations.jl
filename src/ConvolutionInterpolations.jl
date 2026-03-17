@@ -14,7 +14,7 @@ include("convolution_coefs/convolution_coefs.jl")
 include("precomputed_kernels/precomputed_kernel_tables.jl")
 
 export 
-    # Main convenience functions
+    # Main convenience function
     convolution_interpolation,
 
     # Core interpolation types for advanced users
@@ -22,8 +22,5 @@ export
     FastConvolutionInterpolation,
     
     # Core Extrapolation type for advanced users
-    ConvolutionExtrapolation,
-    
-    # Boundary conditions
-    BoundaryCondition, Line, Flat, Periodic, Reflect, Throw, Natural
+    ConvolutionExtrapolation
 end

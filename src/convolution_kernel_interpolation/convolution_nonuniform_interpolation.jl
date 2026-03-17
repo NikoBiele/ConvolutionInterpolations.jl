@@ -215,8 +215,8 @@ Derivative scaling uses local interval spacing `h0` per dimension.
                     {T,TCoefs,IT,Axs,KA,DG,EQ<:Int,KBC,DO,FD,SD,SG,
                     NB<:Tuple{Vector{Matrix{Float64}}}}
 
-    M_eqs = _nb_M_eqs(itp.deg)
-    ns = _nb_n_stencil(itp.deg)
+    M_eqs = _nb_M_eqs(itp.kernel_sym)
+    ns = _nb_n_stencil(itp.kernel_sym)
     i, w, h0 = _nb_dim(itp.knots[1], itp.nb_weight_coeffs[1], M_eqs, x[1], ns)
 
     result = zero(T)
@@ -233,8 +233,8 @@ end
                     {T,TCoefs,IT,Axs,KA,DG,EQ<:Int,KBC,DO,FD,SD,SG,
                     NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
 
-    M_eqs = _nb_M_eqs(itp.deg)
-    ns = _nb_n_stencil(itp.deg)
+    M_eqs = _nb_M_eqs(itp.kernel_sym)
+    ns = _nb_n_stencil(itp.kernel_sym)
     ix, wx, h0x = _nb_dim(itp.knots[1], itp.nb_weight_coeffs[1], M_eqs, x[1], ns)
     iy, wy, h0y = _nb_dim(itp.knots[2], itp.nb_weight_coeffs[2], M_eqs, x[2], ns)
     
@@ -253,8 +253,8 @@ end
                     DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG,NB})(x::Vararg{Number,3}) where 
                     {T,TCoefs,IT,Axs,KA,DG,EQ<:Int,KBC,DO,FD,SD,SG,
                      NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
-    M_eqs = _nb_M_eqs(itp.deg)
-    ns = _nb_n_stencil(itp.deg)
+    M_eqs = _nb_M_eqs(itp.kernel_sym)
+    ns = _nb_n_stencil(itp.kernel_sym)
     ix, wx, h0x = _nb_dim(itp.knots[1], itp.nb_weight_coeffs[1], M_eqs, x[1], ns)
     iy, wy, h0y = _nb_dim(itp.knots[2], itp.nb_weight_coeffs[2], M_eqs, x[2], ns)
     iz, wz, h0z = _nb_dim(itp.knots[3], itp.nb_weight_coeffs[3], M_eqs, x[3], ns)
@@ -278,8 +278,8 @@ end
                     {T,TCoefs,IT,Axs,KA,DG,EQ<:Int,KBC,DO,FD,SD,SG,
                      NB<:Tuple{Vararg{Vector{Matrix{Float64}}}},N}
 
-    M_eqs = _nb_M_eqs(itp.deg)
-    ns = _nb_n_stencil(itp.deg)
+    M_eqs = _nb_M_eqs(itp.kernel_sym)
+    ns = _nb_n_stencil(itp.kernel_sym)
 
     iw = ntuple(N) do d
         _nb_dim(itp.knots[d], itp.nb_weight_coeffs[d], M_eqs, x[d], ns)

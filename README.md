@@ -26,8 +26,7 @@ Pkg.add("ConvolutionInterpolations")
 ### 1D Interpolation
 
 ```julia
-using ConvolutionInterpolations
-using Plots
+using ConvolutionInterpolations, Plots
 
 # Sparse sampling: 4 samples sine wave
 x = range(0, 2π, length=4)
@@ -45,8 +44,7 @@ plot!(p1, x_fine, itp.(x_fine), label="Interpolated (4 samples)")
 ### 2D Interpolation
 
 ```julia
-using ConvolutionInterpolations
-using Plots
+using ConvolutionInterpolations, Plots
 
 xs = range(-π, π, length=5)
 ys = range(-π, π, length=5)
@@ -80,12 +78,12 @@ x = [0.0, 0.15, 0.4, 0.7, 1.5, 2.5, 3.8, 4.2, 4.6, 4.8, 5.0,
      5.3, 5.6, 6.0, 6.5, 7.0, 7.3, 7.8, 8.2, 8.5, 9.0, 9.5, 10.0]
 y = sin.(x) .* exp.(-x/5)
 
-itp   = convolution_interpolation(x, y; degree=:b11);                # f(x)
-itp_d1 = convolution_interpolation(x, y; degree=:b11, derivative=1);  # f'(x)
-itp_d2 = convolution_interpolation(x, y; degree=:b11, derivative=2);  # f''(x)
-itp_d3 = convolution_interpolation(x, y; degree=:b11, derivative=3);  # f'''(x)
-itp_d4 = convolution_interpolation(x, y; degree=:b11, derivative=4);  # f⁴(x)
-itp_d5 = convolution_interpolation(x, y; degree=:b11, derivative=5);  # f⁵(x)
+itp   = convolution_interpolation(x, y; kernel=:b11);                # f(x)
+itp_d1 = convolution_interpolation(x, y; kernel=:b11, derivative=1);  # f'(x)
+itp_d2 = convolution_interpolation(x, y; kernel=:b11, derivative=2);  # f''(x)
+itp_d3 = convolution_interpolation(x, y; kernel=:b11, derivative=3);  # f'''(x)
+itp_d4 = convolution_interpolation(x, y; kernel=:b11, derivative=4);  # f⁴(x)
+itp_d5 = convolution_interpolation(x, y; kernel=:b11, derivative=5);  # f⁵(x)
 ```
 
 [![Nonuniform derivatives](fig/nonuniform_derivatives.png)](fig/nonuniform_derivatives.png)
@@ -95,6 +93,25 @@ Non-uniform interpolation works in any number of dimensions via tensor products.
 Non-uniform precomputation scales with the number of intervals; for performance-critical applications, 
 non-uniform kernels can be used once to resample data onto a uniform grid, 
 then efficient uniform kernels can be used for repeated evaluation.
+
+### Scattered Data
+
+For truly scattered (unstructured) data, resample onto a uniform grid first using a package such as [ScatteredInterpolation.jl](https://github.com/eljungsk/ScatteredInterpolation.jl), then apply ConvolutionInterpolations.jl for high-order evaluation:
+```julia
+using ScatteredInterpolation, ConvolutionInterpolations
+
+# Scattered data
+points = rand(2, 500) .* 2π
+values = sin.(points[1,:]) .* cos.(points[2,:])
+
+# Resample to uniform grid via RBF
+itp_rbf = interpolate(Multiquadratic(), points, values)
+xs = ys = range(0, 2π, length=100)
+grid_values = [evaluate(itp_rbf, [x, y])[1] for x in xs, y in ys]
+
+# High-order evaluation, derivatives, and antiderivatives on the uniform grid
+itp = convolution_interpolation((xs, ys), grid_values; kernel=:b7)
+```
 
 ## Accuracy
 
@@ -124,11 +141,7 @@ Performance across dimensions and kernel families:
 
 **Initialization** (left panel): One-time setup cost in eager mode (`lazy=false`). Ranges from ~2 μs for linear kernels to ~4 s for 4D `:b` kernels. For kernels higher than `:a1`, setup time scales with the number of boundary points. Benchmarks use 100 grid points per dimension (100, 100², 100³, 100⁴). With `lazy=true`, construction is constant-time (~0.12 ms) regardless of grid size or dimension — see [High-Dimensional Interpolation](#high-dimensional-interpolation) for benchmarks.
 
-**Evaluation** (right panel): Cost per interpolation call with default settings (`:cubic` subgrid, extrapolation wrapper). Representative `:b5` timings:
-
-- 1D: 20 ns
-- 2D: 178 ns
-- 3D: 524 ns
+**Evaluation** (right panel): Cost per interpolation call with default settings (`:cubic` subgrid, extrapolation wrapper).
 
 Lower times are achievable with lower order kernels, `:linear` subgrid or by bypassing the extrapolation wrapper (`itp.itp(x)`).
 
@@ -180,11 +193,11 @@ itp = convolution_interpolation(x, y; B=1.0);  # B controls smoothing width
 
 Control how ghost point values are computed near domain edges:
 ```julia
-itp = convolution_interpolation(x, y; kernel_bc=:auto);        # Default
-itp = convolution_interpolation(x, y; kernel_bc=:polynomial);   # Optimal for b-series
-itp = convolution_interpolation(x, y; kernel_bc=:linear);
-itp = convolution_interpolation(x, y; kernel_bc=:quadratic);
-itp = convolution_interpolation(x, y; kernel_bc=:periodic);
+itp = convolution_interpolation(x, y; bc=:auto);        # Default
+itp = convolution_interpolation(x, y; bc=:polynomial);   # Optimal for b-series
+itp = convolution_interpolation(x, y; bc=:linear);
+itp = convolution_interpolation(x, y; bc=:quadratic);
+itp = convolution_interpolation(x, y; bc=:periodic);
 ```
 
 The default `:auto` prioritizes `:polynomial`, which preserves each kernel's polynomial reproduction properties at domain edges.
@@ -192,11 +205,11 @@ It falls back to `:linear` when there are insufficient grid points.
 
 Per-dimension and per-direction boundary conditions are supported:
 ```julia
-kernel_bcs = [
+bcs = [
     (:linear, :quadratic),   # First dimension: linear at start, quadratic at end
     (:periodic, :polynomial)     # Second dimension: periodic at start, polynomial at end
 ]
-itp = convolution_interpolation((x, y), z; kernel_bc=kernel_bcs);
+itp = convolution_interpolation((x, y), z; bc=bcs);
 ```
 
 ### Derivatives
@@ -239,7 +252,7 @@ itp = convolution_interpolation((x, y), data; derivative=(2, 1))
 
 Per-dimension kernels are also supported, allowing different accuracy/cost tradeoffs per axis:
 ```julia
-itp = convolution_interpolation((x, y), data; degree=(:b9, :b5))
+itp = convolution_interpolation((x, y), data; kernel=(:b9, :b5))
 ```
 
 This works on both uniform and non-uniform grids. On non-uniform grids, each dimension
@@ -285,7 +298,7 @@ ys = range(0.0, 2π, length=100)
 vs = [sin(x) * cos(y) for x in xs, y in ys]
 
 # ∂/∂x ∫ f dy  (differentiate x, integrate y)
-itp = convolution_interpolation((xs, ys), vs; degree=:b7, derivative=(1, -1))
+itp = convolution_interpolation((xs, ys), vs; kernel=:b7, derivative=(1, -1))
 itp(1.0, 2.0)  # ≈ cos(1.0) * sin(2.0)
 ```
 
@@ -293,19 +306,30 @@ The figure below shows convergence of the antiderivative of Runge's function:
 
 [![Antiderivative convergence](fig/integration_1d_runge.png)](fig/integration_1d_runge.png)
 
+### Multidimensional Integration Convergence
+
+The tensor product structure of the antiderivative yields a dimensional convergence enhancement. For b-series kernels, the observed convergence order in N dimensions is:
+
+<p align="center"><b>O(h<sup>p</sup>),&nbsp;&nbsp;p = 7 + 2·(N−1)</b></p>
+
+So 9th order in 2D, 11th order in 3D, and so on — all from the same 7th order 1D kernel.
+
+[![2D integration convergence](fig/convergence_integration_2d.png)](fig/convergence_integration_2d.png)
+
+All b-series kernels converge at the same ~9th order rate in 2D, reaching machine precision (~10⁻¹⁵) around 100 sample points per dimension on a smooth integrand.
+
 ### Extrapolation
 
 Define behavior outside the data domain:
 ```julia
-itp = convolution_interpolation(x, y; extrapolation_bc=Throw());     # Error (default)
-itp = convolution_interpolation(x, y; extrapolation_bc=Line());      # Linear
-itp = convolution_interpolation(x, y; extrapolation_bc=Flat());      # Constant
-itp = convolution_interpolation(x, y; extrapolation_bc=Periodic());  # Periodic extension
-itp = convolution_interpolation(x, y; extrapolation_bc=Reflect());   # Reflection
-itp = convolution_interpolation(x, y; extrapolation_bc=Natural());   # Smooth boundary preservation
+itp = convolution_interpolation(x, y; extrap=:throw);     # Error (default)
+itp = convolution_interpolation(x, y; extrap=:line);      # Linear
+itp = convolution_interpolation(x, y; extrap=:flat);      # Constant
+itp = convolution_interpolation(x, y; extrap=:natural);   # Smooth boundary preservation
 ```
 
-The `Natural()` mode transforms extrapolation into interpolation by expanding the domain with boundary coefficients before applying linear extrapolation. This preserves the kernel's full smoothness across the boundary region, rather than abruptly transitioning at the domain edge.
+The `:natural` mode transforms extrapolation into interpolation by expanding the domain with boundary coefficients before applying linear extrapolation. This preserves the kernel's full smoothness across the boundary region, rather than abruptly transitioning at the domain edge.
+`:natural` is not recommended in high dimensions due to the double construction cost.
 
 ### High-Dimensional Interpolation
 
@@ -315,19 +339,11 @@ This computes ghost points on the fly near boundaries, saving considerable setup
 
 `lazy=true` requires a uniform grid. It is compatible with per-dimension kernel and derivative tuples:
 ```julia
-itp = convolution_interpolation((x, y, z), data; degree=(:b5, :b7, :b9), lazy=true, fast=false)
-itp = convolution_interpolation((x, y, z), data; degree=(:b5, :b7, :b9), derivative=(1, 0, 2), lazy=true, fast=false)
+itp = convolution_interpolation((x, y, z), data; kernel=(:b5, :b7, :b9), lazy=true, fast=false)
+itp = convolution_interpolation((x, y, z), data; kernel=(:b5, :b7, :b9), derivative=(1, 0, 2), lazy=true, fast=false)
 ```
 
-> **Note**: For very high dimensional data (N≥5), `lazy=true` performs a compromise:
-It automatically sets `boundary_fallback=true` and enables `Line()` extrapolation near boundaries.
-This truncates the domain and treats the outer interior points as ghost points.
-Values outside the truncated domain boundaries are linearly extrapolated from the
-interior rather than interpolated exactly with the full kernel.
-This tradeoff avoids expensive ghost point computation in high dimensions.
-Therefore, in high dimensions with `lazy=true`, `degree=:a3` is recommended, 
-since it truncates just one point on either side of the domain.
-For exact interpolation across the entire domain, use `lazy=false`.
+> **Note**: For very high dimensional data, `lazy=true` skips ghost point expansion at construction time. Near-boundary evaluation can be controlled independently via `boundary_fallback=true`, which linearly extrapolates from interior points rather than computing full ghost point stencils at boundaries. For exact interpolation across the entire domain, use `boundary_fallback=false` (default).
 
 ```julia
 # 4D interpolation (e.g., time-evolving 3D scalar field)
@@ -339,7 +355,7 @@ t = range(0, 1, length=10)
 data_4d = [sin(2π*xi)*cos(2π*yi)*exp(-zi)*sqrt(ti+0.1)
            for xi in x, yi in y, zi in z, ti in t]
 
-itp_4d = convolution_interpolation((x, y, z, t), data_4d, lazy=true, degree=:a3);
+itp_4d = convolution_interpolation((x, y, z, t), data_4d, lazy=true, kernel=:a3);
 itp_4d(0.42, 0.33, 0.77, 0.51)
 ```
 
@@ -410,7 +426,7 @@ This package introduces five main contributions:
 **Polynomial boundary conditions.** A boundary handling method that computes optimal ghost point values that preserve each kernel's polynomial reproduction properties. This maintains convergence order across the entire domain rather than degrading near boundaries.
 
 **Non-uniform b-kernel extension.** On non-uniform grids, each interval requires its own weights adapted to the local grid geometry. This is achieved by expanding the kernel in a binomial series around each interval's local coordinate, then projecting through a Vandermonde system to enforce polynomial reproduction up to the kernel's design order. The result is a compact set of polynomial coefficients per interval, evaluated via Horner's method at query time. All weight generation uses exact `Rational{BigInt}` arithmetic to avoid floating-point contamination, with conversion to `Float64` only at the final storage step. The same framework extends to derivatives by applying the binomial expansion to analytically differentiated kernel coefficients. On mixed grids (some dimensions uniform, some not), each dimension independently
-selects the appropriate path through the separable tensor product. Per-dimension kernel degrees are supported on both uniform and non-uniform grids: ghost point
+selects the appropriate path through the separable tensor product. Per-dimension kernels are supported on both uniform and non-uniform grids: ghost point
 arrays are padded per-dimension by each kernel's own stencil radius, and derivative scaling factors are applied independently per axis.
 
 **Antiderivative via kernel integration.** For `derivative=-1`, each kernel `K` is

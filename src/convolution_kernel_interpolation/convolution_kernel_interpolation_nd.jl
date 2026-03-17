@@ -105,7 +105,7 @@ function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
     result = zero(T)
     if itp.lazy && DG !== Val{:a0} && DG !== Val{:a1} &&
                    any(d -> is_boundary_stencil(pos_ids[d], size(itp.coefs, d), itp.eqs), 1:N)
-        kernel_type = _kernel_sym(itp.deg)
+        kernel_type = _kernel_sym(itp.kernel_sym)
         ng = itp.eqs - 1
         s = ntuple(d -> (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
         @inbounds for offsets in Iterators.product(ntuple(_ -> -(itp.eqs-1):itp.eqs, N)...)

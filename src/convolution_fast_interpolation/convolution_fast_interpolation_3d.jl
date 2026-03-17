@@ -146,7 +146,7 @@ function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},HigherOr
     if itp.lazy && (is_boundary_stencil(i, size(itp.coefs, 1), itp.eqs) ||
                     is_boundary_stencil(j, size(itp.coefs, 2), itp.eqs) ||
                     is_boundary_stencil(k, size(itp.coefs, 3), itp.eqs))
-        kernel_type = _kernel_sym(itp.deg)
+        kernel_type = _kernel_sym(itp.kernel_sym)
         ng = itp.eqs - 1
         @inbounds for n in -(itp.eqs-1):itp.eqs
             kz_0 = itp.kernel_pre[idx_z, n+itp.eqs]

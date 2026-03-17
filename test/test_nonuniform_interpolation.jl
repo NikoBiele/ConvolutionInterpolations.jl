@@ -4,8 +4,8 @@
 
 ### Nonuniform b-kernel interpolation
 nu_kernels = [:n3, :b5, :b7, :b9, :b11] # :a3 kernel triggers nonuniform lower order kernel
-N_nu = 20
-tolerance_nu = 1e-4
+N_nu = 40
+tolerance_nu = 1e-6
 
 # shared helper
 function make_nonuniform_grid_interpolation(n; a=0.0, b=1.0, strength=0.3)
@@ -25,13 +25,13 @@ println("Testing nonuniform kernel interpolation in 1D, 2D, 3D, 4D...")
         # grid point reproduction with random data
         x_nu = make_nonuniform_grid_interpolation(N_nu)
         vals_rand = rand(N_nu)
-        itp_rand = convolution_interpolation(x_nu, vals_rand; degree=kernel)
+        itp_rand = convolution_interpolation(x_nu, vals_rand; kernel=kernel)
         @test itp_rand.itp.(x_nu) ≈ vals_rand atol=tolerance_nu
 
         # linear midpoint reproduction
         vals_linear = x_nu
-        itp_linear = convolution_interpolation(x_nu, vals_linear; degree=kernel)
-        midpoints = [(x_nu[i] + x_nu[i+1]) / 2 for i in 3:N_nu-3]
+        itp_linear = convolution_interpolation(x_nu, vals_linear; kernel=kernel)
+        midpoints = [(x_nu[i] + x_nu[i+1]) / 2 for i in 1:N_nu-1]
         @test itp_linear.itp.(midpoints) ≈ midpoints atol=tolerance_nu
     end
 end
@@ -44,13 +44,13 @@ end
 
         # grid point reproduction with random data
         vals_rand = rand(N_nu, N_nu)
-        itp_rand = convolution_interpolation((x_nu, y_nu), vals_rand; degree=kernel)
+        itp_rand = convolution_interpolation((x_nu, y_nu), vals_rand; kernel=kernel)
         @test [itp_rand.itp(x_nu[i], y_nu[j]) for i in 1:N_nu for j in 1:N_nu] ≈ 
                 [vals_rand[i,j] for i in 1:N_nu for j in 1:N_nu] atol=tolerance_nu
 
         # bilinear midpoint reproduction
         vals_linear = [x_nu[i] + y_nu[j] for i in 1:N_nu, j in 1:N_nu]
-        itp_linear = convolution_interpolation((x_nu, y_nu), vals_linear; degree=kernel)
+        itp_linear = convolution_interpolation((x_nu, y_nu), vals_linear; kernel=kernel)
         test_x = [(x_nu[i] + x_nu[i+1]) / 2 for i in 3:N_nu-3]
         test_y = [(y_nu[i] + y_nu[i+1]) / 2 for i in 3:N_nu-3]
         analytical = [tx + ty for tx in test_x, ty in test_y]
@@ -68,7 +68,7 @@ end
 
         # grid point reproduction with random data
         vals_rand = rand(N_nu, N_nu, N_nu)
-        itp_rand = convolution_interpolation((x_nu, y_nu, z_nu), vals_rand; degree=kernel)
+        itp_rand = convolution_interpolation((x_nu, y_nu, z_nu), vals_rand; kernel=kernel)
         interpolated = [itp_rand.itp(x_nu[i], y_nu[j], z_nu[k]) for i in 1:N_nu for j in 1:N_nu for k in 1:N_nu]
         true_vals = [vals_rand[i,j,k] for i in 1:N_nu for j in 1:N_nu for k in 1:N_nu]
         @test interpolated ≈ true_vals atol=tolerance_nu
@@ -85,7 +85,7 @@ end
 
         # grid point reproduction with random data
         vals_rand = rand(N_nu, N_nu, N_nu, N_nu)
-        itp_rand = convolution_interpolation((x_nu, y_nu, z_nu, w_nu), vals_rand; degree=kernel)
+        itp_rand = convolution_interpolation((x_nu, y_nu, z_nu, w_nu), vals_rand; kernel=kernel)
         interpolated = [itp_rand.itp(x_nu[i], y_nu[j], z_nu[k], w_nu[l]) for i in 1:N_nu for j in 1:N_nu for k in 1:N_nu for l in 1:N_nu]
         true_vals = [vals_rand[i,j,k,l] for i in 1:N_nu for j in 1:N_nu for k in 1:N_nu for l in 1:N_nu]
         @test interpolated ≈ true_vals atol=tolerance_nu

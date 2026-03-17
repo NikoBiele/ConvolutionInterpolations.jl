@@ -91,7 +91,7 @@ function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET}, x::NTuple
     clamped_x = ntuple(i -> clamped_x[i], N)
     
     # Handle different extrapolation types
-        if etp.et isa Line
+    if etp.et == :line
         # 2-point directional derivative: 2 evaluations total regardless of dimension
         dx = ntuple(d -> x[d] - clamped_x[d], N)
         dist_sq = sum(d -> dx[d]^2, 1:N)
@@ -112,36 +112,13 @@ function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET}, x::NTuple
 
         return f_boundary + slope * dist
         
-    elseif etp.et isa Flat
+    elseif etp.et == :flat
         # Simply return the value at the boundary
         return itp(clamped_x...)
         
-    elseif etp.et isa Periodic
-        x_periodic = ntuple(d -> begin
-            lo, hi = _domain_bounds(itp, d)
-            if !isapprox(x[d], clamped_x[d], atol=1e-6)
-                period = hi - lo
-                lo + mod(x[d] - lo, period)
-            else
-                x[d]
-            end
-        end, N)
-        return itp(x_periodic...)
-        
-    elseif etp.et isa Reflect
-        x_reflect = ntuple(d -> begin
-            lo, hi = _domain_bounds(itp, d)
-            if !isapprox(x[d], clamped_x[d], atol=1e-6)
-                reflect(x[d], lo, hi)
-            else
-                x[d]
-            end
-        end, N)
-        return itp(x_reflect...)
-        
-    else # if etp.et isa Throw
+    else # if etp.et == :throw
         error("Unsupported extrapolation type: $(etp.et).
-        Please set 'extrapolation_bc =' Line(), Flat(), Natural(), Periodic(), or Reflect() to enable extrapolation.")
+        Please set 'extrap =' :line, :flat or :natural to enable extrapolation.")
     end
 end
 

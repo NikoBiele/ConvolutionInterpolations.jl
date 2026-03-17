@@ -1,13 +1,16 @@
-# ==============================================================
-# Dispatch: EQ<:NTuple{N,Int} + MixedIntegralOrder{DO}
-#
-# For each coef index tuple (j1,...,jN):
-#   - integral dims (DO[d]==-1): kt = K̃(sj) lookup, factor = kt - left_values[d][jd]
-#   - derivative dims (DO[d]>=0): kt = K(sj) lookup, factor = kt (no left_values subtraction)
-#
-# Result scaled by: prod over integral dims of h[d], times
-#                   prod over derivative dims of (-1/h[d])^DO[d]
-# ==============================================================
+"""
+(itp::FastConvolutionInterpolation{T,N,...})(x...) — MixedIntegralOrder
+Evaluate mixed interpolation/derivative/antiderivative operator in N dimensions.
+
+For each dimension d, applies either:
+  K̃ lookup (DO[d] == -1): antiderivative contribution, scaled by h[d]
+  K  lookup (DO[d] == 0):  interpolation contribution
+  K  lookup (DO[d] >= 1):  derivative contribution, scaled by (-1/h[d])^DO[d]
+
+Result is the tensor product over all dimensions, summed over all coefficient indices.
+Evaluation is O(N^D) — no prefix sum optimization for mixed orders.
+See also: FastConvolutionInterpolation, convolution_fast_integration_1d, convolution_fast_interpolation_perdim.
+"""
 
 function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DIM,DG,EQ,PR,KP,KBC,
             MixedIntegralOrder{DO},FD,SD,SG})(x::Vararg{Number,N}) where

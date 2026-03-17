@@ -1,3 +1,18 @@
+"""
+(itp::FastConvolutionInterpolation{T,2,...})(x::Number, y::Number) — IntegralOrder
+Evaluate 2D fast antiderivative at coordinates (x, y).
+Dispatches on subgrid mode: :quintic, :cubic, :linear.
+
+The 2D domain decomposes into 9 quadrants around the local stencil box:
+  center (K̃×K̃)         — O(eqs²) double loop over local stencil
+  edge strips (K̃×tail)  — O(eqs) per strip via 1D prefix sum lookup
+  corners (tail×tail)    — O(1) via precomputed 2D cross-sum arrays
+
+Result is (center + strips + corners) * h[1] * h[2], anchored to zero at the
+leftmost interior knot in each dimension. O(1) in grid size, allocation-free.
+See also: FastConvolutionInterpolation, convolution_fast_integration_1d.
+"""
+
 @inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
                     HigherOrderKernel{DG},EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{:cubic}})(x::Vararg{Number,2}) where 
                     {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,FD,SD}

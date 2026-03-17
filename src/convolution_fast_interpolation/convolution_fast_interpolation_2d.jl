@@ -109,7 +109,7 @@ function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
     # Single pass through the convolution support
     if itp.lazy && (is_boundary_stencil(i, size(itp.coefs, 1), itp.eqs) ||
                     is_boundary_stencil(j, size(itp.coefs, 2), itp.eqs))
-        kernel_type = _kernel_sym(itp.deg)
+        kernel_type = _kernel_sym(itp.kernel_sym)
         ng = itp.eqs - 1
         @inbounds for m in -(itp.eqs-1):itp.eqs
             ky_0 = itp.kernel_pre[idx_y, m+itp.eqs]
@@ -188,7 +188,7 @@ end
 
     if itp.lazy && (is_boundary_stencil(i, size(itp.coefs, 1), itp.eqs) ||
                     is_boundary_stencil(j, size(itp.coefs, 2), itp.eqs))
-        kernel_type = _kernel_sym(itp.deg)
+        kernel_type = _kernel_sym(itp.kernel_sym)
         ng = itp.eqs - 1
         @inbounds for m in -(itp.eqs-1):itp.eqs
             col_y = m + itp.eqs
@@ -322,7 +322,7 @@ end
 
     if itp.lazy && (is_boundary_stencil(i, size(itp.coefs, 1), itp.eqs) ||
                     is_boundary_stencil(j, size(itp.coefs, 2), itp.eqs))
-        kernel_type = _kernel_sym(itp.deg)
+        kernel_type = _kernel_sym(itp.kernel_sym)
         ng = itp.eqs - 1
         @inbounds for m in -(itp.eqs-1):itp.eqs
             col_y = m + itp.eqs

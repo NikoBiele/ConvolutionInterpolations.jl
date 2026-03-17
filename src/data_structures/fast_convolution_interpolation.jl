@@ -13,7 +13,7 @@ A structure that implements convolution-based interpolation with precomputed ker
 - `Axs`: The type of the knot points (typically a tuple of ranges)
 - `KA`: The kernel type (ConvolutionKernel{DG} or GaussianConvolutionKernel{B})
 - `DT`: The dimension type (Val{N} for N≤3, HigherDimension{N} otherwise)
-- `DG`: The degree type (Val{degree})
+- `DG`: The kernel type (Val{degree})
 - `EQ`: The equation order type
 - `KBC`: The kernel boundary condition type
 - `DO`: The derivative order type
@@ -53,11 +53,11 @@ struct FastConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,Convo
     h::NTuple{N,T}
     kernel::KA
     dimension::DT
-    deg::DG
+    kernel_sym::DG
     eqs::EQ
     pre_range::PR
     kernel_pre::KP
-    kernel_bc::KBC
+    bc::KBC
     derivative_order::DOT
     kernel_d1_pre::FD
     kernel_d2_pre::SD

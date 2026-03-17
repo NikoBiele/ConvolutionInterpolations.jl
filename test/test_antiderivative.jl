@@ -39,8 +39,8 @@ println("Testing antiderivative (derivative=-1) convergence in 1D, 2D, 3D...")
         for n in [24, 48, 96]
             r = range(0.0, 2π, length=n)
             vals = sin.(collect(r))
-            itp = convolution_interpolation(r, vals; degree=kernel, derivative=-1,
-                                            fast=true, kernel_bc=:polynomial)
+            itp = convolution_interpolation(r, vals; kernel=kernel, derivative=-1,
+                                            fast=true, bc=:polynomial)
             anchor = itp.itp.anchor[1]
             exact(x) = -cos(x) + cos(anchor)
             test_pts = interior_frac_1d(collect(r))
@@ -62,8 +62,8 @@ end
         for n in [24, 48, 96]
             r = range(0.0, 2π, length=n)
             vals = sin.(collect(r))
-            itp = convolution_interpolation(r, vals; degree=kernel, derivative=-1,
-                                            fast=false, kernel_bc=:polynomial)
+            itp = convolution_interpolation(r, vals; kernel=kernel, derivative=-1,
+                                            fast=false, bc=:polynomial)
             anchor = itp.itp.anchor[1]
             exact(x) = -cos(x) + cos(anchor)
             test_pts = interior_frac_1d(collect(r))
@@ -84,10 +84,10 @@ end
         n = 30
         r = range(0.0, 2π, length=n)
         vals = sin.(collect(r))
-        itp_fast   = convolution_interpolation(r, vals; degree=kernel, derivative=-1,
-                                               fast=true,  kernel_bc=:polynomial)
-        itp_direct = convolution_interpolation(r, vals; degree=kernel, derivative=-1,
-                                               fast=false, kernel_bc=:polynomial)
+        itp_fast   = convolution_interpolation(r, vals; kernel=kernel, derivative=-1,
+                                               fast=true,  bc=:polynomial)
+        itp_direct = convolution_interpolation(r, vals; kernel=kernel, derivative=-1,
+                                               fast=false, bc=:polynomial)
         test_pts = interior_frac_1d(collect(r))
         err = maximum(abs(itp_fast(x) - itp_direct(x)) for x in test_pts)
         @test err < 1e-6
@@ -101,8 +101,8 @@ end
         r = range(0.0, 2π, length=20)
         vals = sin.(collect(r))
         for fast in [true, false]
-            itp = convolution_interpolation(r, vals; degree=kernel, derivative=-1,
-                                            fast=fast, kernel_bc=:polynomial)
+            itp = convolution_interpolation(r, vals; kernel=kernel, derivative=-1,
+                                            fast=fast, bc=:polynomial)
             anchor = itp.itp.anchor[1]
             @test abs(itp(anchor)) < 1e-10
         end
@@ -119,8 +119,8 @@ end
             xs = range(0.0, 2π, length=n)
             ys = range(0.0, 2π, length=n)
             zs = [sin(x)*cos(y) for x in xs, y in ys]
-            itp = convolution_interpolation((xs, ys), zs; degree=kernel, derivative=-1,
-                                            fast=true, kernel_bc=:polynomial)
+            itp = convolution_interpolation((xs, ys), zs; kernel=kernel, derivative=-1,
+                                            fast=true, bc=:polynomial)
             ax, ay = itp.itp.anchor[1], itp.itp.anchor[2]
             exact(x, y) = (-cos(x) + cos(ax)) * (sin(y) - sin(ay))
             test_pts = interior_pts_2d(collect(xs), collect(ys))
@@ -143,8 +143,8 @@ end
             xs = range(0.0, 2π, length=n)
             ys = range(0.0, 2π, length=n)
             zs = [sin(x)*cos(y) for x in xs, y in ys]
-            itp = convolution_interpolation((xs, ys), zs; degree=kernel, derivative=-1,
-                                            fast=false, kernel_bc=:polynomial)
+            itp = convolution_interpolation((xs, ys), zs; kernel=kernel, derivative=-1,
+                                            fast=false, bc=:polynomial)
             ax, ay = itp.itp.anchor[1], itp.itp.anchor[2]
             exact(x, y) = (-cos(x) + cos(ax)) * (sin(y) - sin(ay))
             test_pts = interior_pts_2d(collect(xs), collect(ys))
@@ -165,8 +165,8 @@ end
         ys = range(0.0, 2π, length=20)
         zs = [sin(x)*cos(y) for x in xs, y in ys]
         for fast in [true, false]
-            itp = convolution_interpolation((xs, ys), zs; degree=kernel, derivative=-1,
-                                            fast=fast, kernel_bc=:polynomial)
+            itp = convolution_interpolation((xs, ys), zs; kernel=kernel, derivative=-1,
+                                            fast=fast, bc=:polynomial)
             ax, ay = itp.itp.anchor[1], itp.itp.anchor[2]
             @test abs(itp(ax, ay)) < 1e-10
         end
@@ -185,8 +185,8 @@ end
         xs = range(0.0, 2π, length=40)
         ys = range(0.0, 2π, length=40)
         vs = [f(x,y) for x in xs, y in ys]
-        itp_f = convolution_interpolation((xs,ys), vs; degree=:b5, derivative=-1, fast=true)
-        itp_s = convolution_interpolation((xs,ys), vs; degree=:b5, derivative=-1, fast=false)
+        itp_f = convolution_interpolation((xs,ys), vs; kernel=:b5, derivative=-1, fast=true)
+        itp_s = convolution_interpolation((xs,ys), vs; kernel=:b5, derivative=-1, fast=false)
         pts = interior_pts_2d(collect(xs), collect(ys))
         err_f = maximum(abs(itp_f(p...) - F(p...)) for p in pts)
         err_s = maximum(abs(itp_s(p...) - F(p...)) for p in pts)
@@ -206,8 +206,8 @@ end
             ys = range(0.0, 2π, length=n)
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*sin(z) for x in xs, y in ys, z in zs]
-            itp = convolution_interpolation((xs, ys, zs), vs; degree=kernel, derivative=-1,
-                                            fast=true, kernel_bc=:polynomial)
+            itp = convolution_interpolation((xs, ys, zs), vs; kernel=kernel, derivative=-1,
+                                            fast=true, bc=:polynomial)
             ax, ay, az = itp.itp.anchor[1], itp.itp.anchor[2], itp.itp.anchor[3]
             exact(x, y, z) = (-cos(x) + cos(ax)) * (sin(y) - sin(ay)) * (-cos(z) + cos(az))
             test_pts = interior_pts_3d(collect(xs), collect(ys), collect(zs))
@@ -231,8 +231,8 @@ end
             ys = range(0.0, 2π, length=n)
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*sin(z) for x in xs, y in ys, z in zs]
-            itp = convolution_interpolation((xs, ys, zs), vs; degree=kernel, derivative=-1,
-                                            fast=false, kernel_bc=:polynomial)
+            itp = convolution_interpolation((xs, ys, zs), vs; kernel=kernel, derivative=-1,
+                                            fast=false, bc=:polynomial)
             ax, ay, az = itp.itp.anchor[1], itp.itp.anchor[2], itp.itp.anchor[3]
             exact(x, y, z) = (-cos(x) + cos(ax)) * (sin(y) - sin(ay)) * (-cos(z) + cos(az))
             test_pts = interior_pts_3d(collect(xs), collect(ys), collect(zs))

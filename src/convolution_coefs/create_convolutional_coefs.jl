@@ -203,6 +203,10 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
                                            workspace::BoundaryWorkspace{T,N},
                                            vs_size::NTuple{N,Int}) where {T,N}
     
+    if eqs == 1
+        return  # :a0 and :a1 need no ghost points
+    end
+    
     kernel_boundary_condition = if kernel_bc isa Symbol
         (kernel_bc, kernel_bc)
     else

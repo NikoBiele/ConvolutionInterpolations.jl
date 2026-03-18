@@ -47,7 +47,7 @@ end
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
             zs = [sin(x)*cos(y) for x in xs, y in ys]
             itp = convolution_interpolation((xs, ys), zs; kernel=kernel,
-                      derivative=(-1, 0), fast=false, bc=:polynomial)
+                      derivative=(-1, 0), fast=false, bc=:poly)
             ax = itp.itp.anchor[1]
             test_pts = interior_pts_2d_integral(collect(xs), collect(ys))
             err = maximum(abs(itp(p...) - mixed_exact_int_x(ax, p...)) for p in test_pts)
@@ -69,7 +69,7 @@ end
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
             zs = [sin(x)*cos(y) for x in xs, y in ys]
             itp = convolution_interpolation((xs, ys), zs; kernel=kernel,
-                      derivative=(0, -1), fast=false, bc=:polynomial)
+                      derivative=(0, -1), fast=false, bc=:poly)
             ay = itp.itp.anchor[2]
             test_pts = interior_pts_2d_integral(collect(xs), collect(ys))
             err = maximum(abs(itp(p...) - mixed_exact_int_y(ay, p...)) for p in test_pts)
@@ -91,7 +91,7 @@ end
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
             zs = [sin(x)*cos(y) for x in xs, y in ys]
             itp = convolution_interpolation((xs, ys), zs; kernel=kernel,
-                      derivative=(-1, 1), fast=false, bc=:polynomial)
+                      derivative=(-1, 1), fast=false, bc=:poly)
             ax = itp.itp.anchor[1]
             test_pts = interior_pts_2d_integral(collect(xs), collect(ys))
             err = maximum(abs(itp(p...) - mixed_exact_intx_dy(ax, p...)) for p in test_pts)
@@ -113,7 +113,7 @@ end
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
             zs = [sin(x)*cos(y) for x in xs, y in ys]
             itp = convolution_interpolation((xs, ys), zs; kernel=kernel,
-                      derivative=(1, -1), fast=false, bc=:polynomial)
+                      derivative=(1, -1), fast=false, bc=:poly)
             ay = itp.itp.anchor[2]
             test_pts = interior_pts_2d_integral(collect(xs), collect(ys))
             err = maximum(abs(itp(p...) - mixed_exact_dx_inty(ay, p...)) for p in test_pts)
@@ -133,7 +133,7 @@ end
         zs = [sin(x)*cos(y) for x in xs, y in ys]
         for deriv in [(-1,0), (0,-1), (-1,1), (1,-1)]
             itp = convolution_interpolation((xs, ys), zs; kernel=kernel,
-                      derivative=deriv, fast=false, bc=:polynomial)
+                      derivative=deriv, fast=false, bc=:poly)
             ax, ay = itp.itp.anchor
             # evaluate at anchor point: integral dim should be zero there
             @test abs(itp(ax, ay)) < 1e-10
@@ -151,7 +151,7 @@ end
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
             zs = [sin(x)*cos(y) for x in xs, y in ys]
             itp = convolution_interpolation((xs, ys), zs; kernel=kernel,
-                      derivative=(-1, 0), fast=true, bc=:polynomial)
+                      derivative=(-1, 0), fast=true, bc=:poly)
             ax = itp.itp.anchor[1]
             test_pts = interior_pts_2d_integral(collect(xs), collect(ys))
             err = maximum(abs(itp(p...) - mixed_exact_int_x(ax, p...)) for p in test_pts)
@@ -173,7 +173,7 @@ end
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
             zs = [sin(x)*cos(y) for x in xs, y in ys]
             itp = convolution_interpolation((xs, ys), zs; kernel=kernel,
-                      derivative=(0, -1), fast=true, bc=:polynomial)
+                      derivative=(0, -1), fast=true, bc=:poly)
             ay = itp.itp.anchor[2]
             test_pts = interior_pts_2d_integral(collect(xs), collect(ys))
             err = maximum(abs(itp(p...) - mixed_exact_int_y(ay, p...)) for p in test_pts)
@@ -195,7 +195,7 @@ end
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
             zs = [sin(x)*cos(y) for x in xs, y in ys]
             itp = convolution_interpolation((xs, ys), zs; kernel=kernel,
-                      derivative=(-1, 1), fast=true, bc=:polynomial)
+                      derivative=(-1, 1), fast=true, bc=:poly)
             ax = itp.itp.anchor[1]
             test_pts = interior_pts_2d_integral(collect(xs), collect(ys))
             err = maximum(abs(itp(p...) - mixed_exact_intx_dy(ax, p...)) for p in test_pts)
@@ -217,7 +217,7 @@ end
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
             zs = [sin(x)*cos(y) for x in xs, y in ys]
             itp = convolution_interpolation((xs, ys), zs; kernel=kernel,
-                      derivative=(1, -1), fast=true, bc=:polynomial)
+                      derivative=(1, -1), fast=true, bc=:poly)
             ay = itp.itp.anchor[2]
             test_pts = interior_pts_2d_integral(collect(xs), collect(ys))
             err = maximum(abs(itp(p...) - mixed_exact_dx_inty(ay, p...)) for p in test_pts)
@@ -237,7 +237,7 @@ end
         zs = [sin(x)*cos(y) for x in xs, y in ys]
         for deriv in [(-1,0), (0,-1), (-1,1), (1,-1)]
             itp = convolution_interpolation((xs, ys), zs; kernel=kernel,
-                      derivative=deriv, fast=true, bc=:polynomial)
+                      derivative=deriv, fast=true, bc=:poly)
             ax, ay = itp.itp.anchor
             @test abs(itp(ax, ay)) < 1e-10
         end
@@ -255,9 +255,9 @@ end
         test_pts = interior_pts_2d_integral(collect(xs), collect(ys))
         for deriv in [(-1,0), (0,-1), (-1,1), (1,-1)]
             itp_fast   = convolution_interpolation((xs, ys), zs; kernel=kernel,
-                             derivative=deriv, fast=true,  bc=:polynomial)
+                             derivative=deriv, fast=true,  bc=:poly)
             itp_direct = convolution_interpolation((xs, ys), zs; kernel=kernel,
-                             derivative=deriv, fast=false, bc=:polynomial)
+                             derivative=deriv, fast=false, bc=:poly)
             err = maximum(abs(itp_fast(p...) - itp_direct(p...)) for p in test_pts)
             @test err < 1e-6
         end

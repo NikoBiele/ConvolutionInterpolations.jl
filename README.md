@@ -12,6 +12,7 @@ Smooth interpolation, derivatives and antiderivatives from a discrete grid of sa
 - **O(1) evaluation (uniform)**: Query time is independent of grid size with allocation-free evaluation
 - **N-dimensional**: Separable kernel design scales naturally from 1D to arbitrary dimensions
 - **Simple API**: A single interface covers nearest-neighbor through 13th-degree polynomial kernels
+- **Derivatives up to 6th order**: Analytically differentiated kernels, stable and allocation-free
 - **Antiderivative support (uniform)**: Compute 7th order accurate smooth indefinite integrals
 
 ## Installation
@@ -119,7 +120,7 @@ itp = convolution_interpolation((xs, ys), grid_values; kernel=:b7)
 
 The 1D Runge function demonstrates convergence behavior across kernel families:
 
-[![Runge function convergence](fig/interpolation_1d_runge.png)](fig/interpolation_1d_runge.png)
+[![Runge function convergence](fig/convergence_interpolation_1d_runge.png)](fig/convergence_interpolation_1d_runge.png)
 
 - `:b` kernels reach machine precision (~10⁻¹⁴) by 1000 sample points
 - `:b`-series kernels show 7th order convergence (slope ≈ -7 on the log-log plot)
@@ -155,7 +156,7 @@ Uniform grid kernels
 
 | Kernel | Degree | Continuity | Derivative range | Convergence | stencil |
 |--------|--------|------------|------------------|-------------|-----|
-| `:a0`  | 0      | —          | —                | 1st order   | 2ᴺ   |
+| `:a0`  | 0      | —          | -1..0            | 1st order   | 2ᴺ   |
 | `:a1`  | 1      | C⁰         | -1..0            | 2nd order   | 2ᴺ   |
 | `:a3`  | 3      | C¹         | -1..1            | ~3rd order  | 4ᴺ   |
 | `:a4`  | 3      | C¹         | -1..1            | ~4th order  | 6ᴺ   |
@@ -194,20 +195,20 @@ itp = convolution_interpolation(x, y; B=1.0);  # B controls smoothing width
 Control how ghost point values are computed near domain edges:
 ```julia
 itp = convolution_interpolation(x, y; bc=:auto);        # Default
-itp = convolution_interpolation(x, y; bc=:polynomial);   # Optimal for b-series
+itp = convolution_interpolation(x, y; bc=:poly);   # Optimal for b-series
 itp = convolution_interpolation(x, y; bc=:linear);
 itp = convolution_interpolation(x, y; bc=:quadratic);
 itp = convolution_interpolation(x, y; bc=:periodic);
 ```
 
-The default `:auto` prioritizes `:polynomial`, which preserves each kernel's polynomial reproduction properties at domain edges.
+The default `:auto` prioritizes `:poly`, which preserves each kernel's polynomial reproduction properties at domain edges.
 It falls back to `:linear` when there are insufficient grid points.
 
 Per-dimension and per-direction boundary conditions are supported:
 ```julia
 bcs = [
     (:linear, :quadratic),   # First dimension: linear at start, quadratic at end
-    (:periodic, :polynomial)     # Second dimension: periodic at start, polynomial at end
+    (:periodic, :poly)     # Second dimension: periodic at start, polynomial at end
 ]
 itp = convolution_interpolation((x, y), z; bc=bcs);
 ```
@@ -304,19 +305,47 @@ itp(1.0, 2.0)  # ≈ cos(1.0) * sin(2.0)
 
 The figure below shows convergence of the antiderivative of Runge's function:
 
-[![Antiderivative convergence](fig/integration_1d_runge.png)](fig/integration_1d_runge.png)
+[![Antiderivative convergence](fig/convergence_integration_1d_runge.png)](fig/convergence_integration_1d_runge.png)
+
+### Discontinuous Antiderivatives
+
+The `:a0` kernel supports antiderivatives of piecewise constant and discontinuous functions.
+A delta-like spike integrates to a Heaviside step:
+```julia
+using ConvolutionInterpolations, Plots
+
+n = 1001
+x = range(0.0, 2π, length=n)
+h = x[2] - x[1]
+y = [abs(xi - π) ≈ 0.0 ? 1.0/h : 0.0 for xi in x]
+
+itp = convolution_interpolation(x, y; kernel=:a0, derivative=-1)
+
+x_fine = range(0.0, 2π, length=500)
+p1 = plot(x, y, title="Delta-like spike", lw=2, label="f(x)")
+p2 = plot(x_fine, itp.(x_fine), title="∫f dx ≈ Heaviside", lw=2, label="F(x)")
+plot!(x_fine, [xi < π ? 0.0 : 1.0 for xi in x_fine], lw=2, ls=:dash, label="exact")
+plot(p1, p2, layout=(1,2), size=(900,400))
+```
+
+[![Delta spike and Heaviside](fig/delta_heaviside.png)](fig/delta_heaviside.png)
 
 ### Multidimensional Integration Convergence
 
-The tensor product structure of the antiderivative yields a dimensional convergence enhancement. For b-series kernels, the observed convergence order in N dimensions is:
+For smooth functions, the tensor product structure of the antiderivative yields an empirical
+convergence enhancement in higher dimensions. For b-series kernels on smooth integrands:
 
 <p align="center"><b>O(h<sup>p</sup>),&nbsp;&nbsp;p = 7 + 2·(N−1)</b></p>
 
 So 9th order in 2D, 11th order in 3D, and so on — all from the same 7th order 1D kernel.
+For less smooth functions the order stays close to the 1D rate, but the absolute error
+still decreases with dimension for a fixed number of points per dimension.
 
-[![2D integration convergence](fig/convergence_integration_2d.png)](fig/convergence_integration_2d.png)
+[![2D integration convergence](fig/convergence_integration_2d_runge.png)](fig/convergence_integration_2d_runge.png)
 
-All b-series kernels converge at the same ~9th order rate in 2D, reaching machine precision (~10⁻¹⁵) around 100 sample points per dimension on a smooth integrand.
+All b-series kernels converge at the same ~9th order rate in 2D on smooth integrands,
+reaching machine precision (~10⁻¹⁵) around 100 sample points per dimension.
+The theoretical explanation for this dimensional enhancement remains an open question.
 
 ### Extrapolation
 

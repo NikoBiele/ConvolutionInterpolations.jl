@@ -85,7 +85,7 @@ function lazy_ghost_value(values::AbstractArray{T,N}, virtual_idx::NTuple{N,Int}
             ghost_side = vid <= ng ? :left : :right
             ghost_layer = ghost_side === :left ? (ng + 1 - vid) : (vid - ng - n_d)
             bc_side = ghost_side === :left ? bc_pair[1] : bc_pair[2]
-            use_polynomial = (bc_side == :polynomial) || (bc_side == :auto && n_d >= n_stencil)
+            use_polynomial = (bc_side == :poly) || (bc_side == :auto && n_d >= n_stencil)
             factor = ghost_side === :right ? factor_nd : one(T)
 
             if use_polynomial

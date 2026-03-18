@@ -12,7 +12,7 @@ expected_order_direct = Dict(
     :a1 => 1, :a3 => 3, :a4 => 4, :a5 => 3, :a7 => 3,
     :b5 => 7, :b7 => 6, :b9 => 5, :b11 => 4 # accumulated floating point error for higher orders
 )
-bc_deriv = :polynomial # control kernel boundary conditions for derivatives
+bc_deriv = :poly # control kernel boundary conditions for derivatives
 
 println("Testing uniform grid convergence in 1D for direct and fast kernels for 0th, 1st and 2nd derivatives...")
 # function value convergence

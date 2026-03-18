@@ -43,7 +43,7 @@ legend_labels = String[]
 
 for degree in degrees
     println("Computing FFT for $degree kernel...")
-    itp = convolution_interpolation(x, [1/(1+25*xi^2) for xi in x]; degree=degree, fast=false)
+    itp = convolution_interpolation(x, [1/(1+25*xi^2) for xi in x]; kernel=degree, fast=false)
     kernel_vals = itp.itp.kernel.(x)
 
     # GenericFFT handles BigFloat natively

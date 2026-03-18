@@ -127,11 +127,11 @@ h = (0.1, 0.1)
 coefs = create_convolutional_coefs(vs, h, 2, :auto, :a1)  # Returns vs unchanged
 
 # Higher-order kernel with ghost points
-coefs = create_convolutional_coefs(vs, h, 5, :polynomial, :b5)
+coefs = create_convolutional_coefs(vs, h, 5, :poly, :b5)
 # Returns expanded array of size (58, 58) with ghost points
 
 # Different boundary conditions per dimension
-bc = [(:polynomial, :polynomial), (:linear, :quadratic)]
+bc = [(:poly, :poly), (:linear, :quadratic)]
 coefs = create_convolutional_coefs(vs, h, 5, bc, :b5)
 ```
 
@@ -225,9 +225,9 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
     n_dim = size(vs, dim)
     n_interior = size(ghost_matrix, 2)
     few_points = n_dim < n_interior
-    use_polynomial_left = kernel_boundary_condition[1] == :polynomial || 
+    use_polynomial_left = kernel_boundary_condition[1] == :poly || 
                           (kernel_boundary_condition[1] == :auto && !few_points)
-    use_polynomial_right = kernel_boundary_condition[2] == :polynomial || 
+    use_polynomial_right = kernel_boundary_condition[2] == :poly || 
                            (kernel_boundary_condition[2] == :auto && !few_points)
     
     c_offset_view = view(workspace.c_offset, 1:(eqs-1))

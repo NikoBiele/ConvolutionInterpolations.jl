@@ -19,7 +19,7 @@ wraps this with extrapolation handling.
 - `B=nothing`: If provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
   Forces eager mode.
 - `bc=:auto`: Boundary condition for kernel evaluation at domain edges.
-  Options: `:auto`, `:polynomial`, `:linear`, `:quadratic`, `:periodic`.
+  Options: `:auto`, `:poly`, `:linear`, `:quadratic`, `:periodic`.
 - `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
   kernels. For `a`-series kernels the top derivative automatically uses linear interpolation
   to match the kernel's continuity class.

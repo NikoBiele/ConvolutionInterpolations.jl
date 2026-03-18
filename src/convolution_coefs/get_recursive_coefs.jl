@@ -18,7 +18,7 @@ ghost coefficient matrix requires.
 `Vector{T}` of prediction coefficients for iterative ghost point computation.
 
 # Methods
-- `:auto`: prioritizes `:polynomial`, falls back to `:linear`
+- `:auto`: prioritizes `:poly`, falls back to `:linear`
 - `:linear`: Returns `[2, -1, 0]` (first-order extrapolation)
 - `:quadratic`: Returns `[3, -3, 1]` (second-order extrapolation)
 - `:periodic`: Blends autocorrelation prediction with quadratic extrapolation
@@ -40,6 +40,6 @@ function get_recursive_coefs(y_centered, h::T, bc::Symbol, which_end::Symbol) wh
         return T[T(3), T(-3), T(1)]
     else
         error("Unsupported kernel boundary condition: kernel_bc = $bc. " *
-              "Supported: :polynomial, :auto, :linear, :quadratic, :periodic.")
+              "Supported: :poly, :auto, :linear, :quadratic, :periodic.")
     end
 end

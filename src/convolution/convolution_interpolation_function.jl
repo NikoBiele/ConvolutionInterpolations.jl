@@ -23,7 +23,7 @@ Create a convolution-based interpolation object with automatic optimization and 
 - `extrap=:throw`: Behavior outside the grid domain.
   Options: `:throw`, `:flat`, `:line` or `:natural`.
 - `bc=:auto`: Boundary condition for kernel evaluation at domain edges.
-  Options: `:auto`, `:polynomial`, `:linear`, `:quadratic`, `:periodic`.
+  Options: `:auto`, `:poly`, `:linear`, `:quadratic`, `:periodic`.
 - `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
   kernels. For `a`-series kernels the top derivative automatically uses linear interpolation
   to match the kernel's continuity class.
@@ -90,6 +90,9 @@ function convolution_interpolation(knots, values::AbstractArray{T,N};
     kernels_tuple = kernel isa Symbol ? ntuple(_ -> kernel, N) : kernel
     if any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || any(d -> kernels_tuple[d] == :n3, 1:N)
         fast = false
+    end
+    if kernel == :a0
+      subgrid = :linear
     end
 
     # Normalize bc to per-dimension, per-side tuples

@@ -19,7 +19,7 @@ function get_precomputed_kernel_and_range(degree::Symbol;
             derivative::Int=0, subgrid::Symbol=:cubic) where {T}
 
     # Use cache path for: linear/nearest subgrid, BigFloat, or top derivative
-    if subgrid in (:linear, :nearest) || float_type <: BigFloat || 
+    if subgrid in (:linear, :nearest) || float_type <: BigFloat ||
         _is_top_derivative(degree, derivative) || precompute != 101
         return _get_cached_kernel(degree; precompute=precompute,
                     float_type=float_type, derivative=derivative, subgrid=subgrid)
@@ -45,7 +45,6 @@ function _get_cached_kernel(degree::Symbol;
 
     cache_dir = @get_scratch!("precomputed_kernels")
     degree_str = string(degree)
-    precompute = degree == :a0 || degree == :a1 ? 2 : precompute
 
     # Build cache file paths
     if float_type <: BigFloat

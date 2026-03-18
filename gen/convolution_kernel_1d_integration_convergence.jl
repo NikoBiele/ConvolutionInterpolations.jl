@@ -14,7 +14,6 @@ yf = runge.(xf)
 n = 100
 ns = unique(trunc.(Int, 10.0 .^([1 + 3.0 * i/(n-1) for i in 0:(n-1)])))
 subgrid = :cubic # :linear
-precompute = 101 # 10_000
 itpa4_fast_errors = zeros(G, length(ns))
 itpb5_fast_errors = zeros(G, length(ns))
 itpb7_fast_errors = zeros(G, length(ns))
@@ -27,12 +26,12 @@ for n in ns
     count += 1
     println("n = $n")
     xr = [G(-1.0)+G(2*i)/G(n-1) for i in 0:(n-1)]
-    itpa4_fast = convolution_interpolation(xr, runge.(xr); degree=:a4, fast=true, derivative=-1, subgrid=subgrid, precompute=precompute, kernel_bc=[(:polynomial,:polynomial)]);
-    itpb5_fast = convolution_interpolation(xr, runge.(xr); degree=:b5, fast=true, derivative=-1, subgrid=subgrid, precompute=precompute, kernel_bc=[(:polynomial,:polynomial)]);
-    itpb7_fast = convolution_interpolation(xr, runge.(xr); degree=:b7, fast=true, derivative=-1, subgrid=subgrid, precompute=precompute, kernel_bc=[(:polynomial,:polynomial)]);
-    itpb9_fast = convolution_interpolation(xr, runge.(xr); degree=:b9, fast=true, derivative=-1, subgrid=subgrid, precompute=precompute, kernel_bc=[(:polynomial,:polynomial)]);
-    itpb11_fast = convolution_interpolation(xr, runge.(xr); degree=:b11, fast=true, derivative=-1, subgrid=subgrid, precompute=precompute, kernel_bc=[(:polynomial,:polynomial)]);
-    itpb13_fast = convolution_interpolation(xr, runge.(xr); degree=:b13, fast=true, derivative=-1, subgrid=subgrid, precompute=precompute, kernel_bc=[(:polynomial,:polynomial)]);
+    itpa4_fast = convolution_interpolation(xr, runge.(xr); kernel=:a4, fast=true, derivative=-1, subgrid=subgrid, bc=:poly);
+    itpb5_fast = convolution_interpolation(xr, runge.(xr); kernel=:b5, fast=true, derivative=-1, subgrid=subgrid, bc=:poly);
+    itpb7_fast = convolution_interpolation(xr, runge.(xr); kernel=:b7, fast=true, derivative=-1, subgrid=subgrid, bc=:poly);
+    itpb9_fast = convolution_interpolation(xr, runge.(xr); kernel=:b9, fast=true, derivative=-1, subgrid=subgrid, bc=:poly);
+    itpb11_fast = convolution_interpolation(xr, runge.(xr); kernel=:b11, fast=true, derivative=-1, subgrid=subgrid, bc=:poly);
+    itpb13_fast = convolution_interpolation(xr, runge.(xr); kernel=:b13, fast=true, derivative=-1, subgrid=subgrid, bc=:poly);
 
     itpa4_fast_errors[count] = maximum(abs.(itpa4_fast.(xf) - runge_antideriv.(xf)))
     itpb5_fast_errors[count] = maximum(abs.(itpb5_fast.(xf) - runge_antideriv.(xf)))
@@ -57,12 +56,12 @@ ax = Makie.Axis(fig[1, 1],
 
 # Plot the lines
 # thicker lines with markers
-Makie.lines!(ax, ns, itpa4_fast_errors, label="Convolution ':a4' (fast)", linewidth=3, color=:green, linestyle=:solid)
-Makie.lines!(ax, ns, itpb5_fast_errors, label="Convolution ':b5' (fast)", linewidth=3, color=:red, linestyle=:solid)
-Makie.lines!(ax, ns, itpb7_fast_errors, label="Convolution ':b7' (fast)", linestyle=:solid)
-Makie.lines!(ax, ns, itpb9_fast_errors, label="Convolution ':b9' (fast)", linestyle=:solid)
-Makie.lines!(ax, ns, itpb11_fast_errors, label="Convolution ':b11' (fast)", linestyle=:solid)
-Makie.lines!(ax, ns, itpb13_fast_errors, label="Convolution ':b13' (fast)", linestyle=:solid)
+Makie.lines!(ax, ns, itpa4_fast_errors, label="':a4' (fast)", linewidth=3, color=:green, linestyle=:solid)
+Makie.lines!(ax, ns, itpb5_fast_errors, label="':b5' (fast)", linewidth=3, color=:red, linestyle=:solid)
+Makie.lines!(ax, ns, itpb7_fast_errors, label="':b7' (fast)", linestyle=:solid)
+Makie.lines!(ax, ns, itpb9_fast_errors, label="':b9' (fast)", linestyle=:solid)
+Makie.lines!(ax, ns, itpb11_fast_errors, label="':b11' (fast)", linestyle=:solid)
+Makie.lines!(ax, ns, itpb13_fast_errors, label="':b13' (fast)", linestyle=:solid)
 
 Makie.lines!(ax, [10, 10000], [1e-5*(1000/100)^7, 1e-5*(100/10000)^7],
        color=:black, linestyle=:dash, label=    L"\mathcal{O}(h^7)", linewidth=3)
@@ -72,7 +71,7 @@ Legend(fig[1, 2], ax, labelsize=20)
 
 fig
 
-# save("fig/integration_1d_runge.png", fig, px_per_unit=3)
+# save("fig/convergence_integration_1d_runge.png", fig, px_per_unit=3)
 
 ######################## 2D ############################
 
@@ -99,9 +98,8 @@ for n in ns_2d
     for (errors, deg) in zip(
             [itpb5_2d_errors, itpb7_2d_errors, itpb9_2d_errors, itpb11_2d_errors, itpb13_2d_errors],
             [:b5, :b7, :b9, :b11, :b13])
-        itp = convolution_interpolation((xr, xr), vals; degree=deg, fast=true, derivative=-1,
-                                        subgrid=:cubic, precompute=101,
-                                        kernel_bc=[(:polynomial,:polynomial),(:polynomial,:polynomial)])
+        itp = convolution_interpolation((xr, xr), vals; kernel=deg, fast=true, derivative=-1,
+                                        subgrid=:cubic, bc=:poly)
         errors[count] = abs(itp(1.0, 1.0) - f2_int)
     end
 end
@@ -119,18 +117,18 @@ ax2 = Makie.Axis(fig2[1, 1],
     limits = ((10, 10^3), (1e-16, 1e0))
 )
 
-Makie.lines!(ax2, ns_2d, itpb5_2d_errors,  label="':b5'",  linewidth=3, color=:red)
-Makie.lines!(ax2, ns_2d, itpb7_2d_errors,  label="':b7'",  linewidth=3)
-Makie.lines!(ax2, ns_2d, itpb9_2d_errors,  label="':b9'",  linewidth=3)
-Makie.lines!(ax2, ns_2d, itpb11_2d_errors, label="':b11'", linewidth=3)
-Makie.lines!(ax2, ns_2d, itpb13_2d_errors, label="':b13'", linewidth=3)
+Makie.lines!(ax2, ns_2d, itpb5_2d_errors,  label="':b5' (fast)",  linewidth=3, color=:red)
+Makie.lines!(ax2, ns_2d, itpb7_2d_errors,  label="':b7' (fast)",  linewidth=3)
+Makie.lines!(ax2, ns_2d, itpb9_2d_errors,  label="':b9' (fast)",  linewidth=3)
+Makie.lines!(ax2, ns_2d, itpb11_2d_errors, label="':b11' (fast)", linewidth=3)
+Makie.lines!(ax2, ns_2d, itpb13_2d_errors, label="':b13' (fast)", linewidth=3)
 
 Makie.lines!(ax2, [10, 1000], [1e-3*(10/10)^9, 1e-3*(10/1000)^9],
        color=:black, linestyle=:dash, label=L"\mathcal{O}(h^9)", linewidth=3)
 
 Legend(fig2[1, 2], ax2, labelsize=20)
 fig2
-# save("fig/convergence_integration_2d.png", fig2, px_per_unit=3)
+# save("fig/convergence_integration_2d_runge.png", fig2, px_per_unit=3)
 
 # ── 3D convergence ────────────────────────────────────────────────────────────
 f3 = (x, y, z) -> exp(-(x^2 + y^2 + z^2))
@@ -154,9 +152,8 @@ for n in ns_3d
     for (errors, deg) in zip(
             [itpb5_3d_errors, itpb7_3d_errors, itpb9_3d_errors, itpb11_3d_errors, itpb13_3d_errors],
             [:b5, :b7, :b9, :b11, :b13])
-        itp = convolution_interpolation((xr, xr, xr), vals; degree=deg, fast=true, derivative=-1,
-                                        subgrid=:cubic, precompute=101,
-                                        kernel_bc=[(:polynomial,:polynomial),(:polynomial,:polynomial),(:polynomial,:polynomial)])
+        itp = convolution_interpolation((xr, xr, xr), vals; kernel=deg, fast=true, derivative=-1,
+                                        subgrid=:cubic, bc=:poly)
         errors[count] = abs(itp(1.0, 1.0, 1.0) - f3_int)
     end
 end

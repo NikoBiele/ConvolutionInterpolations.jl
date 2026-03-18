@@ -169,7 +169,7 @@ These kernels work natively on nonuniform grids without ghost points:
 | `tolerance_nu = 1e-4` | Tolerance for nonuniform tests | Nonuniform interpolation |
 | `tolerance_nu_deriv = 0.1` | Tolerance for nonuniform derivatives | Nonuniform derivatives |
 | `kernel_bc = :linear` | Kernel boundary condition | Uniform interpolation |
-| `kernel_bc_deriv = :polynomial` | Kernel boundary condition for derivatives | Derivative and convergence tests |
+| `kernel_bc_deriv = :poly` | Kernel boundary condition for derivatives | Derivative and convergence tests |
 
 ## Running the Tests
 

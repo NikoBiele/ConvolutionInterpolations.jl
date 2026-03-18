@@ -273,9 +273,10 @@ itp(1.0)   # ≈ 0.4597  (= 1 - cos(1), anchored at x=0)
 ```
 
 The result is zero-anchored at the leftmost interior knot: `F(anchor) = 0` exactly.
-The fast path (default) precomputes the anchor-side contribution at construction time,
-so evaluation is zero-allocation and O(stencil) — the same cost as regular interpolation,
-scaled by the wider kernel sum.
+The fast path (default) precomputes the anchor-side contribution at construction time.
+In 1D and 2D, prefix sums further reduce evaluation to O(stencil) and O(stencil²)
+respectively, independent of grid size. In higher dimensions, evaluation falls back to
+a general path that sums over the full coefficient array — accurate but slower for large grids.
 
 In N dimensions the result is the iterated antiderivative:
 
@@ -288,7 +289,7 @@ itp2 = convolution_interpolation((xs, ys), vs; derivative=-1);
 itp2(0.5, 0.5)   # ≈ ∫₀^0.5 ∫₀^0.5 (x+y) dx dy = 0.125
 ```
 
-Antiderivative support is available for all uniform-grid kernels except `:a0`.
+Antiderivative support is available for all uniform-grid kernels.
 It is not yet supported on non-uniform grids. 
 
 Mixed antiderivative/derivative orders are supported on uniform grids via a tuple,
@@ -303,7 +304,7 @@ itp = convolution_interpolation((xs, ys), vs; kernel=:b7, derivative=(1, -1))
 itp(1.0, 2.0)  # ≈ cos(1.0) * sin(2.0)
 ```
 
-The figure below shows convergence of the antiderivative of Runge's function:
+The figure below shows convergence of the antiderivative in 1D of Runge's function:
 
 [![Antiderivative convergence](fig/convergence_integration_1d_runge.png)](fig/convergence_integration_1d_runge.png)
 
@@ -332,19 +333,19 @@ plot(p1, p2, layout=(1,2), size=(900,400))
 
 ### Multidimensional Integration Convergence
 
-For smooth functions, the tensor product structure of the antiderivative yields an empirical
-convergence enhancement in higher dimensions. For b-series kernels on smooth integrands:
+The tensor product structure of the antiderivative yields an empirical convergence
+enhancement in higher dimensions. For b-series kernels, the observed order depends
+on the symmetry of the integrand:
 
-<p align="center"><b>O(h<sup>p</sup>),&nbsp;&nbsp;p = 7 + 2·(N−1)</b></p>
-
-So 9th order in 2D, 11th order in 3D, and so on — all from the same 7th order 1D kernel.
-For less smooth functions the order stays close to the 1D rate, but the absolute error
-still decreases with dimension for a fixed number of points per dimension.
+- **General smooth integrands**: convergence order stays close to the 1D rate (~7th order
+  for `:b7`) across all dimensions, but the absolute error still decreases with dimension
+  for a fixed number of points per dimension.
+- **Symmetric integrands** (symmetric around the domain center): convergence order
+  increases dramatically with dimension, from ~7th order in 1D to ~12th order in 5D
+  for `:b7`. The mechanism is not yet fully understood.
 
 [![2D integration convergence](fig/convergence_integration_2d_runge.png)](fig/convergence_integration_2d_runge.png)
 
-All b-series kernels converge at the same ~9th order rate in 2D on smooth integrands,
-reaching machine precision (~10⁻¹⁵) around 100 sample points per dimension.
 The theoretical explanation for this dimensional enhancement remains an open question.
 
 ### Extrapolation
@@ -403,7 +404,7 @@ Lazy construction is constant-time (~0.12 ms) regardless of grid size; eager sca
 
 #### Evaluation cost (4D 20⁴)
 
-| Kernel | Interior | Boundary (eager) | Boundary (lazy + Line) |
+| Kernel | Interior | Boundary (eager) | Boundary (lazy + :line) |
 |--------|----------|-------------------|------------------------|
 | :a3 | 659 ns | 659 ns | 3.1 μs |
 | :a4 | 3.2 μs | 3.2 μs | 8.2 μs |
@@ -465,10 +466,13 @@ antiderivative is then `F(x) = h · Σⱼ cⱼ · [K̃((x − xⱼ)/h) − K̃((
 where `anchor` is the leftmost interior knot and the subtracted term enforces
 `F(anchor) = 0`. In the fast path, the anchor-side sum `Σⱼ cⱼ · K̃((anchor − xⱼ)/h)`
 is computed once at construction (using exact arithmetic for b-series kernels, converted
-to Float64 on completion) and stored as `left_values`. At evaluation time only the
-`K̃(x)` half is computed, making repeated evaluation zero-allocation and O(stencil).
-In N dimensions the antiderivative is the tensor product of per-dimension antiderivatives,
-with one `left_values` vector stored per dimension.
+to Float64 on completion) and stored as `left_values` — one vector per dimension.
+At evaluation time only the `K̃(x)` half is computed per dimension. In 1D and 2D,
+additional prefix sums reduce the tail contributions to O(1) lookups, giving O(stencil)
+and O(stencil²) total evaluation independent of grid size. In higher dimensions the tail
+contributions are summed directly over the full coefficient array — accurate but slower
+for large grids. In N dimensions the antiderivative is the tensor product of
+per-dimension antiderivatives, with one `left_values` vector stored per dimension.
 
 ## Comparison with Other Packages
 

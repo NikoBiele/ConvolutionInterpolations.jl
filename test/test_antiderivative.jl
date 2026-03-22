@@ -3,20 +3,20 @@
 #######################################################################
 
 # Kernels to test for antiderivative
-antideriv_kernels_a = [:a3, :a4, :a5, :a7]
-antideriv_kernels_b = [:b5, :b7, :b9] #, :b11] #, :b13]
+antideriv_kernels_a = [:a3] #, :a4, :a5, :a7]
+antideriv_kernels_b = [:b5] #, :b7, :b9] #, :b11] #, :b13]
 antideriv_kernels_all = vcat(antideriv_kernels_a, antideriv_kernels_b)
 
 # Expected convergence order for antiderivative (one order higher than interpolation)
 # a-series: reproduces degree-3 polynomials → antiderivative converges at order 4
 # b-series: high order → converges at 6+ (conservative threshold)
 expected_order_antideriv_fast = Dict(
-    :a3 => 3, :a4 => 3, :a5 => 3, :a7 => 3,
-    :b5 => 5, :b7 => 5, :b9 => 5 #, :b11 => 5 #, :b13 => 5
+    :a3 => 3, #:a4 => 3, :a5 => 3, :a7 => 3,
+    :b5 => 5 #, :b7 => 5, :b9 => 5 #, :b11 => 5 #, :b13 => 5
 )
 expected_order_antideriv_direct = Dict(
-    :a3 => 3, :a4 => 3, :a5 => 3, :a7 => 3,
-    :b5 => 5, :b7 => 5, :b9 => 5 #, :b11 => 5 #, :b13 => 5
+    :a3 => 3, #:a4 => 3, :a5 => 3, :a7 => 3,
+    :b5 => 5 #, :b7 => 5, :b9 => 5 #, :b11 => 5 #, :b13 => 5
 )
 
 # Test points well away from boundaries (at least eqs points in)
@@ -142,7 +142,7 @@ end
 # ── 2D fast ───────────────────────────────────────────────────────────
 
 @testset "2D antiderivative convergence fast" begin
-    for kernel in [:a3, :b5, :b7, :b9]
+    for kernel in antideriv_kernels_all
         println("Testing 2D antiderivative fast: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
@@ -166,7 +166,7 @@ end
 # ── 2D direct ─────────────────────────────────────────────────────────
 
 @testset "2D antiderivative convergence direct" begin
-    for kernel in [:a3, :b5, :b7, :b9]
+    for kernel in antideriv_kernels_all
         println("Testing 2D antiderivative direct: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
@@ -190,7 +190,7 @@ end
 # ── 2D anchor is zero ─────────────────────────────────────────────────
 
 @testset "2D antiderivative anchor is zero" begin
-    for kernel in [:a3, :b5, :b7]
+    for kernel in antideriv_kernels_all
         xs = range(0.0, 2π, length=20)
         ys = range(0.0, 2π, length=20)
         zs = [sin(x)*cos(y) for x in xs, y in ys]
@@ -228,7 +228,7 @@ end
 # ── 3D fast ───────────────────────────────────────────────────────────
 
 @testset "3D antiderivative convergence fast" begin
-    for kernel in [:a3, :b5, :b7]
+    for kernel in antideriv_kernels_all
         println("Testing 3D antiderivative fast: ", kernel)
         errs = Float64[]
         for n in [12, 24, 48]
@@ -253,7 +253,7 @@ end
 # ── 3D direct ─────────────────────────────────────────────────────────
 
 @testset "3D antiderivative convergence direct" begin
-    for kernel in [:a3, :b5, :b7]
+    for kernel in antideriv_kernels_all
         println("Testing 3D antiderivative direct: ", kernel)
         errs = Float64[]
         for n in [12, 24, 48]

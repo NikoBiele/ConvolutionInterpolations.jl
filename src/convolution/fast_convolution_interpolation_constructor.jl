@@ -58,58 +58,90 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         error("The :n3 kernel is not supported by FastConvolutionInterpolation. Use ConvolutionInterpolation instead.")
     end
 
-    is_perdim = kernel isa NTuple{N,Symbol} || derivative isa NTuple{N,Int}
- 
-    if is_perdim
-        kernels     = kernel     isa Symbol ? ntuple(_ -> kernel,     N) : kernel
-        derivatives = derivative isa Int    ? ntuple(_ -> derivative, N) : derivative
- 
-        n_integral = count(d -> derivatives[d] == -1, 1:N)
- 
-        # Normalise subgrid to per-dim tuple.
-        # Integral dims are forced to :linear (K̃ uses linear table lookup).
-        # Derivative dims use normal subgrid validation.
-        subgrids = if subgrid isa Symbol
-            ntuple(d -> derivatives[d] == -1 ? :linear : subgrid, N)
-        else
-            ntuple(d -> derivatives[d] == -1 ? :linear : subgrid[d], N)
+    # convert inputs to expected types (if called directly)
+    knots_tuple = knots isa NTuple{N,AbstractVector} ? knots : knots isa AbstractVector || knots isa AbstractRange ? (knots,) : knots
+    kernels_tuple = kernel isa NTuple{N,Symbol} ? kernel : kernel isa Symbol ? ntuple(_ -> kernel,     N) : kernel
+    derivatives = derivative isa NTuple{N,Int} ? derivative : derivative isa Int ? ntuple(_ -> derivative, N) : derivative
+
+    # Normalize bc to per-dimension, per-side tuples (for direct calls)
+    bc = if bc isa Symbol
+        ntuple(_ -> (bc, bc), N)
+    elseif bc isa Vector{Tuple{Symbol,Symbol}}
+        ntuple(d -> bc[d], N)
+    elseif bc isa NTuple{N,Tuple{Symbol,Symbol}}
+        bc  # already a tuple of tuples
+    else
+        error("Unsupported bc type: $(typeof(bc)), must be Symbol, Vector{Tuple{Symbol,Symbol}}, or NTuple{N,Tuple{Symbol,Symbol}}.")
+    end
+
+    eqs = ntuple(d -> get_equations_for_degree(kernels_tuple[d]), N)
+
+    n_integral = count(d -> derivatives[d] == -1, 1:N)
+
+    # Normalise subgrid to per-dim tuple.
+    subgrids = if subgrid isa Symbol
+        ntuple(d -> subgrid, N)
+    else
+        ntuple(d -> subgrid[d], N)
+    end
+
+    # Validate and possibly downgrade per dimension
+    subgrids = ntuple(N) do d
+        if kernels_tuple[d] == :a0 && derivatives[d] >= 0
+            :linear
+        elseif kernels_tuple[d] == :a0 && derivatives[d] == -1
+            :linear
+        elseif kernels_tuple[d] == :a1 && derivatives[d] >= 0 && !(subgrids[d] == :linear)
+            :linear
+        elseif kernels_tuple[d] == :a1 && derivatives[d] == -1 && !(subgrids[d] in (:linear, :cubic))
+            :cubic # default
+        elseif any(d -> derivatives[d] == -1, 1:N) && any(d -> derivatives[d] >= 0, 1:N)
+            :linear # mixed integral and derivative
+        elseif N < 3
+            validate_subgrid_compatibility(kernels_tuple[d], derivatives[d], subgrids[d])
+        elseif N >= 3
+            if n_integral == 3
+                validate_subgrid_compatibility(kernels_tuple[d], derivatives[d], subgrids[d])
+            else
+                :linear
+            end
         end
- 
-        # Validate and possibly downgrade per dimension (3D+ forced to linear)
-        subgrids = if N >= 3
-            ntuple(_ -> :linear, N)
-        else
-            ntuple(d -> derivatives[d] == -1 ? :linear :
-                validate_subgrid_compatibility(kernels[d], derivatives[d], subgrids[d]), N)
-        end
- 
-        eqs = ntuple(d -> get_equations_for_degree(kernels[d]), N)
-        h   = map(k -> k[2] - k[1], knots)
-        it  = ntuple(_ -> ConvolutionMethod(), N)
- 
-        # precompute resolution: max needed across dims
-        precompute_actual = foldl(max,
-            (subgrids[d] == :linear ? max(precompute, 10_000) : precompute for d in 1:N);
-            init = precompute)
- 
-        # Eager only for per-dim fast path
-        lazy      = false
-        knots_new = expand_knots(knots, ntuple(d -> eqs[d] - 1, N))
-        coefs     = create_convolutional_coefs(vs, h, eqs, bc, kernels)
- 
-        # Per-dim kernel tables — one call per dim, unpack into 4 NTuples
-        tables        = ntuple(d -> get_precomputed_kernel_and_range(kernels[d];
-                                    precompute=precompute_actual, float_type=T,
-                                    derivative=derivatives[d], subgrid=subgrids[d]), N)
-        pre_range_d   = ntuple(d -> tables[d][1], N)
-        kernel_pre_d  = ntuple(d -> tables[d][2], N)
-        kd1_pre_d     = ntuple(d -> tables[d][3], N)
-        kd2_pre_d     = ntuple(d -> tables[d][4], N)
- 
-        # anchor: knots_new[d][eqs[d]] for integral dims, zero for derivative dims
-        anchor = ntuple(d -> derivatives[d] == -1 ? knots_new[d][eqs[d]] : zero(T), N)
- 
-        # left_values: computed for integral dims, placeholder for derivative dims
+    end
+
+    h   = ntuple(d -> knots_tuple[d][2] - knots_tuple[d][1], N)
+    it  = ntuple(_ -> ConvolutionMethod(), N)
+
+    # precompute resolution
+    precompute_actual = ntuple(d -> (subgrids[d] == :linear ? max(precompute, 10_000) : precompute), N)
+
+    # ===== LAZY vs EAGER coefs/knots =====
+    high_order_kernel_used = any(d -> kernels_tuple[d] in (:a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11, :b13), 1:N)
+    if (lazy || !high_order_kernel_used) && B === nothing
+        # LAZY: store raw values directly, original knots (not expanded)
+        coefs = vs
+        knots_new = ntuple(i -> collect(eltype(h), knots_tuple[i]), N)
+    else
+        # EAGER: original path — expand knots and compute ghost points
+        lazy = false  # ensure flag matches actual state
+        knots_new = expand_knots(knots_tuple, ntuple(d -> eqs[d] - 1, N))
+        coefs = create_convolutional_coefs(vs, h, eqs, bc, kernels_tuple)
+    end
+
+    # Per-dim kernel tables — one call per dim, unpack into 4 NTuples
+    tables        = ntuple(d -> get_precomputed_kernel_and_range(kernels_tuple[d];
+                                precompute=precompute_actual[d], float_type=T,
+                                derivative=derivatives[d], subgrid=subgrids[d]), N)
+    pre_range_d   = ntuple(d -> tables[d][1], N)
+    kernel_pre_d  = ntuple(d -> tables[d][2], N)
+    kd1_pre_d     = ntuple(d -> tables[d][3], N)
+    kd2_pre_d     = ntuple(d -> tables[d][4], N)
+
+    # anchor: knots_new[d][eqs[d]] for integral dims, zero for derivative dims
+    anchor = ntuple(d -> derivatives[d] == -1 ? knots_new[d][eqs[d]] : zero(T), N)
+
+    # left_values: computed for integral dims, placeholder for derivative dims
+    placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
+    if n_integral >= 1
         left_values = ntuple(N) do d
             if derivatives[d] == -1
                 _compute_left_values(T, eqs[d], size(coefs, d),
@@ -118,155 +150,186 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                 [zero(T)]
             end
         end
-        placeholder = Array{T}(undef, ntuple(_ -> 0, N))
-        cumcoefs_left = ntuple(N) do d
-            derivatives[d] == -1 ?
-                cumsum(coefs .* (T(1//2) .- left_values[d]), dims=d) :
+        tail1_left = ntuple(N) do d
+            if derivatives[d] == -1
+                lv = reshape(left_values[d], ntuple(i -> i == d ? length(left_values[d]) : 1, N))
+                cumsum(coefs .* (T(1//2) .- lv), dims=d)
+            else
                 placeholder
+            end
         end
-        cumcoefs_right = ntuple(N) do d
-            derivatives[d] == -1 ?
-                _suffix_sum(coefs .* (-T(1//2) .- left_values[d]), d) :
+        tail1_right = ntuple(N) do d
+            if derivatives[d] == -1
+                lv = reshape(left_values[d], ntuple(i -> i == d ? length(left_values[d]) : 1, N))
+                _suffix_sum(coefs .* (-T(1//2) .- lv), d)
+            else
                 placeholder
-        end
-        if n_integral == 2
-            lv1 = reshape(left_values[1], (size(coefs,1), 1))
-            lv2 = reshape(left_values[2], (1, size(coefs,2)))
-            wll = coefs .* (T(1//2) .- lv1) .* (T(1//2) .- lv2)
-            wrl = coefs .* (-T(1//2) .- lv1) .* (T(1//2) .- lv2)
-            wlr = coefs .* (T(1//2) .- lv1) .* (-T(1//2) .- lv2)
-            wrr = coefs .* (-T(1//2) .- lv1) .* (-T(1//2) .- lv2)
-            cross_ll = ntuple(d -> cumsum(cumsum(wll, dims=1), dims=2), N)
-            cross_rl = ntuple(d -> _suffix_sum(cumsum(wrl, dims=2), 1), N)
-            cross_lr = ntuple(d -> cumsum(_suffix_sum(wlr, 2), dims=1), N)
-            cross_rr = ntuple(d -> _suffix_sum(_suffix_sum(wrr, 2), 1), N)
-        else
-            ph = Array{T}(undef, ntuple(_ -> 0, N))
-            cross_ll = ntuple(_ -> ph, N)
-            cross_rl = ntuple(_ -> ph, N)
-            cross_lr = ntuple(_ -> ph, N)
-            cross_rr = ntuple(_ -> ph, N)
-        end
-            
-        kernel_type    = ntuple(d -> kernels[d] in (:a0, :a1) ?
-                                Val(kernels[d]) : HigherOrderKernel(Val(kernels[d])), N)
-        dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
- 
-        do_type = if n_integral == 0
-            DerivativeOrder(Val(derivatives))
-        elseif n_integral == N
-            IntegralOrder()
-        else
-            MixedIntegralOrder{derivatives}()
-        end
- 
-        # SG dispatch tag: the subgrid tuple itself, e.g. Val{(:cubic,:quintic)}
-        sg_tag = Val(subgrids)
- 
-        return FastConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),
-                                            typeof(kernel_type),typeof(dimension),typeof(Val(kernels)),
-                                            typeof(eqs),typeof(pre_range_d),typeof(kernel_pre_d),
-                                            typeof(bc),typeof(do_type),
-                                            typeof(kd1_pre_d),typeof(kd2_pre_d),typeof(sg_tag)}(
-            coefs, knots_new, it, h, kernel_type, dimension, Val(kernels), eqs,
-            pre_range_d, kernel_pre_d, bc, do_type,
-            kd1_pre_d, kd2_pre_d, sg_tag,
-            lazy, boundary_fallback, left_values, anchor, 
-            cumcoefs_left, cumcoefs_right, cross_ll, cross_rl, cross_lr, cross_rr
-        )
-    end
-
-    subgrid = if derivative == -1
-        if kernel == :a0
-            :linear
-        else
-            subgrid
+            end
         end
     else
-        validate_subgrid_compatibility(kernel::Symbol, derivative::Int, subgrid::Symbol)
-    end
-    if N >= 3 && subgrid in (:cubic, :quintic)
-        subgrid = :linear
-    end
-    precompute = subgrid == :linear ? max(precompute, 10_000) : precompute # minimum precompute for linear subgrid
-    if knots isa AbstractVector || knots isa AbstractRange
-        knots = (knots,) # Convert knots to tuple if needed (if called directly)
-    end
-    eqs = B === nothing ? get_equations_for_degree(kernel) : 50
-    h = map(k -> k[2] - k[1], knots)
-    it = ntuple(_ -> ConvolutionMethod(), N)
-
-    # ===== LAZY vs EAGER coefs/knots =====
-    if lazy && kernel != :a0 && kernel != :a1 && B === nothing
-        # LAZY: store raw values directly, original knots (not expanded)
-        coefs = vs
-        knots_new = ntuple(i -> collect(eltype(h), knots[i]), N)
-    else
-        # EAGER: original path — expand knots and compute ghost points
-        lazy = false  # ensure flag matches actual state
-        knots_new = expand_knots(knots, eqs-1)
-        coefs = kernel == :a0 || kernel == :a1 ? vs : create_convolutional_coefs(vs, h, eqs, bc, kernel)
-    end
-    kernel_type = B === nothing ? ConvolutionKernel(Val(kernel), Val(derivative)) : GaussianConvolutionKernel(Val(B))
-    dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
-    pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre = 
-                  get_precomputed_kernel_and_range(kernel; precompute=precompute, float_type=T,
-                  derivative=derivative, subgrid=subgrid)
-    anchor = ntuple(d -> knots_new[d][eqs], N)
-    if derivative == -1
-        left_values = ntuple(d -> _compute_left_values(T, eqs, size(coefs, d),
-                             kernel_pre, kernel_d1_pre, kernel_d2_pre, subgrid), N)
-    else
-        left_values = ntuple(d -> [zero(T)], N)
-    end
-    if derivative == -1
-        cumcoefs_left = ntuple(N) do d
-            lv = reshape(left_values[d], ntuple(i -> i == d ? length(left_values[d]) : 1, N))
-            cumsum(coefs .* (T(1//2) .- lv), dims=d)
-        end
-        cumcoefs_right = ntuple(N) do d
-            lv = reshape(left_values[d], ntuple(i -> i == d ? length(left_values[d]) : 1, N))
-            _suffix_sum(coefs .* (-T(1//2) .- lv), d)
-        end
-    else
-        placeholder = Array{T}(undef, ntuple(_ -> 0, N))
-        cumcoefs_left  = ntuple(_ -> placeholder, N)
-        cumcoefs_right = ntuple(_ -> placeholder, N)
-    end
-    if derivative == -1 && N == 2
+        left_values = ntuple(_ -> [zero(T)], N)
+        tail1_left = ntuple(_ -> placeholder, N)
+        tail1_right = ntuple(_ -> placeholder, N)
+    end    
+    if n_integral == 2
         lv1 = reshape(left_values[1], (size(coefs,1), 1))
         lv2 = reshape(left_values[2], (1, size(coefs,2)))
         wll = coefs .* (T(1//2) .- lv1) .* (T(1//2) .- lv2)
         wrl = coefs .* (-T(1//2) .- lv1) .* (T(1//2) .- lv2)
         wlr = coefs .* (T(1//2) .- lv1) .* (-T(1//2) .- lv2)
         wrr = coefs .* (-T(1//2) .- lv1) .* (-T(1//2) .- lv2)
-        cross_ll = ntuple(d -> cumsum(cumsum(wll, dims=1), dims=2), N)
-        cross_rl = ntuple(d -> _suffix_sum(cumsum(wrl, dims=2), 1), N)
-        cross_lr = ntuple(d -> cumsum(_suffix_sum(wlr, 2), dims=1), N)
-        cross_rr = ntuple(d -> _suffix_sum(_suffix_sum(wrr, 2), 1), N)
+        tail2_ll = cumsum(cumsum(wll, dims=1), dims=2)
+        tail2_rl = _suffix_sum(cumsum(wrl, dims=2), 1)
+        tail2_lr = cumsum(_suffix_sum(wlr, 2), dims=1)
+        tail2_rr = _suffix_sum(_suffix_sum(wrr, 2), 1)
     else
-        ph = Array{T}(undef, ntuple(_ -> 0, N))
-        cross_ll = ntuple(_ -> ph, N)
-        cross_rl = ntuple(_ -> ph, N)
-        cross_lr = ntuple(_ -> ph, N)
-        cross_rr = ntuple(_ -> ph, N)
+        ph = Matrix{T}(undef, 0, 0)
+        tail2_ll = ph
+        tail2_rl = ph
+        tail2_lr = ph
+        tail2_rr = ph
+    end
+    if n_integral == 3
+        lv1 = reshape(left_values[1], (size(coefs,1), 1, 1))
+        lv2 = reshape(left_values[2], (1, size(coefs,2), 1))
+        lv3 = reshape(left_values[3], (1, 1, size(coefs,3)))
+        wl1 = T(1//2) .- lv1;  wr1 = -T(1//2) .- lv1
+        wl2 = T(1//2) .- lv2;  wr2 = -T(1//2) .- lv2
+        wl3 = T(1//2) .- lv3;  wr3 = -T(1//2) .- lv3
+
+        # faces: saturated in one dim, free in the other two
+        # tail3_face_l[d] = prefix sum along dim d only, weighted by (1/2 - lv_d)
+        tail3_face_l = (
+            cumsum(coefs .* wl1, dims=1),
+            cumsum(coefs .* wl2, dims=2),
+            cumsum(coefs .* wl3, dims=3),
+        )
+        tail3_face_r = (
+            _suffix_sum(coefs .* wr1, 1),
+            _suffix_sum(coefs .* wr2, 2),
+            _suffix_sum(coefs .* wr3, 3),
+        )
+
+        # edges: saturated in two dims, free in one
+        # tail3_edge_ll[d] = free in dim d, left×left in the other two (ascending order)
+        # d=1: saturated in dims 2&3
+        # d=2: saturated in dims 1&3
+        # d=3: saturated in dims 1&2
+        tail3_edge_ll = (
+            cumsum(cumsum(coefs .* wl2 .* wl3, dims=2), dims=3),
+            cumsum(cumsum(coefs .* wl1 .* wl3, dims=1), dims=3),
+            cumsum(cumsum(coefs .* wl1 .* wl2, dims=1), dims=2),
+        )
+        tail3_edge_rl = (
+            _suffix_sum(cumsum(coefs .* wr2 .* wl3, dims=3), 2),
+            _suffix_sum(cumsum(coefs .* wr1 .* wl3, dims=3), 1),
+            _suffix_sum(cumsum(coefs .* wr1 .* wl2, dims=2), 1),
+        )
+        tail3_edge_lr = (
+            cumsum(_suffix_sum(coefs .* wl2 .* wr3, 3), dims=2),
+            cumsum(_suffix_sum(coefs .* wl1 .* wr3, 3), dims=1),
+            cumsum(_suffix_sum(coefs .* wl1 .* wr2, 2), dims=1),
+        )
+        tail3_edge_rr = (
+            _suffix_sum(_suffix_sum(coefs .* wr2 .* wr3, 3), 2),
+            _suffix_sum(_suffix_sum(coefs .* wr1 .* wr3, 3), 1),
+            _suffix_sum(_suffix_sum(coefs .* wr1 .* wr2, 2), 1),
+        )
+
+        # corners: saturated in all three dims
+        tail3_corner_lll = cumsum(cumsum(cumsum(coefs .* wl1 .* wl2 .* wl3, dims=1), dims=2), dims=3)
+        tail3_corner_rll = _suffix_sum(cumsum(cumsum(coefs .* wr1 .* wl2 .* wl3, dims=2), dims=3), 1)
+        tail3_corner_lrl = cumsum(_suffix_sum(cumsum(coefs .* wl1 .* wr2 .* wl3, dims=3), 2), dims=1)
+        tail3_corner_llr = cumsum(cumsum(_suffix_sum(coefs .* wl1 .* wl2 .* wr3, 3), dims=1), dims=2)
+        tail3_corner_rrl = _suffix_sum(_suffix_sum(cumsum(coefs .* wr1 .* wr2 .* wl3, dims=3), 2), 1)
+        tail3_corner_rlr = _suffix_sum(cumsum(_suffix_sum(coefs .* wr1 .* wl2 .* wr3, 2), dims=1), 3)
+        tail3_corner_lrr = cumsum(_suffix_sum(_suffix_sum(coefs .* wl1 .* wr2 .* wr3, 3), 2), dims=1)
+        tail3_corner_rrr = _suffix_sum(_suffix_sum(_suffix_sum(coefs .* wr1 .* wr2 .* wr3, 3), 2), 1)
+    else
+        ph = Array{T}(undef, ntuple(_ -> 0, 3)...)
+        tail3_face_l = ntuple(_ -> ph, 3)
+        tail3_face_r = ntuple(_ -> ph, 3)
+        tail3_edge_ll = ntuple(_ -> ph, 3)
+        tail3_edge_rl = ntuple(_ -> ph, 3)
+        tail3_edge_lr = ntuple(_ -> ph, 3)
+        tail3_edge_rr = ntuple(_ -> ph, 3)
+        tail3_corner_lll = ph; tail3_corner_rll = ph
+        tail3_corner_lrl = ph; tail3_corner_llr = ph
+        tail3_corner_rrl = ph; tail3_corner_rlr = ph
+        tail3_corner_lrr = ph; tail3_corner_rrr = ph
     end
 
-    kernel = kernel == :a0 || kernel == :a1 ? Val(kernel) : HigherOrderKernel(Val(kernel))
-    do_type = derivative == -1 ? IntegralOrder() : DerivativeOrder(Val(derivative))
+    kernel_type = ntuple(d -> nothing, N)
+    dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
 
-    return FastConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel_type),typeof(dimension),
-                                        typeof(kernel),typeof(eqs),typeof(pre_range),typeof(kernel_pre),typeof(bc),
-                                        typeof(do_type), typeof(kernel_d1_pre),typeof(kernel_d2_pre),typeof(Val(subgrid))}(
-        coefs, knots_new, it, h, kernel_type, dimension, kernel, eqs, pre_range, kernel_pre, bc, do_type,
-        kernel_d1_pre, kernel_d2_pre, Val(subgrid), lazy, boundary_fallback, left_values, anchor,
-        cumcoefs_left, cumcoefs_right, cross_ll, cross_rl, cross_lr, cross_rr
+    do_type = if n_integral == 0
+        DerivativeOrder(Val(derivatives))
+    elseif n_integral == N
+        IntegralOrder()
+    else
+        MixedIntegralOrder{derivatives}()
+    end
+
+    low_order_kernel_used  = any(d -> kernels_tuple[d] in (:a0, :a1), 1:N)
+    if allequal(derivatives)
+        kernels = if high_order_kernel_used && low_order_kernel_used
+            FullMixedOrderKernel(Val(kernels_tuple))
+        elseif high_order_kernel_used && !low_order_kernel_used && allequal(kernels_tuple)
+            HigherOrderKernel(Val(kernels_tuple))
+        elseif high_order_kernel_used && !low_order_kernel_used && !allequal(kernels_tuple)
+            HigherOrderMixedKernel(Val(kernels_tuple))
+        elseif !high_order_kernel_used && low_order_kernel_used && allequal(kernels_tuple)
+            LowerOrderKernel(Val(kernels_tuple))
+        elseif !high_order_kernel_used && low_order_kernel_used && !allequal(kernels_tuple)
+            LowerOrderMixedKernel(Val(kernels_tuple))
+        end
+    else
+        kernels = if high_order_kernel_used && low_order_kernel_used
+            FullMixedOrderKernel(Val(kernels_tuple))
+        elseif high_order_kernel_used && !low_order_kernel_used
+            HigherOrderMixedKernel(Val(kernels_tuple))
+        elseif !high_order_kernel_used && low_order_kernel_used
+            LowerOrderMixedKernel(Val(kernels_tuple))
+        end
+    end
+    integral_dims = ntuple(d -> derivatives[d] == -1, N)
+
+    return FastConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),
+                                        typeof(kernel_type),typeof(dimension),typeof(kernels),
+                                        typeof(eqs),typeof(pre_range_d),typeof(kernel_pre_d),
+                                        typeof(bc),typeof(do_type),
+                                        typeof(kd1_pre_d),typeof(kd2_pre_d),typeof(Val(subgrids)),
+                                        typeof(Val(lazy)),typeof(n_integral)}(
+        coefs, knots_new, it, h, kernel_type, dimension, kernels, eqs,
+        pre_range_d, kernel_pre_d, bc, do_type,
+        kd1_pre_d, kd2_pre_d, Val(subgrids),
+        Val(lazy), boundary_fallback, left_values, anchor, n_integral, integral_dims,
+        tail1_left, tail1_right, tail2_ll, tail2_rl, tail2_lr, tail2_rr,
+        # 3d arrrays
+        tail3_edge_ll,  # free dim d, left×left in the other two
+        tail3_edge_rl, tail3_edge_lr, tail3_edge_rr,
+        tail3_face_l,   # tail3_face_l[d] = left-saturated in dim d
+        tail3_face_r,
+        tail3_corner_lll, tail3_corner_rll, tail3_corner_lrl, tail3_corner_llr,
+        tail3_corner_rrl, tail3_corner_rlr, tail3_corner_lrr, tail3_corner_rrr,        
     )
 end
 
 function validate_subgrid_compatibility(kernel::Symbol, derivative::Int, subgrid::Symbol)
-    if kernel == :a0 || kernel == :a1
-        return :not_used
+    if kernel == :a0 && subgrid == :linear
+        return subgrid
+    elseif kernel == :a0 && subgrid == :cubic
+        return :linear
+    elseif kernel == :a1 && derivative == -1 && (subgrid == :linear || subgrid == :cubic)
+        return subgrid
+    elseif kernel == :a1 && derivative == 0 && subgrid == :cubic
+        return :linear
+    elseif kernel == :a1 && subgrid == :quintic
+        error("Cannot compute derivative $(derivative) for kernel $kernel with subgrid $subgrid." * 
+                "Derivative is not available for this kernel and subgrid.")
+    elseif kernel == :a1 && subgrid == :cubic && derivative > -1
+        error("Cannot compute derivative $(derivative) for kernel $kernel with subgrid $subgrid." * 
+                "Derivative is not available for this kernel and subgrid.")
     end 
     max_deriv = max_smooth_derivative[kernel]  # e.g., 3 for b5
     available_derivs = max_deriv - derivative
@@ -289,7 +352,6 @@ function suggest_subgrid(available_derivs)
 end
 
 const required_derivs = Dict(
-  :nearest => 0,
   :linear => 0,
   :cubic => 1,
   :quintic => 2

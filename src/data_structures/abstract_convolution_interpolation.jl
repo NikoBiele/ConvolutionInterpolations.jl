@@ -23,4 +23,4 @@ This abstract type serves as the parent type for the concrete implementations
 `ConvolutionInterpolation` and `FastConvolutionInterpolation`.
 """
 abstract type AbstractConvolutionInterpolation{T,N,TCoefs,IT<:Union{Tuple{Vararg{ConvolutionMethod}},ConvolutionMethod},
-                                                Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG} end
+                                                Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,LZ,NI} end

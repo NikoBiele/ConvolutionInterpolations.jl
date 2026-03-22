@@ -38,8 +38,8 @@ providing accurate results but potentially slower performance than `FastConvolut
 """
 
 struct ConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,ConvolutionMethod},
-                                Axs<:Tuple,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,NB} <: 
-                                AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG}
+                                Axs<:Tuple,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,NB,LZ,NI} <: 
+                                AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,LZ,NI}
     coefs::TCoefs
     knots::Axs
     it::IT
@@ -54,7 +54,9 @@ struct ConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,Convoluti
     kernel_d2_pre::SD
     subgrid::SG
     nb_weight_coeffs::NB
-    lazy::Bool
+    lazy::LZ
     boundary_fallback::Bool
     anchor::NTuple{N, T}
+    n_integral::NI
+    integral_dims::NTuple{N, Bool}
 end

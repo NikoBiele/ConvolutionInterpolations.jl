@@ -78,10 +78,10 @@ end
     vs = sin.(knots)
 
     itp_a0 = convolution_interpolation(knots, vs, kernel=:a0)
-    @test itp_a0.itp.lazy == true
+    @test itp_a0.itp.lazy == Val{true}()
     @test itp_a0.itp.coefs === vs
 
     itp_a1 = convolution_interpolation(knots, vs, kernel=:a1)
-    @test itp_a1.itp.lazy == true
+    @test itp_a1.itp.lazy == Val{true}()
     @test itp_a1.itp.coefs === vs
 end

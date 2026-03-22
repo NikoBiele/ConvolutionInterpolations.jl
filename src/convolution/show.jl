@@ -33,6 +33,14 @@ end
  
 _show_deg(::Val{S}) where S = S isa Tuple ? "(" * join((":$s" for s in S), ", ") * ")" : ":$S"
 _show_deg(::HigherOrderKernel{S}) where S = S isa Tuple ? "(" * join((":$s" for s in S), ", ") * ")" : ":$S"
+_show_deg(::HigherOrderMixedKernel{S}) where S = S isa Tuple ? "(" * join((":$s" for s in S), ", ") * ")" : ":$S"
+_show_deg(::LowerOrderKernel{S}) where S = S isa Tuple ? "(" * join((":$s" for s in S), ", ") * ")" : ":$S"
+_show_deg(::LowerOrderMixedKernel{S}) where S = S isa Tuple ? "(" * join((":$s" for s in S), ", ") * ")" : ":$S"
+_show_deg(::FullMixedOrderKernel{S}) where S = S isa Tuple ? "(" * join((":$s" for s in S), ", ") * ")" : ":$S"
+_show_deg(::NonUniformMixedOrderKernel{S}) where S = S isa Tuple ? "(" * join((":$s" for s in S), ", ") * ")" : ":$S"
+_show_deg(::NonUniformNonMixedLowKernel{S}) where S = S isa Tuple ? "(" * join((":$s" for s in S), ", ") * ")" : ":$S"
+_show_deg(::NonUniformNonMixedHighKernel{S}) where S = S isa Tuple ? "(" * join((":$s" for s in S), ", ") * ")" : ":$S"
+
 _show_deg(other) = other
 
 _show_do(::DerivativeOrder{DO}) where DO = "derivative=$DO"

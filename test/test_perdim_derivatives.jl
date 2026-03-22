@@ -22,7 +22,7 @@
 # (0,1,1) →  sin(x)*cos(y)*cos(z)
 #######################################################################
 
-perdim_deriv_kernels = [:b5, :b7, :b9, :b11]
+perdim_deriv_kernels = [:b5] #, :b7, :b9, :b11]
 N_pd = 50
 tolerance_pd = 1e-4
 

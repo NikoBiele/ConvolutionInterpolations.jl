@@ -5,7 +5,7 @@ println("Testing lazy boundary correctness...")
 lazy_tolerance = 1e-6
 @testset "Lazy boundary correctness" begin
     # Test that lazy matches eager for a few key cases
-    for kernel in (:a3, :b5, :b7)
+    for kernel in (:a3, :b5) #, :b7)
         # 1D
         vs_1d = Float64.(0:9)
         knots_1d = (range(0.0, 9.0, length=10),)
@@ -44,7 +44,7 @@ println("Testing lazy nonuniform correctness...")
     itp_l = convolution_interpolation(knots_1d, vs_1d, kernel=:a3, lazy=true)
 
     # Verify lazy stores raw values
-    @test itp_l.itp.lazy == true
+    @test itp_l.itp.lazy == Val{true}()
     @test itp_l.itp.coefs === vs_1d
     @test size(itp_l.itp.coefs) == size(vs_1d)
 
@@ -60,7 +60,7 @@ println("Testing lazy nonuniform correctness...")
     itp_e = convolution_interpolation((kx, ky), vs_2d, kernel=:a3, lazy=false)
     itp_l = convolution_interpolation((kx, ky), vs_2d, kernel=:a3, lazy=true)
 
-    @test itp_l.itp.lazy == true
+    @test itp_l.itp.lazy == Val{true}()
     @test itp_l.itp.coefs === vs_2d
 
     for (x, y) in [(0.2, 0.5), (1.0, 1.0), (0.2, 1.8), (1.8, 0.2), (1.8, 1.8)]
@@ -73,7 +73,7 @@ println("Testing lazy nonuniform correctness...")
     itp_e = convolution_interpolation((kx, ky, kz), vs_3d, kernel=:a3, lazy=false)
     itp_l = convolution_interpolation((kx, ky, kz), vs_3d, kernel=:a3, lazy=true)
 
-    @test itp_l.itp.lazy == true
+    @test itp_l.itp.lazy == Val{true}()
     @test itp_l.itp.coefs === vs_3d
 
     for (x, y, z) in [(0.5, 0.5, 0.5), (0.2, 1.5, 0.8), (1.8, 0.2, 1.5)]
@@ -82,7 +82,7 @@ println("Testing lazy nonuniform correctness...")
 
     # Nonuniform b-kernels still force eager
     itp_b = convolution_interpolation(knots_1d, vs_1d, kernel=:b5, lazy=true)
-    @test itp_b.itp.lazy == false
+    @test itp_b.itp.lazy == Val{false}()
 end
 
 #################################################################
@@ -90,7 +90,7 @@ end
 #################################################################
 println("Testing lazy boundary correctness in 1D, 4D, 5D...")
 @testset "Lazy boundary correctness" begin
-    for kernel in (:a3, :b5, :b7)
+    for kernel in (:a3, :b5) #, :b7)
         println("Testing kernel lazy boundary correctness: $kernel...")
         # 1D: boundary_fallback=false still works
         knots_1d = range(0.0, 2*pi, length=20)

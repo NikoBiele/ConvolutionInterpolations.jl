@@ -120,13 +120,17 @@ Computed once per dimension, reused across all stencil points.
     end
 end
 
-@inline function _eval_n3_lazy(itp::ConvolutionInterpolation{T,1}, x::Number) where T
+@inline function (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
+                    NonUniformNonMixedHighKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    FD,SD,SG,Val{:nonuniform},Val{true}})(x::Vararg{Number,1}) where
+                    {T,TCoefs,IT,Axs,KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},KBC,DO,FD,SD,SG}
+
     knots_exp = itp.knots[1]
     n = length(knots_exp)
-    i = searchsortedlast(knots_exp, x)
+    i = searchsortedlast(knots_exp, x[1])
     i = clamp(i, 2, n - 2)
     
-    x_local = T(x) - knots_exp[i]
+    x_local = T(x[1]) - knots_exp[i]
     hm = knots_exp[i]   - knots_exp[i-1]
     h0 = knots_exp[i+1] - knots_exp[i]
     hp = knots_exp[i+2] - knots_exp[i+1]
@@ -145,9 +149,13 @@ end
     return result
 end
 
-@inline function _eval_n3_lazy(itp::ConvolutionInterpolation{T,2}, x1::Number, x2::Number) where T
-    i, wi = _nonuniform_dim_ghost(itp.knots[1], x1)
-    j, wj = _nonuniform_dim_ghost(itp.knots[2], x2)
+@inline function (itp::ConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
+                    NonUniformNonMixedHighKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    FD,SD,SG,Val{:nonuniform},Val{true}})(x::Vararg{Number,2}) where
+                    {T,TCoefs,IT,Axs,KA<:NTuple{2,<:Nothing},DG,EQ<:Tuple{Int,Int},KBC,DO,FD,SD,SG}
+
+    i, wi = _nonuniform_dim_ghost(itp.knots[1], x[1])
+    j, wj = _nonuniform_dim_ghost(itp.knots[2], x[2])
     
     n1 = size(itp.coefs, 1)
     n2 = size(itp.coefs, 2)
@@ -172,10 +180,14 @@ end
     return result
 end
 
-@inline function _eval_n3_lazy(itp::ConvolutionInterpolation{T,3}, x1::Number, x2::Number, x3::Number) where T
-    i, wi = _nonuniform_dim_ghost(itp.knots[1], x1)
-    j, wj = _nonuniform_dim_ghost(itp.knots[2], x2)
-    k, wk = _nonuniform_dim_ghost(itp.knots[3], x3)
+@inline function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
+                    NonUniformNonMixedHighKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    FD,SD,SG,Val{:nonuniform},Val{true}})(x::Vararg{Number,3}) where
+                    {T,TCoefs,IT,Axs,KA<:NTuple{3,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},KBC,DO,FD,SD,SG}
+
+    i, wi = _nonuniform_dim_ghost(itp.knots[1], x[1])
+    j, wj = _nonuniform_dim_ghost(itp.knots[2], x[2])
+    k, wk = _nonuniform_dim_ghost(itp.knots[3], x[3])
     
     n1 = size(itp.coefs, 1)
     n2 = size(itp.coefs, 2)
@@ -207,7 +219,12 @@ end
     return result
 end
 
-@inline function _eval_n3_lazy(itp::ConvolutionInterpolation{T,N}, x::Vararg{Number,N}) where {T,N}
+# @inline function _eval_n3_lazy(itp::ConvolutionInterpolation{T,N}, x::Vararg{Number,N}) where {T,N}
+@inline function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
+        NonUniformNonMixedHighKernel{DG},EQ,KBC,DerivativeOrder{DO},
+        FD,SD,SG,Val{:nonuniform},Val{true}})(x::Vararg{Number,N}) where 
+        {T,N,TCoefs,IT,Axs,KA<:NTuple{N,<:Nothing},DG,EQ<:NTuple{N,Int},KBC,DO,FD,SD,SG}
+
     knots_orig = ntuple(d -> itp.knots[d][2:end-1], N)
     
     iw = ntuple(d -> _nonuniform_dim_ghost(itp.knots[d], x[d]), N)

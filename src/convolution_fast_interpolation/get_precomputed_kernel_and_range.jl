@@ -7,7 +7,7 @@ Retrieve precomputed kernel values for fast convolution interpolation.
 For `:cubic` and `:quintic` subgrid modes (default), uses pre-shipped kernel tables
 computed at exact rational precision. No disk I/O or caching required.
 
-For `:linear`/`:nearest` subgrid, the top derivative of each kernel, or BigFloat
+For `:linear` subgrid, the top derivative of each kernel, or BigFloat
 precision, computes high-resolution tables on demand and caches them to disk.
 
 # Returns
@@ -19,7 +19,7 @@ function get_precomputed_kernel_and_range(degree::Symbol;
             derivative::Int=0, subgrid::Symbol=:cubic) where {T}
 
     # Use cache path for: linear/nearest subgrid, BigFloat, or top derivative
-    if subgrid in (:linear, :nearest) || float_type <: BigFloat ||
+    if subgrid == :linear || float_type <: BigFloat ||
         _is_top_derivative(degree, derivative) || precompute != 101
         return _get_cached_kernel(degree; precompute=precompute,
                     float_type=float_type, derivative=derivative, subgrid=subgrid)
@@ -59,7 +59,7 @@ function _get_cached_kernel(degree::Symbol;
     cache_file_d1 = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_$(type_tag)_derivative_$(derivative+1)_kernel.jls")
     cache_file_d2 = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_$(type_tag)_derivative_$(derivative+2)_kernel.jls")
 
-    if (degree == :a0 || degree == :a1) && isfile(cache_file_range) && isfile(cache_file_d0)
+    if degree == :a0 && isfile(cache_file_range) && isfile(cache_file_d0)
         return deserialize(cache_file_range), deserialize(cache_file_d0), nothing, nothing
     elseif subgrid == :linear && isfile(cache_file_range) && isfile(cache_file_d0)
         return deserialize(cache_file_range), deserialize(cache_file_d0), nothing, nothing

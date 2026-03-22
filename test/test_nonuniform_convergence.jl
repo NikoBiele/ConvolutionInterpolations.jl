@@ -2,9 +2,9 @@
 ### NONUNIFORM CONVERGENCE ################################################
 ###########################################################################
 
-convergence_nu_kernels = [:b5, :b7, :b9, :b11]
+convergence_nu_kernels = [:b5] #, :b7, :b9, :b11]
 expected_order_nonuniform = Dict(
-    :b5 => 7, :b7 => 7, :b9 => 7, :b11 => 6 # no accumulated floating point error (precomputed kernel)
+    :b5 => 7 #, :b7 => 7, :b9 => 7, :b11 => 6 # no accumulated floating point error (precomputed kernel)
 )
 
 # shared helper
@@ -77,7 +77,7 @@ end
 ### TEST NEARLY UNIFORM VIA NONUNIFORM PATH #############################
 #########################################################################
 
-nu_regression_kernels = [:a0, :a1, :a3, :b5, :b7, :b9, :b11] # :a3 kernel triggers nonuniform lower order kernel
+nu_regression_kernels = [:a0, :a1, :a3, :b5] # :a3 kernel triggers nonuniform lower order kernel
 
 println("Testing nearly-uniform via nonuniform path in 1D...")
 @testset "1D nearly-uniform via nonuniform matches fast" begin

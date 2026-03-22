@@ -45,8 +45,8 @@ This implementation uses precomputed kernel values,
 offering significantly faster performance than `ConvolutionInterpolation`.
 """
 struct FastConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,ConvolutionMethod},
-                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP,KBC,DOT,FD,SD,SG} <: 
-                                AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG}
+                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP,KBC,DOT,FD,SD,SG,LZ,NI} <: 
+                                AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,NI}
     coefs::TCoefs
     knots::Axs
     it::IT
@@ -62,14 +62,32 @@ struct FastConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,Convo
     kernel_d1_pre::FD
     kernel_d2_pre::SD
     subgrid::SG
-    lazy::Bool
+    lazy::LZ
     boundary_fallback::Bool
     left_values::NTuple{N, Vector{T}}
     anchor::NTuple{N, T}
-    cumcoefs_left::NTuple{N, Array{T}}
-    cumcoefs_right::NTuple{N, Array{T}}
-    cross_ll::NTuple{N, Array{T}}
-    cross_rl::NTuple{N, Array{T}}
-    cross_lr::NTuple{N, Array{T}}
-    cross_rr::NTuple{N, Array{T}}
+    n_integral::NI
+    integral_dims::NTuple{N, Bool}
+    # 1d and 2d integral tails
+    tail1_left::NTuple{N, Array{T,N}}
+    tail1_right::NTuple{N, Array{T,N}}
+    tail2_ll::Matrix{T}
+    tail2_rl::Matrix{T}
+    tail2_lr::Matrix{T}
+    tail2_rr::Matrix{T}
+    # 3d integral tails
+    tail3_edge_ll::NTuple{3, Array{T,3}}  # free dim d, left×left in the other two
+    tail3_edge_rl::NTuple{3, Array{T,3}}
+    tail3_edge_lr::NTuple{3, Array{T,3}}
+    tail3_edge_rr::NTuple{3, Array{T,3}}
+    tail3_face_l::NTuple{3, Array{T,3}}   # tail3_face_l[d] = left-saturated in dim d
+    tail3_face_r::NTuple{3, Array{T,3}}
+    tail3_corner_lll::Array{T,3}
+    tail3_corner_rll::Array{T,3}
+    tail3_corner_lrl::Array{T,3}
+    tail3_corner_llr::Array{T,3}
+    tail3_corner_rrl::Array{T,3}
+    tail3_corner_rlr::Array{T,3}
+    tail3_corner_lrr::Array{T,3}
+    tail3_corner_rrr::Array{T,3}
 end

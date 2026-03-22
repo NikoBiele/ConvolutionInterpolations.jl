@@ -55,8 +55,6 @@ Not typically constructed directly by users.
 See also: `ConvolutionKernel`, `FastConvolutionInterpolation`.
 """
 
-struct HigherOrderKernel{DG} end
-
 """
     HigherOrderKernel(::Val{DG}) where DG
 
@@ -67,7 +65,37 @@ a value type, used for implementing specialized kernel methods for higher-order
 convolution interpolation.
 """
 
+# the structs and abstract types defined here are to control functor dispatch
+
+abstract type AbstractConvolutionKernel end
+
+abstract type AbstractMixedConvolutionKernel end
+
+struct HigherOrderKernel{DG} <: AbstractConvolutionKernel end
+
+struct HigherOrderMixedKernel{DG} <: AbstractMixedConvolutionKernel end
+
 HigherOrderKernel(::Val{DG}) where DG = HigherOrderKernel{DG}()
+
+HigherOrderMixedKernel(::Val{DG}) where DG = HigherOrderMixedKernel{DG}()
+
+struct LowerOrderKernel{DG} <: AbstractConvolutionKernel end
+LowerOrderKernel(::Val{DG}) where DG = LowerOrderKernel{DG}()
+
+struct LowerOrderMixedKernel{DG} <: AbstractMixedConvolutionKernel end
+LowerOrderMixedKernel(::Val{DG}) where DG = LowerOrderMixedKernel{DG}()
+
+struct FullMixedOrderKernel{DG} <: AbstractMixedConvolutionKernel end
+FullMixedOrderKernel(::Val{DG}) where DG = FullMixedOrderKernel{DG}()
+
+struct NonUniformMixedOrderKernel{DG} <: AbstractMixedConvolutionKernel end
+NonUniformMixedOrderKernel(::Val{DG}) where DG = NonUniformMixedOrderKernel{DG}()
+
+struct NonUniformNonMixedLowKernel{DG} <: AbstractConvolutionKernel end
+NonUniformNonMixedLowKernel(::Val{DG}) where DG = NonUniformNonMixedLowKernel{DG}()
+
+struct NonUniformNonMixedHighKernel{DG} <: AbstractConvolutionKernel end
+NonUniformNonMixedHighKernel(::Val{DG}) where DG = NonUniformNonMixedHighKernel{DG}()
 
 """
     ConvolutionKernel{DG}

@@ -82,19 +82,29 @@ function convolution_interpolation(knots, values::AbstractArray{T,N};
         bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
         derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic,
         lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
-    
-    knots_tuple = knots isa AbstractVector || knots isa AbstractRange ? (knots,) : knots
-    if any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || kernel == :n3
-        fast = false
-    end
-    kernels_tuple = kernel isa Symbol ? ntuple(_ -> kernel, N) : kernel
-    if any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || any(d -> kernels_tuple[d] == :n3, 1:N)
-        fast = false
-    end
-    if kernel == :a0
-      subgrid = :linear
+
+    knots_tuple = knots isa NTuple{N,AbstractVector} || knots isa NTuple{N,AbstractRange} ? 
+                  knots : knots isa AbstractVector || knots isa AbstractRange ? (knots,) : knots
+    kernels_tuple = kernel isa NTuple{N,Symbol} ? kernel : kernel isa Symbol ? ntuple(_ -> kernel, N) : kernel
+    derivatives_tuple = derivative isa NTuple{N,Int} ? derivative : derivative isa Int ? ntuple(_ -> derivative, N) : derivative
+
+    is_integral = count(d -> derivatives_tuple[d] == -1, 1:N) > 0
+    is_nonuniform = any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || any(d -> kernels_tuple[d] == :n3, 1:N)
+
+    if is_integral && is_nonuniform
+      error("Nonuniform antiderivative (derivative=-1) is not directly supported.\n")
+    elseif is_integral && !is_nonuniform
+      lazy = false # lazy mode not supported for antiderivatives
+    elseif !is_integral && is_nonuniform
+      fast = false
+    elseif !is_integral && !is_nonuniform
+      fast = fast
     end
 
+    if lazy && !allequal(kernels_tuple)
+        error("Lazy mode requires the same kernel for all dimensions, but got $(kernels_tuple).")
+    end
+       
     # Normalize bc to per-dimension, per-side tuples
     bcs = if bc isa Symbol
         ntuple(_ -> (bc, bc), N)
@@ -107,28 +117,29 @@ function convolution_interpolation(knots, values::AbstractArray{T,N};
     end
 
     # Check sufficiency per dimension
-    if lazy && boundary_fallback
-        eqs = get_equations_for_degree(kernel)
-        extrap = :line
-        bcs = ntuple(N) do d
-            if size(values, d) < 3*eqs-2
-                (:detect, :detect)
-            else
-                bcs[d]
-            end
+    bcs = ntuple(N) do d
+        if :poly in bcs[d] && size(values, d) < minimum_polynomial_bc_points[kernels_tuple[d]]
+            # replace :poly with :linear
+            bcs[d] == (:poly,:poly) ? (:linear,:linear) : bcs[d][1] == :poly ? (:linear, bcs[d][2]) : (bcs[d][1], :linear)
+        else
+            bcs[d]
         end
     end
 
+    if lazy && boundary_fallback
+        extrap = :line    
+    end
+
     if extrap == :natural
-        return _build_natural(knots, values; kernel=kernel, fast=fast, precompute=precompute, B=B,
-                              bc=bcs, derivative=derivative, subgrid=subgrid,
+        return _build_natural(knots_tuple, values; kernel=kernels_tuple, fast=fast, precompute=precompute, B=B,
+                              bc=bcs, derivative=derivative_tuple, subgrid=subgrid,
                               lazy=lazy, boundary_fallback=boundary_fallback)
     elseif fast
-        return _build_fast(knots, values; kernel=kernel, precompute=precompute, B=B, bc=bcs,
-                          derivative=derivative, subgrid=subgrid, extrap=extrap,
+        return _build_fast(knots_tuple, values; kernel=kernels_tuple, precompute=precompute, B=B, bc=bcs,
+                          derivative=derivatives_tuple, subgrid=subgrid, extrap=extrap,
                           lazy=lazy, boundary_fallback=boundary_fallback)
     else
-        return _build_slow(knots, values; kernel=kernel, B=B, bc=bcs, derivative=derivative,
+        return _build_slow(knots_tuple, values; kernel=kernels_tuple, B=B, bc=bcs, derivative=derivatives_tuple,
                           extrap=extrap, lazy=lazy, boundary_fallback=boundary_fallback)
     end
 end
@@ -171,3 +182,17 @@ function _build_natural(knots, values::AbstractArray{T,N}; kernel::Union{Symbol,
     end
     return ConvolutionExtrapolation(itp, :line)
 end
+
+const minimum_polynomial_bc_points = Dict(
+    :a0 => 2,
+    :a1 => 2,
+    :a3 => 4,
+    :a4 => 4,
+    :a5 => 4,
+    :a7 => 4,
+    :b5 => 6,
+    :b7 => 8,
+    :b9 => 8,
+    :b11 => 8,
+    :b13 => 8
+)

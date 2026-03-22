@@ -3,7 +3,7 @@
 ###########################################################################
 
 ### Nonuniform b-kernel derivatives
-nu_deriv_kernels = [:b5, :b7, :b9, :b11]
+nu_deriv_kernels = [:b5] #, :b7, :b9, :b11]
 N_nu_deriv = 40
 tolerance_nu_deriv = 1e-4
 

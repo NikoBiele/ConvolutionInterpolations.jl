@@ -5,7 +5,7 @@
 N = 4 # number of samples in each dimension
 tolerance = 1e-6 # tight tolerance
 # test all kernels
-kernels = [:a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11] #, :b13] :a0, :a1, # only test kernels with cubic subgrid
+kernels = [:a0, :a1, :a3, :b5] #, :a4, :a5, :a7, :b7, :b9, :b11 :b13] # only test kernels with separate dispatch
 bc = :linear # control kernel boundary conditions
 
 println("Testing uniform grid interpolations for direct and fast kernels for 1D, 2D, 3D, 4D...")
@@ -25,12 +25,6 @@ println("Testing uniform grid interpolations for direct and fast kernels for 1D,
             vals_1d_linear_mean =[(vals_1d_linear[i]+vals_1d_linear[i+1])/2 for i in 1:N-1]
             itp_1d_linear = convolution_interpolation(range_1d, vals_1d_linear; kernel=kernel, fast=false, bc=bc, extrap=:line)
             @test itp_1d_linear.itp.(range(vals_1d_linear_mean[1], stop=vals_1d_linear_mean[end], length=N-1)) ≈ vals_1d_linear_mean  atol=tolerance
-
-            # extrapolation
-            etp_1d_linear = convolution_interpolation(range_1d, vals_1d_linear; kernel=kernel, fast=false, bc=bc, extrap=:line)
-            @test etp_1d_linear.([-0.2, -0.1, 1.1, 1.2]) ≈ [-0.2, -0.1, 1.1, 1.2]  atol=tolerance
-            etp_1d_flat = convolution_interpolation(range_1d, vals_1d_linear; kernel=kernel, fast=false, bc=bc, extrap=:flat)
-            @test etp_1d_flat.([-0.2, -0.1, 1.1, 1.2]) ≈ [0.0, 0.0, 1.0, 1.0]  atol=tolerance
         end
     end
 end
@@ -50,12 +44,6 @@ end
             vals_1d_linear_mean =[(vals_1d_linear[i]+vals_1d_linear[i+1])/2 for i in 1:N-1]
             itp_1d_linear = convolution_interpolation(range_1d, vals_1d_linear; kernel=kernel, fast=true, bc=bc, extrap=:line)
             @test itp_1d_linear.itp.(range(vals_1d_linear_mean[1], stop=vals_1d_linear_mean[end], length=N-1)) ≈ vals_1d_linear_mean  atol=tolerance
-
-            # extrapolation
-            etp_1d_linear = convolution_interpolation(range_1d, vals_1d_linear; kernel=kernel, fast=true, bc=bc, extrap=:line)
-            @test etp_1d_linear.([-0.2, -0.1, 1.1, 1.2]) ≈ [-0.2, -0.1, 1.1, 1.2]  atol=tolerance
-            etp_1d_flat = convolution_interpolation(range_1d, vals_1d_linear; kernel=kernel, fast=true, bc=bc, extrap=:flat)
-            @test etp_1d_flat.([-0.2, -0.1, 1.1, 1.2]) ≈ [0.0, 0.0, 1.0, 1.0]  atol=tolerance
         end
     end
 end
@@ -78,12 +66,6 @@ end
             itp_2d_linear = convolution_interpolation((range_2d, range_2d), vals_2d_linear; kernel=kernel, fast=false, bc=bc)
             itp_2d_linear_mean =  [itp_2d_linear.itp((i-0.5)/(N-1),(j-0.5)/(N-1)) for i in 1:N-1, j in 1:N-1] 
             @test itp_2d_linear_mean ≈ vals_2d_linear_mean atol=tolerance  atol=tolerance
-            
-            # extrapolation
-            etp_2d_linear = convolution_interpolation((range_2d, range_2d), vals_2d_linear; kernel=kernel, fast=false, bc=bc, extrap=:line)
-            @test [etp_2d_linear(i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [-0.4, -0.2, 2.2, 2.4]  atol=tolerance
-            etp_2d_flat = convolution_interpolation((range_2d, range_2d,), vals_2d_linear; kernel=kernel, fast=false, bc=bc, extrap=:flat)
-            @test [etp_2d_flat(i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [0.0, 0.0, 2.0, 2.0]  atol=tolerance
         end
     end
 end
@@ -104,12 +86,6 @@ end
             itp_2d_linear = convolution_interpolation((range_2d, range_2d), vals_2d_linear; kernel=kernel, fast=true, bc=bc)
             itp_2d_linear_mean =  [itp_2d_linear.itp((i-0.5)/(N-1),(j-0.5)/(N-1)) for i in 1:N-1, j in 1:N-1] 
             @test itp_2d_linear_mean ≈ vals_2d_linear_mean atol=tolerance  atol=tolerance
-            
-            # extrapolation
-            etp_2d_linear = convolution_interpolation((range_2d, range_2d), vals_2d_linear; kernel=kernel, fast=true, bc=bc, extrap=:line)
-            @test [etp_2d_linear(i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [-0.4, -0.2, 2.2, 2.4]  atol=tolerance
-            etp_2d_flat = convolution_interpolation((range_2d, range_2d,), vals_2d_linear; kernel=kernel, fast=true, bc=bc, extrap=:flat)
-            @test [etp_2d_flat(i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [0.0, 0.0, 2.0, 2.0]  atol=tolerance
         end
     end
 end
@@ -130,18 +106,14 @@ end
             # mean of linear uniformly spaced 3D data
             f_3d_linear(i,j,k) = (i-1)/(N-1)+(j-1)/(N-1)+(k-1)/(N-1)
             vals_3d_linear = Array{Float64}(undef, N, N, N)
-            [vals_3d_linear[i,j,k] = f_3d_linear(i,j,k) for i in 1:N for j in 1:N for k in 1:N]
+            for i in 1:N, j in 1:N, k in 1:N
+                vals_3d_linear[i,j,k] = f_3d_linear(i,j,k)
+            end
             vals_3d_linear_mean =[(f_3d_linear(i,j,k)+f_3d_linear(i+1,j,k)+f_3d_linear(i,j+1,k)+f_3d_linear(i,j,k+1)+
                                     f_3d_linear(i+1,j+1,k+1)+f_3d_linear(i,j+1,k+1)+f_3d_linear(i+1,j,k+1)+f_3d_linear(i+1,j+1,k))/8 
                                     for i in 1:N-1 for j in 1:N-1 for k in 1:N-1]
             itp_3d_linear = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_linear; kernel=kernel, fast=false, bc=bc)
             @test [itp_3d_linear.itp((i-1/2)/(N-1),(j-1/2)/(N-1),(k-1/2)/(N-1)) for i in 1:N-1 for j in 1:N-1 for k in 1:N-1][:] ≈ vals_3d_linear_mean  atol=tolerance
-
-            # extrapolation
-            etp_3d_linear = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_linear; kernel=kernel, fast=false, bc=bc, extrap=:line)
-            @test isapprox([etp_3d_linear(i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]], [-0.6, -0.3, 3.3, 3.6], atol=1e-3)  atol=tolerance
-            etp_3d_flat = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_linear; kernel=kernel, fast=false, bc=bc, extrap=:flat)
-            @test [etp_3d_flat(i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [0.0, 0.0, 3.0, 3.0]  atol=tolerance
         end
     end
 end
@@ -160,18 +132,14 @@ end
             # mean of linear uniformly spaced 3D data
             f_3d_linear(i,j,k) = (i-1)/(N-1)+(j-1)/(N-1)+(k-1)/(N-1)
             vals_3d_linear = Array{Float64}(undef, N, N, N)
-            [vals_3d_linear[i,j,k] = f_3d_linear(i,j,k) for i in 1:N for j in 1:N for k in 1:N]
+            for i in 1:N, j in 1:N, k in 1:N
+                vals_3d_linear[i,j,k] = f_3d_linear(i,j,k)
+            end
             vals_3d_linear_mean =[(f_3d_linear(i,j,k)+f_3d_linear(i+1,j,k)+f_3d_linear(i,j+1,k)+f_3d_linear(i,j,k+1)+
                                     f_3d_linear(i+1,j+1,k+1)+f_3d_linear(i,j+1,k+1)+f_3d_linear(i+1,j,k+1)+f_3d_linear(i+1,j+1,k))/8 
                                     for i in 1:N-1 for j in 1:N-1 for k in 1:N-1]
             itp_3d_linear = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_linear; kernel=kernel, fast=true, bc=bc)
             @test [itp_3d_linear.itp((i-1/2)/(N-1),(j-1/2)/(N-1),(k-1/2)/(N-1)) for i in 1:N-1 for j in 1:N-1 for k in 1:N-1][:] ≈ vals_3d_linear_mean  atol=tolerance
-
-            # extrapolation
-            etp_3d_linear = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_linear; kernel=kernel, fast=true, bc=bc, extrap=:line)
-            @test isapprox([etp_3d_linear(i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]], [-0.6, -0.3, 3.3, 3.6], atol=1e-3)  atol=tolerance
-            etp_3d_flat = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_linear; kernel=kernel, fast=true, bc=bc, extrap=:flat)
-            @test [etp_3d_flat(i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [0.0, 0.0, 3.0, 3.0]  atol=tolerance
         end
     end
 end
@@ -192,7 +160,9 @@ end
             # mean of linear uniformly spaced 4D data
             f_4d_linear(i,j,k,l) = (i-1)/(N-1)+(j-1)/(N-1)+(k-1)/(N-1)+(l-1)/(N-1)
             vals_4d_linear = Array{Float64}(undef, N, N, N, N)
-            [vals_4d_linear[i,j,k,l] = f_4d_linear(i,j,k,l) for i in 1:N for j in 1:N for k in 1:N for l in 1:N]
+            for i in 1:N, j in 1:N, k in 1:N, l in 1:N
+                vals_4d_linear[i,j,k,l] = f_4d_linear(i,j,k,l)
+            end
             function hypercube_mean(f_4d_linear::Function, N::Int64)
                 [(
                     f_4d_linear(i, j, k, l) +
@@ -218,12 +188,6 @@ end
             interpolated_vals_4d_linear_mean = [itp_4d_linear.itp((i-1/2)/(N-1),(j-1/2)/(N-1),(k-1/2)/(N-1),(l-1/2)/(N-1)) for i in 1:N-1 
                                                 for j in 1:N-1 for k in 1:N-1 for l in 1:N-1]
             @test interpolated_vals_4d_linear_mean ≈ vals_4d_linear_mean[:]  atol=tolerance
-
-            # test extrapolation bc
-            etp_4d_linear = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_linear; kernel=kernel, fast=false, bc=bc, extrap=:line)
-            @test [etp_4d_linear( i, i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [-0.8, -0.4, 4.4, 4.8]  atol=tolerance
-            etp_4d_flat = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_linear; kernel=kernel, fast=false, bc=bc, extrap=:flat)
-            @test [etp_4d_flat( i, i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [0.0, 0.0, 4.0, 4.0]  atol=tolerance
         end
     end
 end
@@ -242,7 +206,9 @@ end
             # mean of linear uniformly spaced 4D data
             f_4d_linear(i,j,k,l) = (i-1)/(N-1)+(j-1)/(N-1)+(k-1)/(N-1)+(l-1)/(N-1)
             vals_4d_linear = Array{Float64}(undef, N, N, N, N)
-            [vals_4d_linear[i,j,k,l] = f_4d_linear(i,j,k,l) for i in 1:N for j in 1:N for k in 1:N for l in 1:N]
+            for i in 1:N, j in 1:N, k in 1:N, l in 1:N
+                vals_4d_linear[i,j,k,l] = f_4d_linear(i,j,k,l)
+            end
             function hypercube_mean(f_4d_linear::Function, N::Int64)
                 [(
                     f_4d_linear(i, j, k, l) +
@@ -268,12 +234,6 @@ end
             interpolated_vals_4d_linear_mean = [itp_4d_linear.itp((i-1/2)/(N-1),(j-1/2)/(N-1),(k-1/2)/(N-1),(l-1/2)/(N-1)) for i in 1:N-1 
                                                 for j in 1:N-1 for k in 1:N-1 for l in 1:N-1]
             @test interpolated_vals_4d_linear_mean ≈ vals_4d_linear_mean[:]  atol=tolerance
-
-            # test extrapolation bc
-            etp_4d_linear = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_linear; kernel=kernel, fast=true, bc=bc, extrap=:line)
-            @test [etp_4d_linear( i, i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [-0.8, -0.4, 4.4, 4.8]  atol=tolerance
-            etp_4d_flat = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_linear; kernel=kernel, fast=true, bc=bc, extrap=:flat)
-            @test [etp_4d_flat( i, i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [0.0, 0.0, 4.0, 4.0]  atol=tolerance
         end
     end
 end

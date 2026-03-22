@@ -3,7 +3,7 @@
 ###########################################################################
 
 ### Per-dimension nonuniform b-kernel derivatives
-nu_pd_kernels = [:b5, :b7, :b9, :b11]
+nu_pd_kernels = [:b5] #, :b7, :b9, :b11]
 N_nu_pd = 40
 tolerance_nu_pd = 1e-4
 

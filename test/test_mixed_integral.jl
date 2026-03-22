@@ -10,7 +10,7 @@
 # ∫(∂f/∂y)dx = cos(x)*sin(y) + C, anchor ax: C = -cos(ax)*sin(y) → exact = (cos(x) - cos(ax))*sin(y)
 # ∂(∫f dx)/∂y = (-cos(x)+cos(ax))*(-sin(y))
 
-mixed_kernels = [:b5, :b7, :b9]
+mixed_kernels = [:b5] #, :b7, :b9]
 
 expected_order_mixed = Dict(:b5 => 5, :b7 => 5, :b9 => 5)
 

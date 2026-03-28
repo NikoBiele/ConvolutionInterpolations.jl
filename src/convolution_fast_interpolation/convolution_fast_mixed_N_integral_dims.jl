@@ -12,9 +12,11 @@ Evaluation is O(N^D) — no prefix sum optimization for mixed orders.
 See also: FastConvolutionInterpolation, convolution_fast_integration_1d, convolution_fast_interpolation_perdim.
 """
 
-function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DIM,CK,EQ,PR,KP,KBC,
-            MixedIntegralOrder{DO},FD,SD,SG,Val{false}})(x::Vararg{Number,N}) where
-            {T,N,TCoefs,IT,Axs,KA,DIM,CK,EQ<:NTuple{N,Int},PR,KP,KBC,DO,FD,SD,SG}
+function (itp::FastConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,HigherDimension{N},DG,EQ,PR,KP,KBC,
+            FastMixedIntegralOrder{DO},FD,SD,SG,Val{false},HigherDimension{NI}})(x::Vararg{Number,N}) where
+            {T<:AbstractFloat,N,NI,TCoefs<:AbstractArray{T,N},Axs<:Tuple{Vararg{AbstractVector}},
+            KA<:Tuple{Vararg{Nothing}},DG,EQ<:Tuple{Vararg{Int}},PR<:Tuple{Vararg{AbstractVector}},
+            KP,KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
 
     result = zero(T)
 

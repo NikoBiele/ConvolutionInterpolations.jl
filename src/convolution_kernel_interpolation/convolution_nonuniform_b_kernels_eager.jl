@@ -96,10 +96,12 @@ end
 # ── Nonuniform b-kernel 1D ───────────────────────────────────
 # Dispatch: NB <: Tuple{Vector{Matrix{Float64}}} (not Nothing)
 
-@inline function (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
+@inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
                     NonUniformMixedOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
-                    FD,SD,SG,NB,Val{false}})(x::Vararg{Number,1}) where 
-                    {T,TCoefs,IT,Axs,KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},KBC,DO,FD,SD,SG,
+                    FD,SD,SG,NB,Val{false},Val{0}})(x::Vararg{Number,1}) where 
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
+                    KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG,
                     NB<:Tuple{Vector{Matrix{Float64}}}}
 
     M_eqs = _nb_M_eqs_perdim(itp.kernel_sym, 1)
@@ -115,10 +117,13 @@ end
 
 # ── 2D per-dim ───────────────────────────────────────────────
 
-@inline function (itp::ConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
+@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
                     NonUniformMixedOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
-                    FD,SD,SG,NB,Val{false}})(x::Vararg{Number,2}) where
-                    {T,TCoefs,IT,Axs,KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},KBC,DO,FD,SD,SG,
+                    FD,SD,SG,NB,Val{false},Val{0}})(x::Vararg{Number,2}) where
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
+                    Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+                    KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG,
                     NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
 
     M_eqs_x = _nb_M_eqs_perdim(itp.kernel_sym, 1)
@@ -139,10 +144,14 @@ end
 
 # ── 3D per-dim ───────────────────────────────────────────────
 
-@inline function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
+@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
                     NonUniformMixedOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
-                    FD,SD,SG,NB,Val{false}})(x::Vararg{Number,3}) where
-                    {T,TCoefs,IT,Axs,KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},KBC,DO,FD,SD,SG,
+                    FD,SD,SG,NB,Val{false},Val{0}})(x::Vararg{Number,3}) where
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
+                    Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
+                    KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
+                    DO,FD,SD,SG,
                     NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
 
     M_eqs_x = _nb_M_eqs_perdim(itp.kernel_sym, 1)
@@ -169,10 +178,13 @@ end
 
 # ── ND per-dim (N > 3) ───────────────────────────────────────
 
-@inline function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
+@inline function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
                     NonUniformMixedOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},FD,SD,
-                    SG,NB,Val{false}})(x::Vararg{Number,N}) where
-                    {N,T,TCoefs,IT,Axs,KA<:NTuple{N,<:Nothing},DG,EQ<:NTuple{N,Int},KBC,DO,FD,SD,SG,
+                    SG,NB,Val{false},Val{0}})(x::Vararg{Number,N}) where
+                    {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
+                    Axs<:Tuple{Vararg{AbstractVector}},
+                    KA<:Tuple{Vararg{Nothing}},DG,EQ<:Tuple{Vararg{Int}},
+                    KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG,
                     NB<:Tuple{Vararg{Vector{Matrix{Float64}}}}}
 
     M_eqs_d = ntuple(d -> _nb_M_eqs_perdim(itp.kernel_sym, d), N)

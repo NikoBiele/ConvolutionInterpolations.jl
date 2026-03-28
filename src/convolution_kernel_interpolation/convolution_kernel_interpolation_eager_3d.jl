@@ -1,7 +1,10 @@
-@inline function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
-                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG,NB,Val{false}})(x::Vararg{Number,3}) where 
-                    {T,TCoefs,IT,Axs,KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel,<:ConvolutionKernel},DG,
-                    EQ<:Tuple{Int,Int,Int},KBC,DO,FD,SD,SG,NB<:Nothing}
+@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
+                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,Val{:not_used},NB,Val{false},Val{0}})(x::Vararg{Number,3}) where 
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
+                    Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
+                    KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel,<:ConvolutionKernel},DG,
+                    EQ<:Tuple{Int,Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
+                    DO,FD,SD,NB<:Nothing}
 
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])

@@ -1,9 +1,14 @@
 # ==============================================================
 # ND — linear only per dim
 # ==============================================================
-function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},CK,EQ,PR,KP,KBC,
-            DerivativeOrder{DO},FD,SD,Val{SG}})(x::Vararg{Number,N}) where
-            {T,N,TCoefs,IT,Axs,KA,CK<:AbstractMixedConvolutionKernel,EQ<:NTuple{N,Int},PR,KP,KBC,DO,FD,SD,SG}
+function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},DG,EQ,PR,KP,KBC,
+            DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,N}) where
+            {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
+            Axs<:Tuple{Vararg{AbstractVector}},
+            KA<:Tuple{Vararg{Nothing}},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Vararg{Int}},
+            PR<:Tuple{Vararg{AbstractVector}},KP,KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},
+            DO,FD,SD,SG}
+            
     pos_ids = ntuple(d -> clamp(floor(Int, (x[d]-itp.knots[d][1])/itp.h[d]+one(T)),
                                 itp.eqs[d], length(itp.knots[d])-itp.eqs[d]), N)
     idx_lower = ntuple(N) do d

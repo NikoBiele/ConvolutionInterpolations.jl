@@ -57,9 +57,12 @@ end
 # ==============================================================
 # 2D (linear, linear)
 # ==============================================================
-@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},CK,EQ,PR,KP,KBC,
-            DerivativeOrder{DO},FD,SD,Val{(:linear,:linear)}})(x::Vararg{Number,2}) where
-            {T,TCoefs,IT,Axs,KA,CK<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},PR,KP,KBC,DO,FD,SD}
+@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},DG,EQ,PR,KP,KBC,
+            DerivativeOrder{DO},FD,SD,Val{(:linear,:linear)},Val{false},Val{0}})(x::Vararg{Number,2}) where
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+            KA<:Tuple{<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},
+            PR<:Tuple{<:AbstractVector,<:AbstractVector},KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
+
     eqs_x, eqs_y = itp.eqs
     i, j, idx_x, t_x, _, idx_y, t_y, _ = _perdim_2d_pos(itp, x...)
     kp_x = itp.kernel_pre[1]; kp_y = itp.kernel_pre[2]
@@ -80,9 +83,12 @@ end
 # ==============================================================
 # 2D (cubic, linear)
 # ==============================================================
-@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},CK,EQ,PR,KP,KBC,
-            DerivativeOrder{DO},FD,SD,Val{(:cubic,:linear)}})(x::Vararg{Number,2}) where
-            {T,TCoefs,IT,Axs,KA,CK<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},PR,KP,KBC,DO,FD,SD}
+@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},DG,EQ,PR,KP,KBC,
+            DerivativeOrder{DO},FD,SD,Val{(:cubic,:linear)},Val{false},Val{0}})(x::Vararg{Number,2}) where
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+            KA<:Tuple{<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},
+            PR<:Tuple{<:AbstractVector,<:AbstractVector},KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
+
     eqs_x, eqs_y = itp.eqs
     i, j, idx_x, t_x, h_pre_x, idx_y, t_y, _ = _perdim_2d_pos(itp, x...)
     kp_x = itp.kernel_pre[1]; kd_x = itp.kernel_d1_pre[1]; kp_y = itp.kernel_pre[2]
@@ -108,9 +114,12 @@ end
 # ==============================================================
 # 2D (quintic, linear)
 # ==============================================================
-@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},CK,EQ,PR,KP,KBC,
-            DerivativeOrder{DO},FD,SD,Val{(:quintic,:linear)}})(x::Vararg{Number,2}) where
-            {T,TCoefs,IT,Axs,KA,CK<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},PR,KP,KBC,DO,FD,SD}
+@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},DG,EQ,PR,KP,KBC,
+            DerivativeOrder{DO},FD,SD,Val{(:quintic,:linear)},Val{false},Val{0}})(x::Vararg{Number,2}) where
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+            KA<:Tuple{<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},
+            PR<:Tuple{<:AbstractVector,<:AbstractVector},KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
+
     eqs_x, eqs_y = itp.eqs
     i, j, idx_x, t_x, h_pre_x, idx_y, t_y, _ = _perdim_2d_pos(itp, x...)
     kp_x = itp.kernel_pre[1]; kd_x = itp.kernel_d1_pre[1]; ke_x = itp.kernel_d2_pre[1]
@@ -139,9 +148,12 @@ end
 # ==============================================================
 # 2D (linear, cubic)
 # ==============================================================
-@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},CK,EQ,PR,KP,KBC,
-            DerivativeOrder{DO},FD,SD,Val{(:linear,:cubic)}})(x::Vararg{Number,2}) where
-            {T,TCoefs,IT,Axs,KA,CK<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},PR,KP,KBC,DO,FD,SD}
+@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},DG,EQ,PR,KP,KBC,
+            DerivativeOrder{DO},FD,SD,Val{(:linear,:cubic)},Val{false},Val{0}})(x::Vararg{Number,2}) where
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+            KA<:Tuple{<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},
+            PR<:Tuple{<:AbstractVector,<:AbstractVector},KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
+
     eqs_x, eqs_y = itp.eqs
     i, j, idx_x, t_x, _, idx_y, t_y, h_pre_y = _perdim_2d_pos(itp, x...)
     kp_x = itp.kernel_pre[1]; kp_y = itp.kernel_pre[2]; kd_y = itp.kernel_d1_pre[2]
@@ -167,9 +179,12 @@ end
 # ==============================================================
 # 2D (cubic, cubic)  — the standard uniform case equivalent
 # ==============================================================
-@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},CK,EQ,PR,KP,KBC,
-            DerivativeOrder{DO},FD,SD,Val{(:cubic,:cubic)}})(x::Vararg{Number,2}) where
-            {T,TCoefs,IT,Axs,KA,CK<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},PR,KP,KBC,DO,FD,SD}
+@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},DG,EQ,PR,KP,KBC,
+            DerivativeOrder{DO},FD,SD,Val{(:cubic,:cubic)},Val{false},Val{0}})(x::Vararg{Number,2}) where
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+            KA<:Tuple{<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},
+            PR<:Tuple{<:AbstractVector,<:AbstractVector},KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
+
     eqs_x, eqs_y = itp.eqs
     i, j, idx_x, t_x, h_pre_x, idx_y, t_y, h_pre_y = _perdim_2d_pos(itp, x...)
     kp_x=itp.kernel_pre[1]; kd_x=itp.kernel_d1_pre[1]
@@ -202,9 +217,12 @@ end
 # ==============================================================
 # 2D (quintic, cubic)
 # ==============================================================
-@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},CK,EQ,PR,KP,KBC,
-            DerivativeOrder{DO},FD,SD,Val{(:quintic,:cubic)}})(x::Vararg{Number,2}) where
-            {T,TCoefs,IT,Axs,KA,CK<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},PR,KP,KBC,DO,FD,SD}
+@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},DG,EQ,PR,KP,KBC,
+            DerivativeOrder{DO},FD,SD,Val{(:quintic,:cubic)},Val{false},Val{0}})(x::Vararg{Number,2}) where
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+            KA<:Tuple{<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},
+            PR<:Tuple{<:AbstractVector,<:AbstractVector},KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
+
     eqs_x, eqs_y = itp.eqs
     i, j, idx_x, t_x, h_pre_x, idx_y, t_y, h_pre_y = _perdim_2d_pos(itp, x...)
     kp_x=itp.kernel_pre[1]; kd_x=itp.kernel_d1_pre[1]; ke_x=itp.kernel_d2_pre[1]
@@ -242,9 +260,12 @@ end
 # ==============================================================
 # 2D (linear, quintic)
 # ==============================================================
-@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},CK,EQ,PR,KP,KBC,
-            DerivativeOrder{DO},FD,SD,Val{(:linear,:quintic)}})(x::Vararg{Number,2}) where
-            {T,TCoefs,IT,Axs,KA,CK<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},PR,KP,KBC,DO,FD,SD}
+@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},DG,EQ,PR,KP,KBC,
+            DerivativeOrder{DO},FD,SD,Val{(:linear,:quintic)},Val{false},Val{0}})(x::Vararg{Number,2}) where
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+            KA<:Tuple{<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},
+            PR<:Tuple{<:AbstractVector,<:AbstractVector},KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
+
     eqs_x, eqs_y = itp.eqs
     i, j, idx_x, t_x, _, idx_y, t_y, h_pre_y = _perdim_2d_pos(itp, x...)
     kp_x=itp.kernel_pre[1]
@@ -274,9 +295,12 @@ end
 # ==============================================================
 # 2D (cubic, quintic)
 # ==============================================================
-@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},CK,EQ,PR,KP,KBC,
-            DerivativeOrder{DO},FD,SD,Val{(:cubic,:quintic)}})(x::Vararg{Number,2}) where
-            {T,TCoefs,IT,Axs,KA,CK<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},PR,KP,KBC,DO,FD,SD}
+@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},DG,EQ,PR,KP,KBC,
+            DerivativeOrder{DO},FD,SD,Val{(:cubic,:quintic)},Val{false},Val{0}})(x::Vararg{Number,2}) where
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+            KA<:Tuple{<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},
+            PR<:Tuple{<:AbstractVector,<:AbstractVector},KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
+
     eqs_x, eqs_y = itp.eqs
     i, j, idx_x, t_x, h_pre_x, idx_y, t_y, h_pre_y = _perdim_2d_pos(itp, x...)
     kp_x=itp.kernel_pre[1]; kd_x=itp.kernel_d1_pre[1]
@@ -316,9 +340,12 @@ end
 # ==============================================================
 # 2D (quintic, quintic)
 # ==============================================================
-@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},CK,EQ,PR,KP,KBC,
-            DerivativeOrder{DO},FD,SD,Val{(:quintic,:quintic)}})(x::Vararg{Number,2}) where
-            {T,TCoefs,IT,Axs,KA,CK<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},PR,KP,KBC,DO,FD,SD}
+@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},DG,EQ,PR,KP,KBC,
+            DerivativeOrder{DO},FD,SD,Val{(:quintic,:quintic)},Val{false},Val{0}})(x::Vararg{Number,2}) where
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+            KA<:Tuple{<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},
+            PR<:Tuple{<:AbstractVector,<:AbstractVector},KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
+            
     eqs_x, eqs_y = itp.eqs
     i, j, idx_x, t_x, h_pre_x, idx_y, t_y, h_pre_y = _perdim_2d_pos(itp, x...)
     kp_x=itp.kernel_pre[1]; kd_x=itp.kernel_d1_pre[1]; ke_x=itp.kernel_d2_pre[1]

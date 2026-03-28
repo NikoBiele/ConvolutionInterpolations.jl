@@ -1,6 +1,9 @@
-function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
-        CK,EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{SG},Val{false}})(x::Vararg{Number,N}) where
-        {T,N,TCoefs,IT,KA<:NTuple{N,<:Nothing},Axs,CK<:AbstractConvolutionKernel,EQ,PR,KP,KBC,FD,SD,SG}
+function (itp::FastConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,HigherDimension{N},
+        DG,EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{SG},Val{false},HigherDimension{NI}})(x::Vararg{Number,N}) where
+        {T<:AbstractFloat,N,NI,TCoefs<:AbstractArray{T,N},
+        Axs<:Tuple{Vararg{AbstractVector}},
+        KA<:Tuple{Vararg{Nothing}},DG,EQ<:Tuple{Vararg{Int}},PR<:Tuple{Vararg{AbstractVector}},
+        KP,KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},FD,SD,SG}
 
     result = zero(T)
     @inbounds for idx in Iterators.product(ntuple(d -> 1:size(itp.coefs, d), N)...)

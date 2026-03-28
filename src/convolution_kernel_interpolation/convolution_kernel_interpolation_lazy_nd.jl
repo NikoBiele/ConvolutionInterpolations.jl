@@ -1,5 +1,5 @@
 """
-    (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},Val{DG},EQ})(x::Vararg{T,N}) where {T,N,TCoefs,IT,KA,Axs,DG,EQ}
+    (itp::ConvolutionInterpolation{T,N,TCoefs,Axs,KA,HigherDimension{N},Val{DG},EQ})(x::Vararg{T,N}) where {T,N,TCoefs,KA,Axs,DG,EQ}
 
 Evaluate a higher-dimensional (N > 3) convolution interpolation at the given point.
 
@@ -27,9 +27,11 @@ where the sum is over all possible offset combinations in the N-dimensional neig
 is across all dimensions. This generalizes to any number of dimensions efficiently.
 """
 
-function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
-                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG,NB,Val{true}})(x::Vararg{Number,N}) where 
-                    {T,N,TCoefs,IT,KA<:NTuple{N,<:ConvolutionKernel},Axs,DG,EQ<:NTuple{N,Int},KBC,DO,FD,SD,SG,NB<:Nothing}
+function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
+                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,Val{:not_used},NB,Val{true},Val{0}})(x::Vararg{Number,N}) where 
+                    {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
+                    KA<:Tuple{Vararg{ConvolutionKernel}},Axs<:Tuple{Vararg{AbstractVector}},
+                    DG,EQ<:Tuple{Vararg{Int}},KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,NB<:Nothing}
 
     # === Uniform path ===
 
@@ -39,7 +41,7 @@ function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
     result = zero(T)
     if itp.lazy && DG !== Val{:a0} && DG !== Val{:a1} &&
                    any(d -> is_boundary_stencil(pos_ids[d], size(itp.coefs, d), itp.eqs[d]), 1:N)
-        kernel_type = _kernel_sym(itp.kernel_sym)
+        kernel_type = _kernel_sym(itp.kernel_sym)[1]
         ng = itp.eqs[1] - 1
         s = ntuple(d -> (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
         @inbounds for offsets in Iterators.product(ntuple(dim -> -(itp.eqs[dim]-1):itp.eqs[dim], N)...)

@@ -1,9 +1,14 @@
 # ==============================================================
 # 3D — linear only per dim
 # ==============================================================
-function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},CK,EQ,PR,KP,KBC,
-            DerivativeOrder{DO},FD,SD,Val{(:linear,:linear,:linear)}})(x::Vararg{Number,3}) where
-            {T,TCoefs,IT,Axs,KA,CK<:AbstractMixedConvolutionKernel,EQ<:NTuple{3,Int},PR,KP,KBC,DO,FD,SD}
+function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},DG,EQ,PR,KP,KBC,
+            DerivativeOrder{DO},FD,SD,Val{(:linear,:linear,:linear)},Val{false},Val{0}})(x::Vararg{Number,3}) where
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
+            Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
+            KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int,Int},
+            PR<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},KP,
+            KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
+            
     eqs_x,eqs_y,eqs_z = itp.eqs
     kp_x=itp.kernel_pre[1]; kp_y=itp.kernel_pre[2]; kp_z=itp.kernel_pre[3]
     i_float = (x[1]-itp.knots[1][1])/itp.h[1] + one(T)

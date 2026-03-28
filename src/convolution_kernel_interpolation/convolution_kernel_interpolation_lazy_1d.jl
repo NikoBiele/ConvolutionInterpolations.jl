@@ -1,5 +1,5 @@
 """
-    (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},Val{DG},EQ})(x::Vararg{T,1}) where {T,TCoefs,IT,Axs,KA,DG,EQ}
+    (itp::ConvolutionInterpolation{T,1,TCoefs,Axs,KA,Val{1},Val{DG},EQ})(x::Vararg{T,1}) where {T,TCoefs,Axs,KA,DG,EQ}
 
 Evaluate a one-dimensional convolution interpolation at the given point.
 
@@ -85,9 +85,11 @@ end
 # 1D eval with resolve pattern for both uniform and nonuniform
 # ═══════════════════════════════════════════════════════════════
 
-@inline function (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
-                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,Val{(:not_used)},NB,Val{true}})(x::Vararg{Number,1}) where 
-                    {T,TCoefs,IT,Axs,KA<:Tuple{<:ConvolutionKernel},DG,EQ<:Tuple{Int},KBC,DO,FD,SD,NB<:Nothing}
+@inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
+                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,Val{:not_used},NB,Val{true},Val{0}})(x::Vararg{Number,1}) where 
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
+                    KA<:Tuple{<:ConvolutionKernel},DG,EQ<:Tuple{Int},
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,NB<:Nothing}
 
     # === Uniform lazy path ===
 

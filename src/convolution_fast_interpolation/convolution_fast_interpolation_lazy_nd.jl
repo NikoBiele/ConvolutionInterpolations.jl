@@ -1,6 +1,9 @@
-@inline function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
+@inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
                     LowerOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},
-                    Val{true}})(x::Vararg{Number,N}) where {T,N,TCoefs,IT,KA,Axs,DG,EQ,PR,KP,KBC,DO,FD,SD,SG}
+                    Val{true},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
+                    KA<:Tuple{Vararg{Nothing}},Axs<:Tuple{Vararg{AbstractVector}},DG,EQ<:Tuple{Vararg{Int}},
+                    PR<:Tuple{Vararg{AbstractVector}},KP,KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},
+                    DO,FD,SD,SG}
     
     same_kernel = allequal(DG)
     
@@ -59,9 +62,13 @@
     end
 end
 
-function (itp::FastConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
-            CK,EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},
-                    Val{true}})(x::Vararg{Number,N}) where {T,N,TCoefs,IT,KA,Axs,CK,EQ,PR,KP,KBC,DO,FD,SD,SG}
+function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
+            DG,EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},
+                    Val{true},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
+                    KA<:Tuple{Vararg{Nothing}},Axs<:Tuple{Vararg{AbstractVector}},DG,
+                    EQ<:Tuple{Vararg{Int}},PR<:Tuple{Vararg{AbstractVector}},KP,
+                    KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
+                    
     # specialized dispatch for N-dimensional higher-order kernel
     
     # Compute i_float once per dimension

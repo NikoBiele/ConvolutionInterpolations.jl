@@ -2,10 +2,11 @@
 # 1D eval
 # ═══════════════════════════════════════════════════════════════
 
-@inline function (itp::ConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
+@inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
                     NonUniformNonMixedLowKernel{DG},EQ,KBC,DerivativeOrder{DO},
-                    FD,SD,Val{(:not_used)},Val{:nonuniform},Val{true}})(x::Vararg{Number,1}) where 
-                    {T,TCoefs,IT,Axs,KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},KBC,DO,FD,SD}
+                    FD,SD,Val{(:not_used)},Val{:nonuniform},Val{true},Val{0}})(x::Vararg{Number,1}) where 
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
+                    KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD}
 
     n_k = length(itp.knots[1])
     n_c = length(itp.coefs)
@@ -27,10 +28,14 @@ end
 # 2D eval
 # ═══════════════════════════════════════════════════════════════
 
-function (itp::ConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
+function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
                     NonUniformNonMixedLowKernel{DG},EQ,KBC,DerivativeOrder{DO},
-                    FD,SD,SG,Val{:nonuniform},Val{true}})(x::Vararg{Number,2}) where 
-                    {T,TCoefs,IT,Axs,KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},KBC,DO,FD,SD,SG}
+                    FD,SD,SG,Val{:nonuniform},Val{true},Val{0}})(x::Vararg{Number,2}) where 
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
+                    Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+                    KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
+                    DO,FD,SD,SG}
 
     ng = ntuple(d -> (length(itp.knots[d]) - size(itp.coefs,d)) ÷ 2, 2)
 
@@ -60,10 +65,13 @@ end
 # 3D eval
 # ═══════════════════════════════════════════════════════════════
 
-function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
+function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
                     NonUniformNonMixedLowKernel{DG},EQ,KBC,DerivativeOrder{DO},
-                    FD,SD,SG,Val{:nonuniform},Val{true}})(x::Vararg{Number,3}) where 
-                    {T,TCoefs,IT,Axs,KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},KBC,DO,FD,SD,SG}
+                    FD,SD,SG,Val{:nonuniform},Val{true},Val{0}})(x::Vararg{Number,3}) where 
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
+                    Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
+                    KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
     ng = ntuple(d -> (length(itp.knots[d]) - size(itp.coefs,d)) ÷ 2, 3)
 
@@ -96,10 +104,12 @@ end
 # ND eval
 # ═══════════════════════════════════════════════════════════════
 
-function (itp::ConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,HigherDimension{N},
+function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
                     NonUniformNonMixedLowKernel{DG},EQ,KBC,DerivativeOrder{DO},
-                    FD,SD,SG,Val{:nonuniform},Val{true}})(x::Vararg{Number,N}) where 
-                    {T,N,TCoefs,IT,KA<:NTuple{N,<:Nothing},Axs,DG,EQ<:NTuple{N,Int},KBC,DO,FD,SD,SG}
+                    FD,SD,SG,Val{:nonuniform},Val{true},Val{0}})(x::Vararg{Number,N}) where 
+                    {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},KA<:Tuple{Vararg{Nothing}},
+                    Axs<:Tuple{Vararg{AbstractVector}},DG,EQ<:Tuple{Vararg{Int}},
+                    KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
 
     ng = ntuple(d -> (length(itp.knots[d]) - size(itp.coefs,d)) ÷ 2, N)
 

@@ -35,51 +35,84 @@ Returns the value at the nearest boundary point without modification:
 value = f(boundary_point)
 ```
 This creates a constant extension beyond the boundaries.
-
-## Periodic Extrapolation
-Wraps the coordinates using the domain's period:
-```
-x_periodic[d] = lower_bound[d] + mod(x[d] - lower_bound[d], period[d])
-```
-This is useful for inherently periodic data like angles or cyclic signals.
-
-## Reflect Extrapolation
-Reflects the coordinates across the boundary:
-```
-x_reflect[d] = 2*boundary - x[d]
-```
-where boundary is either the lower or upper bound depending on which was crossed.
-This preserves symmetry and avoids discontinuities at boundaries.
-
-The function handles each dimension independently.
 """
 
-function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET}, x::NTuple{N,Number}) where {T,N,ITPT,ET}
+# 1d case
+@inline function extrapolate_point(etp::ConvolutionExtrapolation{T,1,ITPT,ET}, x::Number) where 
+                        {T<:AbstractFloat,ITPT,ET<:AbstractExtrapolation}
     itp = etp.itp
     knots = itp.knots
+
+    # Determine which dimensions need extrapolation
+    clamped_x = zero(T)
+    needs_extrapolation = false
     
-    function reflect(y, l, u)
-        yr = mod(y - l, 2(u-l)) + l
-        return ifelse(yr > u, 2u-yr, yr)
+    lo, hi = _domain_bounds(itp, 1)
+    if x < lo
+        clamped_x = lo
+        needs_extrapolation = true
+    elseif x > hi
+        clamped_x = hi
+        needs_extrapolation = true
+    else
+        clamped_x = x
     end
+    
+    if !needs_extrapolation
+        return itp(x)
+    end
+        
+    # Handle different extrapolation types
+    if ET === Line
+        # 2-point directional derivative: 2 evaluations total regardless of dimension
+        dx = x - clamped_x
+        dist_sq = dx^2
+
+        if dist_sq < eps(T)
+            return itp(clamped_x)
+        end
+
+        # Step inward along the extrapolation direction
+        h_min = itp.h[1]
+        ε = h_min / T(100)
+        dist = sqrt(dist_sq)
+        x_inward = clamped_x - ε * dx / dist
+
+        f_boundary = itp(clamped_x)
+        f_inward = itp(x_inward)
+        slope = (f_boundary - f_inward) / ε
+
+        return f_boundary + slope * dist
+        
+    elseif ET === Flat
+        # Simply return the value at the boundary
+        return itp(clamped_x)
+        
+    else # if etp.et == :throw
+        error("Unsupported extrapolation type: $(etp.et).
+        Please set 'extrap =' Line(), Flat() or Natural() to enable extrapolation.")
+    end
+end
+
+# >1d case
+@inline function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET}, x::NTuple{N,Number}) where 
+                        {T<:AbstractFloat,N,ITPT,ET<:AbstractExtrapolation}
+    itp = etp.itp
+    knots = itp.knots
 
     # Determine which dimensions need extrapolation
     clamped_x = zeros(T, N)
-    clamped_dir = zeros(T, N)
     needs_extrapolation = false
     
     for d in 1:N
         lo, hi = _domain_bounds(itp, d)
         if x[d] < lo
-            clamped_dir[d] = -1
             clamped_x[d] = lo
             needs_extrapolation = true
         elseif x[d] > hi
-            clamped_dir[d] = 1
             clamped_x[d] = hi
             needs_extrapolation = true
         else
-            clamped_dir[d] = 0
             clamped_x[d] = x[d]
         end
     end
@@ -91,7 +124,7 @@ function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET}, x::NTuple
     clamped_x = ntuple(i -> clamped_x[i], N)
     
     # Handle different extrapolation types
-    if etp.et == :line
+    if ET === Line
         # 2-point directional derivative: 2 evaluations total regardless of dimension
         dx = ntuple(d -> x[d] - clamped_x[d], N)
         dist_sq = sum(d -> dx[d]^2, 1:N)
@@ -112,13 +145,13 @@ function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET}, x::NTuple
 
         return f_boundary + slope * dist
         
-    elseif etp.et == :flat
+    elseif ET === Flat
         # Simply return the value at the boundary
         return itp(clamped_x...)
         
     else # if etp.et == :throw
         error("Unsupported extrapolation type: $(etp.et).
-        Please set 'extrap =' :line, :flat or :natural to enable extrapolation.")
+        Please set 'extrap =' Line(), Flat() or Natural() to enable extrapolation.")
     end
 end
 
@@ -131,24 +164,18 @@ on each side to avoid boundary ghost computation. In eager mode, bounds correspo
 to the first and last non-ghost knot positions.
 """
 
-@inline function _domain_bounds(itp, d)
+@inline function _domain_bounds(itp::AbstractConvolutionInterpolation{T,N,NI,TCoefs,
+                    Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,Val{false},DI}, d) where {T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,DI}
     eqs_d = itp.eqs isa Tuple ? itp.eqs[d] : itp.eqs
-    if itp.lazy == Val{true}() && itp.boundary_fallback
-        k = itp.knots[d]
-        n_k = length(k)
-        n_d = size(itp.coefs, d)
-        ng = eqs_d - 1
-        return k[1 + ng], k[end - ng]
-    elseif itp.lazy == Val{true}()
-        k = itp.knots[d]
-        n_k = length(k)
-        n_d = size(itp.coefs, d)
-        # If knots are expanded (nonuniform lazy), skip ghost knots
-        # Uniform lazy: n_k == n_d (knots not expanded)
-        # Nonuniform lazy n3: n_k == n_d + 2 (1 ghost knot per side)
-        ng = (n_k - n_d) ÷ 2
-        return k[1 + ng], k[end - ng]
-    else
-        return itp.knots[d][eqs_d], itp.knots[d][end-(eqs_d-1)]
-    end
+    return itp.knots[d][eqs_d], itp.knots[d][end-(eqs_d-1)]
+end
+
+@inline function _domain_bounds(itp::AbstractConvolutionInterpolation{T,N,NI,TCoefs,
+                    Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,Val{true},DI}, d) where {T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,DI}
+    eqs_d = itp.eqs isa Tuple ? itp.eqs[d] : itp.eqs
+    k = itp.knots[d]
+    n_k = length(k)
+    n_d = size(itp.coefs, d)
+    ng = itp.boundary_fallback ? eqs_d - 1 : (n_k - n_d) ÷ 2
+    return k[1 + ng], k[end - ng]
 end

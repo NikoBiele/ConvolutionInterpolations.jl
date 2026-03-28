@@ -21,9 +21,11 @@ Results scaled by (-1/h)^derivative for derivative evaluation.
 See also: FastConvolutionInterpolation, cubic_hermite, quintic_hermite.
 """
 
-@inline function (itp::FastConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},LowerOrderKernel{DG},
-                    EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{true}})(x::Vararg{Number,1}) where 
-                    {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,DO,FD,SD,SG}
+@inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},LowerOrderKernel{DG},
+                    EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{true},Val{0}})(x::Vararg{Number,1}) where 
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
+                    KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},PR<:Tuple{<:AbstractVector},
+                    KP,KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
     if DG[1] == :a1
         # specialized dispatch for 1d linear kernel
@@ -44,9 +46,13 @@ See also: FastConvolutionInterpolation, cubic_hermite, quintic_hermite.
     end
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,1,TCoefs,IT,Axs,KA,Val{1},
-                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{true}})(x::Vararg{Number,1}) where 
-                    {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,DO,FD,SD,SG}
+@inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
+                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},
+                    FD,SD,Val{SG},Val{true},Val{0}})(x::Vararg{Number,1}) where 
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},
+                    Axs<:Tuple{<:AbstractVector},KA<:Tuple{<:Nothing},DG,
+                    EQ<:Tuple{Int},PR<:Tuple{<:AbstractVector},KP,
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
  
     # Direct index calculation
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)

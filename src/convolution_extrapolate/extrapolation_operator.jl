@@ -28,10 +28,10 @@ See also: [`convolution_interpolation`](@ref), [`extrapolate_point`](@ref), [`_d
 """
 
 # For broadcasting (Adapted from Interpolations.jl)
-@inline function (etp::ConvolutionExtrapolation{T,N,AbstractConvolutionInterpolation,ET})(x::Vararg{Union{Number,AbstractVector,LinearAlgebra.Adjoint},N}) where 
-    {T,N,AbstractConvolutionInterpolation,ET}
+@inline function (etp::ConvolutionExtrapolation{T,N,
+                AbstractConvolutionInterpolation,ET})(x::Vararg{Number,N}) where 
+                            {T,N,AbstractConvolutionInterpolation,ET<:AbstractExtrapolation}
     itp = etp.itp
-    knots = itp.knots
     sh = shape(x...)
     
     # Handle scalar case separately
@@ -47,12 +47,28 @@ See also: [`convolution_interpolation`](@ref), [`extrapolate_point`](@ref), [`_d
         end
         
         if within_bounds
-            return itp(y...)
+            if N == 1
+                return itp(y[1])
+            else
+                return itp(y...)
+            end
         else
-            return extrapolate_point(etp, y)
+            if N == 1
+                return extrapolate_point(etp, y[1])
+            else
+                return extrapolate_point(etp, y)
+            end
         end
     end
-    
+end
+
+# For broadcasting (Adapted from Interpolations.jl)
+@inline function (etp::ConvolutionExtrapolation{T,N,
+                AbstractConvolutionInterpolation,ET})(x::Vararg{AbstractArray,N}) where 
+                            {T,N,AbstractConvolutionInterpolation,ET<:AbstractExtrapolation}
+    itp = etp.itp
+    sh = shape(x...)
+
     # Array case
     ret = zeros(T, sh)
     for (i, y) in zip(eachindex(ret), Iterators.product(x...))
@@ -66,9 +82,17 @@ See also: [`convolution_interpolation`](@ref), [`extrapolate_point`](@ref), [`_d
         end
 
         if within_bounds
-            ret[i] = itp(y...)
+            if N == 1
+                ret[i] = itp(y[1])
+            else
+                ret[i] = itp(y...)
+            end
         else
-            ret[i] = extrapolate_point(etp, y)
+            if N == 1
+                ret[i] = extrapolate_point(etp, y[1])
+            else
+                ret[i] = extrapolate_point(etp, y)
+            end
         end
     end
     return ret

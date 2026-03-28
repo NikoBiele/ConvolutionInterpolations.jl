@@ -46,6 +46,7 @@ _show_deg(other) = other
 _show_do(::DerivativeOrder{DO}) where DO = "derivative=$DO"
 _show_do(::IntegralOrder)                = "antiderivative"
 _show_do(::MixedIntegralOrder{DO}) where DO = "mixed=$DO"
+_show_do(::FastMixedIntegralOrder{DO}) where DO = "mixed=$DO"
 
 function _extract_kernel_sym(deg)
     if deg isa Val

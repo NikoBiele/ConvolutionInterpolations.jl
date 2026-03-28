@@ -21,11 +21,11 @@
         @test itp_direct(1.0) ≈ itp_fast(1.0) atol=1e-6
 
         # Extrapolation wrapper
-        etp = ConvolutionExtrapolation(itp_fast, :line)
+        etp = ConvolutionExtrapolation(itp_fast, Line())
         @test etp(1.0) ≈ sin(1.0) atol=0.1
         @test etp(-0.5) isa Float64  # doesn't throw
 
-        etp_throw = ConvolutionExtrapolation(itp_fast, :throw)
+        etp_throw = ConvolutionExtrapolation(itp_fast, Throw())
         @test_throws ErrorException etp_throw(-0.5)
 
         # Lazy variants

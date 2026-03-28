@@ -1,6 +1,9 @@
-@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},LowerOrderKernel{(:a0, :a0)},
-                    EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{(:linear,:linear)},Val{true}})(x::Vararg{Number,2}) where 
-                    {T,TCoefs,IT,Axs,KA,EQ,PR,KP,KBC,DO,FD,SD}
+@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a0, :a0)},
+                    EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{(:linear,:linear)},Val{true},Val{0}})(x::Vararg{Number,2}) where 
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+                    KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
+                    PR<:Tuple{<:AbstractVector,<:AbstractVector},
+                    KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
 
     # specialized dispatch for 2d nearest neighbor kernel 
     # First dimension (x)
@@ -24,9 +27,12 @@
     end
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},LowerOrderKernel{(:a1, :a1)},
-                    EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{(:linear,:linear)},Val{true}})(x::Vararg{Number,2}) where 
-                    {T,TCoefs,IT,Axs,KA,EQ,PR,KP,KBC,DO,FD,SD}
+@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a1, :a1)},
+                    EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{(:linear,:linear)},Val{true},Val{0}})(x::Vararg{Number,2}) where 
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+                    KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
+                    PR<:Tuple{<:AbstractVector,<:AbstractVector},
+                    KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
 
     # specialized dispatch for 2d linear kernel
     # First dimension (x)
@@ -47,9 +53,11 @@ end
                         (-one(T)/itp.h[1])^DO[1] * (-one(T)/itp.h[2])^DO[2]
 end
 
-function (itp::FastConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
-            HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{true}})(x::Vararg{Number,2}) where 
-            {T,TCoefs,IT,Axs,KA,DG,EQ,PR,KP,KBC,DO,FD,SD,SG}
+function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
+            HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{true},Val{0}})(x::Vararg{Number,2}) where 
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+            KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},PR<:Tuple{<:AbstractVector,<:AbstractVector},
+            KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
     if SG == (:linear, :linear)
 

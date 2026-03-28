@@ -1,6 +1,11 @@
-@inline function (itp::FastConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
-                    CK,EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{SG},Val{false}})(x::Vararg{Number,3}) where
-                    {T,TCoefs,IT,Axs,KA<:NTuple{3,<:Nothing},CK<:AbstractConvolutionKernel,EQ,PR,KP,KBC,FD,SD,SG}
+@inline function (itp::FastConvolutionInterpolation{T,3,3,TCoefs,Axs,KA,Val{3},
+                    DG,EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{SG},Val{false},Val{3}})(x::Vararg{Number,3}) where
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
+                    Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
+                    KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},
+                    PR<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
+                    KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
+                    FD,SD,SG}
 
     result = zero(T)
 

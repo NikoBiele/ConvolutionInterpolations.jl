@@ -69,9 +69,11 @@ convolution interpolation.
 
 abstract type AbstractConvolutionKernel end
 
-abstract type AbstractMixedConvolutionKernel end
+abstract type AbstractNonMixedConvolutionKernel <: AbstractConvolutionKernel end
 
-struct HigherOrderKernel{DG} <: AbstractConvolutionKernel end
+abstract type AbstractMixedConvolutionKernel <: AbstractConvolutionKernel end
+
+struct HigherOrderKernel{DG} <: AbstractNonMixedConvolutionKernel end
 
 struct HigherOrderMixedKernel{DG} <: AbstractMixedConvolutionKernel end
 
@@ -79,7 +81,7 @@ HigherOrderKernel(::Val{DG}) where DG = HigherOrderKernel{DG}()
 
 HigherOrderMixedKernel(::Val{DG}) where DG = HigherOrderMixedKernel{DG}()
 
-struct LowerOrderKernel{DG} <: AbstractConvolutionKernel end
+struct LowerOrderKernel{DG} <: AbstractNonMixedConvolutionKernel end
 LowerOrderKernel(::Val{DG}) where DG = LowerOrderKernel{DG}()
 
 struct LowerOrderMixedKernel{DG} <: AbstractMixedConvolutionKernel end
@@ -91,10 +93,10 @@ FullMixedOrderKernel(::Val{DG}) where DG = FullMixedOrderKernel{DG}()
 struct NonUniformMixedOrderKernel{DG} <: AbstractMixedConvolutionKernel end
 NonUniformMixedOrderKernel(::Val{DG}) where DG = NonUniformMixedOrderKernel{DG}()
 
-struct NonUniformNonMixedLowKernel{DG} <: AbstractConvolutionKernel end
+struct NonUniformNonMixedLowKernel{DG} <: AbstractNonMixedConvolutionKernel end
 NonUniformNonMixedLowKernel(::Val{DG}) where DG = NonUniformNonMixedLowKernel{DG}()
 
-struct NonUniformNonMixedHighKernel{DG} <: AbstractConvolutionKernel end
+struct NonUniformNonMixedHighKernel{DG} <: AbstractNonMixedConvolutionKernel end
 NonUniformNonMixedHighKernel(::Val{DG}) where DG = NonUniformNonMixedHighKernel{DG}()
 
 """
@@ -192,3 +194,15 @@ Used when at least one but not all dimensions have `derivative == -1`.
 See also: `IntegralOrder`, `DerivativeOrder`.
 """
 struct MixedIntegralOrder{DO} end
+
+struct FastMixedIntegralOrder{DO} end
+
+abstract type AbstractExtrapolation end
+
+struct Line <: AbstractExtrapolation end
+
+struct Flat <: AbstractExtrapolation end
+
+struct Throw <: AbstractExtrapolation end
+
+struct Natural <: AbstractExtrapolation end

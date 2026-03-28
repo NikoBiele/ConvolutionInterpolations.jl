@@ -331,35 +331,41 @@ plot(p1, p2, layout=(1,2), size=(900,400))
 
 [![Delta spike and Heaviside](fig/delta_heaviside.png)](fig/delta_heaviside.png)
 
-### Multidimensional Integration Convergence
+### Multidimensional Integration and Mixed Operations
 
-The tensor product structure of the antiderivative yields an empirical convergence
-enhancement in higher dimensions. For b-series kernels, the observed order depends
-on the symmetry of the integrand:
+For general smooth integrands, the antiderivative converges at approximately the 1D rate (~7th order for `:b` kernels) across all dimensions.
 
-- **General smooth integrands**: convergence order stays close to the 1D rate (~7th order
-  for `:b7`) across all dimensions, but the absolute error still decreases with dimension
-  for a fixed number of points per dimension.
-- **Symmetric integrands** (symmetric around the domain center): convergence order
-  increases dramatically with dimension, from ~7th order in 1D to ~12th order in 5D
-  for `:b7`. The mechanism is not yet fully understood.
+Beyond pure antiderivatives, mixed integral/derivative operations are supported on uniform grids - integrate along some dimensions while differentiating or interpolating along others, all in a single O(stencilᴺ) operator:
+```julia
+xs = range(0.0, 2π, length=100)
+ys = range(0.0, 2π, length=100)
+zs = range(0.0, 2π, length=100)
+vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
 
-[![2D integration convergence](fig/convergence_integration_2d_runge.png)](fig/convergence_integration_2d_runge.png)
+# antiderivative in x, derivative in y, interpolation in z
+itp = convolution_interpolation((xs,ys,zs), vs; derivative=(-1, 1, 0))
 
-The theoretical explanation for this dimensional enhancement remains an open question.
+# definite integrals via differences cancel the unknown constant:
+x1, x2 = 1.0, 2.0
+itp(x2, 1.5, 1.0) - itp(x1, 1.5, 1.0)  # ≈ (-cos(x2)+cos(x1)) * (-sin(1.5)) * exp(1.0/4)
+```
+
+The fast path uses tail sums to reduce the integral dimensions to O(1) lookups per axis, so evaluation cost depends only on the stencil width of the derivative/interpolation dimensions, independent of grid size. Up to 3 integral dimensions are accelerated this way; beyond that the package falls back to a general path that is accurate but slower for large grids.
+
+This enables compact expressions for operators like the Leibniz integral rule, iterated integrals, and mixed differential-integral equations in arbitrary dimensions.
 
 ### Extrapolation
 
 Define behavior outside the data domain:
 ```julia
-itp = convolution_interpolation(x, y; extrap=:throw);     # Error (default)
-itp = convolution_interpolation(x, y; extrap=:line);      # Linear
-itp = convolution_interpolation(x, y; extrap=:flat);      # Constant
-itp = convolution_interpolation(x, y; extrap=:natural);   # Smooth boundary preservation
+itp = convolution_interpolation(x, y; extrap=Throw());     # Error (default)
+itp = convolution_interpolation(x, y; extrap=Line());      # Linear
+itp = convolution_interpolation(x, y; extrap=Flat());      # Constant
+itp = convolution_interpolation(x, y; extrap=Natural());   # Smooth boundary preservation
 ```
 
-The `:natural` mode transforms extrapolation into interpolation by expanding the domain with boundary coefficients before applying linear extrapolation. This preserves the kernel's full smoothness across the boundary region, rather than abruptly transitioning at the domain edge.
-`:natural` is not recommended in high dimensions due to the double construction cost.
+The `Natural()` mode transforms extrapolation into interpolation by expanding the domain with boundary coefficients before applying linear extrapolation. This preserves the kernel's full smoothness across the boundary region, rather than abruptly transitioning at the domain edge.
+`Natural()` is not recommended in high dimensions due to the double construction cost.
 
 ### High-Dimensional Interpolation
 

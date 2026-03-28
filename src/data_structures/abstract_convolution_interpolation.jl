@@ -18,9 +18,11 @@ Abstract supertype for all convolution-based interpolation types.
 - `FD`: The first derivative type
 - `SD`: The second derivative type
 - `SG`: The subgrid type
+- `LZ`: The type of the lazy grid
+- `NI`: The number of integral dimensions
+- `DI`: The type of the integral dimension
 
 This abstract type serves as the parent type for the concrete implementations
 `ConvolutionInterpolation` and `FastConvolutionInterpolation`.
 """
-abstract type AbstractConvolutionInterpolation{T,N,TCoefs,IT<:Union{Tuple{Vararg{ConvolutionMethod}},ConvolutionMethod},
-                                                Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,LZ,NI} end
+abstract type AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,LZ,DI} end

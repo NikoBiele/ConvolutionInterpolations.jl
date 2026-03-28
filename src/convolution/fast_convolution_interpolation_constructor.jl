@@ -109,7 +109,6 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
     end
 
     h   = ntuple(d -> knots_tuple[d][2] - knots_tuple[d][1], N)
-    it  = ntuple(_ -> ConvolutionMethod(), N)
 
     # precompute resolution
     precompute_actual = ntuple(d -> (subgrids[d] == :linear ? max(precompute, 10_000) : precompute), N)
@@ -140,6 +139,7 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
     anchor = ntuple(d -> derivatives[d] == -1 ? knots_new[d][eqs[d]] : zero(T), N)
 
     # left_values: computed for integral dims, placeholder for derivative dims
+    int_dims = findall(d -> derivatives[d] == -1, 1:N)
     placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
     if n_integral >= 1
         left_values = ntuple(N) do d
@@ -171,28 +171,28 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         tail1_left = ntuple(_ -> placeholder, N)
         tail1_right = ntuple(_ -> placeholder, N)
     end    
-    if n_integral == 2
-        lv1 = reshape(left_values[1], (size(coefs,1), 1))
-        lv2 = reshape(left_values[2], (1, size(coefs,2)))
+    if n_integral >= 2
+        lv1 = reshape(left_values[int_dims[1]], ntuple(i -> i == int_dims[1] ? size(coefs, int_dims[1]) : 1, N))
+        lv2 = reshape(left_values[int_dims[2]], ntuple(i -> i == int_dims[2] ? size(coefs, int_dims[2]) : 1, N))
         wll = coefs .* (T(1//2) .- lv1) .* (T(1//2) .- lv2)
         wrl = coefs .* (-T(1//2) .- lv1) .* (T(1//2) .- lv2)
         wlr = coefs .* (T(1//2) .- lv1) .* (-T(1//2) .- lv2)
         wrr = coefs .* (-T(1//2) .- lv1) .* (-T(1//2) .- lv2)
-        tail2_ll = cumsum(cumsum(wll, dims=1), dims=2)
-        tail2_rl = _suffix_sum(cumsum(wrl, dims=2), 1)
-        tail2_lr = cumsum(_suffix_sum(wlr, 2), dims=1)
-        tail2_rr = _suffix_sum(_suffix_sum(wrr, 2), 1)
+        tail2_ll = cumsum(cumsum(wll, dims=int_dims[1]), dims=int_dims[2])
+        tail2_rl = _suffix_sum(cumsum(wrl, dims=int_dims[2]), int_dims[1])
+        tail2_lr = cumsum(_suffix_sum(wlr, int_dims[2]), dims=int_dims[1])
+        tail2_rr = _suffix_sum(_suffix_sum(wrr, int_dims[2]), int_dims[1])
     else
-        ph = Matrix{T}(undef, 0, 0)
+        ph = Array{T,N}(undef, ntuple(_ -> 0, N)...)
         tail2_ll = ph
         tail2_rl = ph
         tail2_lr = ph
         tail2_rr = ph
     end
     if n_integral == 3
-        lv1 = reshape(left_values[1], (size(coefs,1), 1, 1))
-        lv2 = reshape(left_values[2], (1, size(coefs,2), 1))
-        lv3 = reshape(left_values[3], (1, 1, size(coefs,3)))
+        lv1 = reshape(left_values[int_dims[1]], ntuple(i -> i == int_dims[1] ? size(coefs, int_dims[1]) : 1, N))
+        lv2 = reshape(left_values[int_dims[2]], ntuple(i -> i == int_dims[2] ? size(coefs, int_dims[2]) : 1, N))
+        lv3 = reshape(left_values[int_dims[3]], ntuple(i -> i == int_dims[3] ? size(coefs, int_dims[3]) : 1, N))
         wl1 = T(1//2) .- lv1;  wr1 = -T(1//2) .- lv1
         wl2 = T(1//2) .- lv2;  wr2 = -T(1//2) .- lv2
         wl3 = T(1//2) .- lv3;  wr3 = -T(1//2) .- lv3
@@ -200,14 +200,14 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         # faces: saturated in one dim, free in the other two
         # tail3_face_l[d] = prefix sum along dim d only, weighted by (1/2 - lv_d)
         tail3_face_l = (
-            cumsum(coefs .* wl1, dims=1),
-            cumsum(coefs .* wl2, dims=2),
-            cumsum(coefs .* wl3, dims=3),
+            cumsum(coefs .* wl1, dims=int_dims[1]),
+            cumsum(coefs .* wl2, dims=int_dims[2]),
+            cumsum(coefs .* wl3, dims=int_dims[3]),
         )
         tail3_face_r = (
-            _suffix_sum(coefs .* wr1, 1),
-            _suffix_sum(coefs .* wr2, 2),
-            _suffix_sum(coefs .* wr3, 3),
+            _suffix_sum(coefs .* wr1, int_dims[1]),
+            _suffix_sum(coefs .* wr2, int_dims[2]),
+            _suffix_sum(coefs .* wr3, int_dims[3]),
         )
 
         # edges: saturated in two dims, free in one
@@ -216,37 +216,37 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         # d=2: saturated in dims 1&3
         # d=3: saturated in dims 1&2
         tail3_edge_ll = (
-            cumsum(cumsum(coefs .* wl2 .* wl3, dims=2), dims=3),
-            cumsum(cumsum(coefs .* wl1 .* wl3, dims=1), dims=3),
-            cumsum(cumsum(coefs .* wl1 .* wl2, dims=1), dims=2),
+            cumsum(cumsum(coefs .* wl2 .* wl3, dims=int_dims[2]), dims=int_dims[3]),
+            cumsum(cumsum(coefs .* wl1 .* wl3, dims=int_dims[1]), dims=int_dims[3]),
+            cumsum(cumsum(coefs .* wl1 .* wl2, dims=int_dims[1]), dims=int_dims[2]),
         )
         tail3_edge_rl = (
-            _suffix_sum(cumsum(coefs .* wr2 .* wl3, dims=3), 2),
-            _suffix_sum(cumsum(coefs .* wr1 .* wl3, dims=3), 1),
-            _suffix_sum(cumsum(coefs .* wr1 .* wl2, dims=2), 1),
+            _suffix_sum(cumsum(coefs .* wr2 .* wl3, dims=int_dims[3]), int_dims[2]),
+            _suffix_sum(cumsum(coefs .* wr1 .* wl3, dims=int_dims[3]), int_dims[1]),
+            _suffix_sum(cumsum(coefs .* wr1 .* wl2, dims=int_dims[2]), int_dims[1]),
         )
         tail3_edge_lr = (
-            cumsum(_suffix_sum(coefs .* wl2 .* wr3, 3), dims=2),
-            cumsum(_suffix_sum(coefs .* wl1 .* wr3, 3), dims=1),
-            cumsum(_suffix_sum(coefs .* wl1 .* wr2, 2), dims=1),
+            cumsum(_suffix_sum(coefs .* wl2 .* wr3, int_dims[3]), dims=int_dims[2]),
+            cumsum(_suffix_sum(coefs .* wl1 .* wr3, int_dims[3]), dims=int_dims[1]),
+            cumsum(_suffix_sum(coefs .* wl1 .* wr2, int_dims[2]), dims=int_dims[1]),
         )
         tail3_edge_rr = (
-            _suffix_sum(_suffix_sum(coefs .* wr2 .* wr3, 3), 2),
-            _suffix_sum(_suffix_sum(coefs .* wr1 .* wr3, 3), 1),
-            _suffix_sum(_suffix_sum(coefs .* wr1 .* wr2, 2), 1),
+            _suffix_sum(_suffix_sum(coefs .* wr2 .* wr3, int_dims[3]), int_dims[2]),
+            _suffix_sum(_suffix_sum(coefs .* wr1 .* wr3, int_dims[3]), int_dims[1]),
+            _suffix_sum(_suffix_sum(coefs .* wr1 .* wr2, int_dims[2]), int_dims[1]),
         )
 
         # corners: saturated in all three dims
-        tail3_corner_lll = cumsum(cumsum(cumsum(coefs .* wl1 .* wl2 .* wl3, dims=1), dims=2), dims=3)
-        tail3_corner_rll = _suffix_sum(cumsum(cumsum(coefs .* wr1 .* wl2 .* wl3, dims=2), dims=3), 1)
-        tail3_corner_lrl = cumsum(_suffix_sum(cumsum(coefs .* wl1 .* wr2 .* wl3, dims=3), 2), dims=1)
-        tail3_corner_llr = cumsum(cumsum(_suffix_sum(coefs .* wl1 .* wl2 .* wr3, 3), dims=1), dims=2)
-        tail3_corner_rrl = _suffix_sum(_suffix_sum(cumsum(coefs .* wr1 .* wr2 .* wl3, dims=3), 2), 1)
-        tail3_corner_rlr = _suffix_sum(cumsum(_suffix_sum(coefs .* wr1 .* wl2 .* wr3, 2), dims=1), 3)
-        tail3_corner_lrr = cumsum(_suffix_sum(_suffix_sum(coefs .* wl1 .* wr2 .* wr3, 3), 2), dims=1)
-        tail3_corner_rrr = _suffix_sum(_suffix_sum(_suffix_sum(coefs .* wr1 .* wr2 .* wr3, 3), 2), 1)
+        tail3_corner_lll = cumsum(cumsum(cumsum(coefs .* wl1 .* wl2 .* wl3, dims=int_dims[1]), dims=int_dims[2]), dims=int_dims[3])
+        tail3_corner_rll = _suffix_sum(cumsum(cumsum(coefs .* wr1 .* wl2 .* wl3, dims=int_dims[2]), dims=int_dims[3]), int_dims[1])
+        tail3_corner_lrl = cumsum(_suffix_sum(cumsum(coefs .* wl1 .* wr2 .* wl3, dims=int_dims[3]), int_dims[2]), dims=int_dims[1])
+        tail3_corner_llr = cumsum(cumsum(_suffix_sum(coefs .* wl1 .* wl2 .* wr3, int_dims[3]), dims=int_dims[1]), dims=int_dims[2])
+        tail3_corner_rrl = _suffix_sum(_suffix_sum(cumsum(coefs .* wr1 .* wr2 .* wl3, dims=int_dims[3]), int_dims[2]), int_dims[1])
+        tail3_corner_rlr = _suffix_sum(cumsum(_suffix_sum(coefs .* wr1 .* wl2 .* wr3, int_dims[2]), dims=int_dims[1]), int_dims[3])
+        tail3_corner_lrr = cumsum(_suffix_sum(_suffix_sum(coefs .* wl1 .* wr2 .* wr3, int_dims[3]), int_dims[2]), dims=int_dims[1])
+        tail3_corner_rrr = _suffix_sum(_suffix_sum(_suffix_sum(coefs .* wr1 .* wr2 .* wr3, int_dims[3]), int_dims[2]), int_dims[1])
     else
-        ph = Array{T}(undef, ntuple(_ -> 0, 3)...)
+        ph = Array{T,N}(undef, ntuple(_ -> 0, N)...)
         tail3_face_l = ntuple(_ -> ph, 3)
         tail3_face_r = ntuple(_ -> ph, 3)
         tail3_edge_ll = ntuple(_ -> ph, 3)
@@ -261,26 +261,29 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
 
     kernel_type = ntuple(d -> nothing, N)
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
+    integral_dimension = n_integral <= 3 ? Val(n_integral) : HigherDimension(Val(n_integral))
 
     do_type = if n_integral == 0
         DerivativeOrder(Val(derivatives))
     elseif n_integral == N
         IntegralOrder()
-    else
-        MixedIntegralOrder{derivatives}()
+    else # if n_integral <= 3 && n_integral < N
+        FastMixedIntegralOrder{derivatives}()
     end
 
     low_order_kernel_used  = any(d -> kernels_tuple[d] in (:a0, :a1), 1:N)
-    if allequal(derivatives)
+    derivatives_equal = allequal(derivatives)
+    kernels_equal = allequal(kernels_tuple)
+    if derivatives_equal
         kernels = if high_order_kernel_used && low_order_kernel_used
             FullMixedOrderKernel(Val(kernels_tuple))
-        elseif high_order_kernel_used && !low_order_kernel_used && allequal(kernels_tuple)
+        elseif high_order_kernel_used && !low_order_kernel_used && kernels_equal
             HigherOrderKernel(Val(kernels_tuple))
-        elseif high_order_kernel_used && !low_order_kernel_used && !allequal(kernels_tuple)
+        elseif high_order_kernel_used && !low_order_kernel_used && !kernels_equal
             HigherOrderMixedKernel(Val(kernels_tuple))
-        elseif !high_order_kernel_used && low_order_kernel_used && allequal(kernels_tuple)
+        elseif !high_order_kernel_used && low_order_kernel_used && kernels_equal
             LowerOrderKernel(Val(kernels_tuple))
-        elseif !high_order_kernel_used && low_order_kernel_used && !allequal(kernels_tuple)
+        elseif !high_order_kernel_used && low_order_kernel_used && !kernels_equal
             LowerOrderMixedKernel(Val(kernels_tuple))
         end
     else
@@ -292,18 +295,17 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
             LowerOrderMixedKernel(Val(kernels_tuple))
         end
     end
-    integral_dims = ntuple(d -> derivatives[d] == -1, N)
 
-    return FastConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),
+    return FastConvolutionInterpolation{T,N,n_integral,typeof(coefs),typeof(knots_new),
                                         typeof(kernel_type),typeof(dimension),typeof(kernels),
                                         typeof(eqs),typeof(pre_range_d),typeof(kernel_pre_d),
                                         typeof(bc),typeof(do_type),
                                         typeof(kd1_pre_d),typeof(kd2_pre_d),typeof(Val(subgrids)),
-                                        typeof(Val(lazy)),typeof(n_integral)}(
-        coefs, knots_new, it, h, kernel_type, dimension, kernels, eqs,
+                                        typeof(Val(lazy)),typeof(integral_dimension)}(
+        coefs, knots_new, h, kernel_type, dimension, kernels, eqs,
         pre_range_d, kernel_pre_d, bc, do_type,
         kd1_pre_d, kd2_pre_d, Val(subgrids),
-        Val(lazy), boundary_fallback, left_values, anchor, n_integral, integral_dims,
+        Val(lazy), boundary_fallback, left_values, anchor, integral_dimension,
         tail1_left, tail1_right, tail2_ll, tail2_rl, tail2_lr, tail2_rr,
         # 3d arrrays
         tail3_edge_ll,  # free dim d, left×left in the other two

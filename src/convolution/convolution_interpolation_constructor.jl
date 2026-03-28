@@ -85,7 +85,6 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             end
         end
         h = map(k -> k[2] - k[1], knots_tuple)
-        it = ntuple(_ -> ConvolutionMethod(), N)
 
         # ===== LAZY vs EAGER coefs/knots =====
         high_order_kernel_used = any(d -> kernels_tuple[d] in (:a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11, :b13), 1:N)
@@ -127,18 +126,19 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             end
         end
         n_integral = count(d -> derivatives_tuple[d] == -1, 1:N)
-        integral_dims = ntuple(d -> derivatives_tuple[d] == -1, N)
 
         kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, (:not_used))
         nb_wc = nothing
+        integral_dimension = n_integral <= 3 ? Val(n_integral) : HigherDimension(Val(n_integral))
 
-        ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_new),typeof(kernel_type),
+        ConvolutionInterpolation{T,N,n_integral,typeof(coefs),typeof(knots_new),typeof(kernel_type),
                                 typeof(dimension),typeof(Val(kernel)),typeof(eqs),typeof(bc),
                                 typeof(do_type),typeof(kernel_d1_pre),typeof(kernel_d2_pre),
-                                typeof(Val(subgrid)),typeof(nb_wc),typeof(Val(lazy)),typeof(n_integral)}(
-            coefs, knots_new, it, h, kernel_type, dimension, Val(kernel), eqs, bc, do_type,
+                                typeof(Val(subgrid)),typeof(nb_wc),typeof(Val(lazy)),
+                                typeof(integral_dimension)}(
+            coefs, knots_new, h, kernel_type, dimension, Val(kernel), eqs, bc, do_type,
             kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val(lazy), boundary_fallback,
-            anchor, n_integral, integral_dims
+            anchor, integral_dimension
         )
 
     else
@@ -174,7 +174,6 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             M_eqs = ntuple(d -> nu_params[d][1], N)
             p_deg = ntuple(d -> nu_params[d][2], N)
             h = ntuple(d -> one(T), N) # dummy
-            it = ntuple(_ -> ConvolutionMethod(), N)
             knots_new = ntuple(d -> collect(T, knots_tuple[d]), N)
             lazy = false # b kernels always use eager mode
 
@@ -200,15 +199,16 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, (:not_used))
             kernel_sym = NonUniformMixedOrderKernel(Val(kernels_tuple))
             n_integral = 0
-            integral_dims = ntuple(d -> false, N)
+            integral_dimension = n_integral <= 3 ? Val(n_integral) : HigherDimension(Val(n_integral))
 
-            return ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_expanded),typeof(kernel_type),
+            return ConvolutionInterpolation{T,N,n_integral,typeof(coefs),typeof(knots_expanded),typeof(kernel_type),
                                     typeof(dimension),typeof(kernel_sym),typeof(M_eqs),typeof(bc),
                                     typeof(do_type),typeof(kernel_d1_pre),typeof(kernel_d2_pre),
-                                    typeof(Val(subgrid)),typeof(nb_wc),typeof(Val(lazy)),typeof(n_integral)}(
-                coefs, knots_expanded, it, h, kernel_type, dimension, kernel_sym, M_eqs, bc, do_type,
+                                    typeof(Val(subgrid)),typeof(nb_wc),typeof(Val(lazy)),
+                                    typeof(integral_dimension)}(
+                coefs, knots_expanded, h, kernel_type, dimension, kernel_sym, M_eqs, bc, do_type,
                 kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val(lazy), boundary_fallback,
-                anchor, n_integral, integral_dims
+                anchor, integral_dimension
             )
         
         elseif all_n3_kernels || all_a0_kernels || all_a1_kernels
@@ -216,7 +216,6 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             kernels_tuple = kernels_tuple[1] == :a3 ? ntuple(d -> :n3, N) : kernels_tuple
             eqs = (all_a0_kernels || all_a1_kernels) ? ntuple(d -> 1, N) : ntuple(d -> 2, N)
             h = ntuple(d -> one(T), N)
-            it = ntuple(_ -> ConvolutionMethod(), N)
             knots_new = ntuple(d -> collect(T, knots_tuple[d]), N)
             coefs, knots_expanded = if lazy || all_a0_kernels || all_a1_kernels
                 vs, ntuple(N) do d
@@ -240,15 +239,16 @@ function ConvolutionInterpolation(knots::Union{NTuple{N,AbstractVector},
             kernel_sym = kernels_tuple == :n3 ? NonUniformNonMixedHighKernel(Val(kernels_tuple)) :
                                      NonUniformNonMixedLowKernel(Val(kernels_tuple))
             n_integral = 0
-            integral_dims = ntuple(d -> false, N)
+            integral_dimension = n_integral <= 3 ? Val(n_integral) : HigherDimension(Val(n_integral))
 
-            return ConvolutionInterpolation{T,N,typeof(coefs),typeof(it),typeof(knots_expanded),typeof(kernel_type),
+            return ConvolutionInterpolation{T,N,n_integral,typeof(coefs),typeof(knots_expanded),typeof(kernel_type),
                                     typeof(dimension),typeof(kernel_sym),typeof(eqs),typeof(bc),
                                     typeof(do_type),typeof(kernel_d1_pre),typeof(kernel_d2_pre),
-                                    typeof(Val(subgrid)),typeof(nb_wc),typeof(Val(lazy)),typeof(n_integral)}(
-                coefs, knots_expanded, it, h, kernel_type, dimension, kernel_sym, eqs, bc, do_type,
+                                    typeof(Val(subgrid)),typeof(nb_wc),typeof(Val(lazy)),
+                                    typeof(integral_dimension)}(
+                coefs, knots_expanded, h, kernel_type, dimension, kernel_sym, eqs, bc, do_type,
                 kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val(lazy), boundary_fallback,
-                anchor, n_integral, integral_dims
+                anchor, integral_dimension
             )
         end
     end

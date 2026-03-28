@@ -1,5 +1,5 @@
 """
-    (itp::ConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},Val{DG},EQ})(x::Vararg{T,2}) where {T,TCoefs,IT,Axs,KA,DG,EQ}
+    (itp::ConvolutionInterpolation{T,2,TCoefs,Axs,KA,Val{2},Val{DG},EQ})(x::Vararg{T,2}) where {T,TCoefs,Axs,KA,DG,EQ}
 
 Evaluate a two-dimensional convolution interpolation at the given point.
 
@@ -34,10 +34,12 @@ or equal to `x₁` and `x₂` respectively.
 @inline _kernel_d(kernel, d) = kernel
 @inline _kernel_d(kernel::Tuple, d) = kernel[d]
 
-function (itp::ConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
-                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG,NB,Val{true}})(x::Vararg{Number,2}) where 
-                    {T,TCoefs,IT,Axs,KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel},
-                    DG,EQ<:Tuple{Int,Int},KBC,DO,FD,SD,SG,NB<:Nothing}
+function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
+                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,Val{:not_used},NB,Val{true},Val{0}})(x::Vararg{Number,2}) where 
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+                    KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel},
+                    DG,EQ<:Tuple{Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
+                    DO,FD,SD,NB<:Nothing}
 
     # === Uniform path ===
 
@@ -52,7 +54,7 @@ function (itp::ConvolutionInterpolation{T,2,TCoefs,IT,Axs,KA,Val{2},
                    (is_boundary_stencil(i, size(itp.coefs, 1), itp.eqs[1]) ||
                     is_boundary_stencil(j, size(itp.coefs, 2), itp.eqs[2]))
         ng = itp.eqs[1] - 1 # lazy uses same kernel in all directions
-        ghost_matrix = get_polynomial_ghost_coeffs(_kernel_sym(itp.kernel_sym))
+        ghost_matrix = get_polynomial_ghost_coeffs(_kernel_sym(itp.kernel_sym)[1])
         factor_nd = -one(T)
         sw = 2 * itp.eqs[1]
         n1 = size(itp.coefs, 1)

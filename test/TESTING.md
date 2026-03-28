@@ -21,12 +21,15 @@ The tests are organized into thematic files, all included from `runtests.jl`:
 | `test_nonuniform_a0_a1.jl` | Nearest-neighbor and linear interpolation on nonuniform grids in 1D–3D |
 | `test_antiderivative.jl` | Antiderivative convergence in 1D–3D; fast vs direct agreement; anchor correctness |
 | `test_perdim_derivatives.jl` | Per-dim derivative orders in 2D and 3D, fast and direct |
-| `test_mixed_integral.jl` | Mixed integral/derivative orders in 2D, fast and direct paths |
 | `test_perdim_kernel_derivatives.jl` | Per-dim kernel combinations with derivatives in 2D and 3D |
 | `test_boundary_condition.jl` | BC downgrade with insufficient points in 1D–3D |
 | `test_extrapolation.jl` | `:line` and `:flat` extrapolation modes for uniform grids in 1D–4D |
 | `test_subgrid_downgrade.jl` | Subgrid mode downgrade at top smooth derivative order |
 | `test_gaussian.jl` | Gaussian kernel construction and evaluation in 1D and 2D |
+| `test_bigfloat_precision.jl` | BigFloat type preservation and machine precision for all kernels in 1D/2D |
+| `test_mixed_integral_1D_2D.jl` | Mixed integral/derivative orders in 1D and 2D, fast and direct paths |
+| `test_mixed_integral_3D_4D.jl` | Mixed integral/derivative orders in 3D and 4D, fast path only |
+| `test_allocations.jl` | Non-lazy kernel functors should all be non-allocating |
 
 ## Kernel Coverage Strategy
 
@@ -127,7 +130,9 @@ Expected convergence orders: `:a3` → 3rd order, `:b5` → 5th order.
 
 ### Mixed integral/derivative orders
 
-Tests `MixedIntegralOrder` in 2D for `derivative` combinations `(-1,0)`, `(0,-1)`, `(-1,1)`, `(1,-1)` with `:b5`. Tests both fast and direct paths for convergence and exact anchor-is-zero property. Grid sizes `n = 20, 40, 80`.
+`test_mixed_integral_1D_2D.jl` tests `MixedIntegralOrder` in 2D for `derivative` combinations `(-1,0)`, `(0,-1)`, `(-1,1)`, `(1,-1)` with `:b5`. Tests both fast and direct paths for convergence and exact anchor-is-zero property. Grid sizes `n = 20, 40, 80`.
+
+`test_mixed_integral_3D_4D.jl` extends coverage to 3D and 4D. All tests use `lazy=true` for fast construction, with evaluation points well inside the domain (at least 5 grid spacings from boundaries to stay clear of the b5 stencil width of 10). Convergence is verified on grids `n = 20, 40` for all combinations of 1, 2, and 3 integral dimensions in 3D, including mixed cases with derivatives such as `(-1,1,0)` and `(1,-1,0)`. A small set of eager (`lazy=false`) near-boundary tests verify correct behavior close to domain edges. 4D tests verify construction and callability for all supported derivative combinations, plus numerical correctness for `(-1,-1,-1,0)` and `(-1,0,0,1)`.
 
 ### Per-dim derivative orders
 
@@ -196,6 +201,17 @@ Verifies that requesting `subgrid=:cubic` at the kernel's top smooth derivative 
 
 Verifies construction and evaluation for `B ∈ (1.0, 2.0, 5.0)` in 1D and `B=2.0` in 2D. Tolerance `0.1` (Gaussian smoothing intentionally blurs the data). Uses `f(x) = sin(x)` and `f(x,y) = sin(x)·cos(y)`.
 
+### BigFloat precision preservation
+
+`test_bigfloat_precision.jl` verifies that `BigFloat` data flows correctly through construction and evaluation without silent downcast to `Float64`. Two test tiers:
+
+- **Type preservation** (all kernels, coarse grid n=50): Verifies `result isa BigFloat` and errors are within coarse-grid tolerance for interpolation, derivative, and antiderivative.
+- **Machine precision** (b-kernels only, dense grid n=2000): Verifies that errors fall below `1e-16` — well below `Float64` precision — proving that `BigFloat` arithmetic is used throughout. Note that b-kernels require dense grids to enter the asymptotic convergence regime beyond `Float64` precision; a-kernels converge too slowly to demonstrate this on practical grid sizes.
+
+### Allocations
+
+Non-lazy kernels should all be non-allocating.
+
 ## Test Parameters
 
 | Parameter | Value | Used in |
@@ -212,6 +228,9 @@ Verifies construction and evaluation for `B ∈ (1.0, 2.0, 5.0)` in 1D and `B=2.
 | `tolerance_pd` | `1e-4` | Per-dim derivatives |
 | `bc` | `:linear` | Uniform interpolation, extrapolation |
 | `bc_deriv` | `:poly` | Derivative and convergence tests |
+| Convergence grids (mixed 3D/4D) | `[20, 40]` | 3D/4D mixed integral |
+| BigFloat coarse grid | 50 | Type preservation |
+| BigFloat dense grid | 2000 | Machine precision |
 | Convergence grids (uniform) | `[12, 24, 48]` | Uniform convergence |
 | Convergence grids (nonuniform) | `[14, 28, 56]` | Nonuniform convergence |
 | Convergence grids (antiderivative 1D) | `[24, 48, 96]` | 1D antiderivative |

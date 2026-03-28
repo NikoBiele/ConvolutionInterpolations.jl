@@ -78,7 +78,7 @@ See also: [`FastConvolutionInterpolation`](@ref), [`ConvolutionInterpolation`](@
 
 function convolution_interpolation(knots, values::AbstractArray{T,N}; 
         kernel::Union{Symbol,NTuple{N,Symbol}}=:b5, fast::Bool=true, precompute::Int=101,
-        B=nothing, extrap=:throw,
+        B=nothing, extrap::Union{Symbol,AbstractExtrapolation}=:throw,
         bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}=:auto,
         derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic,
         lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
@@ -130,9 +130,9 @@ function convolution_interpolation(knots, values::AbstractArray{T,N};
         extrap = :line    
     end
 
-    if extrap == :natural
+    if extrap == :natural || extrap == Natural()
         return _build_natural(knots_tuple, values; kernel=kernels_tuple, fast=fast, precompute=precompute, B=B,
-                              bc=bcs, derivative=derivative_tuple, subgrid=subgrid,
+                              bc=bcs, derivative=derivatives_tuple, subgrid=subgrid,
                               lazy=lazy, boundary_fallback=boundary_fallback)
     elseif fast
         return _build_fast(knots_tuple, values; kernel=kernels_tuple, precompute=precompute, B=B, bc=bcs,
@@ -151,7 +151,7 @@ function _build_fast(knots, values::AbstractArray{T,N}; kernel::Union{Symbol,NTu
     itp = FastConvolutionInterpolation(knots, values;
           kernel=kernel, precompute=precompute, B=B, bc=bc, derivative=derivative,
           subgrid=subgrid, lazy=lazy, boundary_fallback=boundary_fallback)
-    return ConvolutionExtrapolation(itp, extrap)
+    return ConvolutionExtrapolation(itp, _extrap_type(extrap))
 end
 
 function _build_slow(knots, values::AbstractArray{T,N}; kernel::Union{Symbol,NTuple{N,Symbol}}=:b5, B::Union{Nothing,Float64}=nothing,
@@ -160,7 +160,7 @@ function _build_slow(knots, values::AbstractArray{T,N}; kernel::Union{Symbol,NTu
                     lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
     itp = ConvolutionInterpolation(knots, values; kernel=kernel, B=B, bc=bc,
                                     derivative=derivative, lazy=lazy, boundary_fallback=boundary_fallback)
-    return ConvolutionExtrapolation(itp, extrap)
+    return ConvolutionExtrapolation(itp, _extrap_type(extrap))
 end
 
 function _build_natural(knots, values::AbstractArray{T,N}; kernel::Union{Symbol,NTuple{N,Symbol}}=:b5, fast::Bool=true,
@@ -180,7 +180,7 @@ function _build_natural(knots, values::AbstractArray{T,N}; kernel::Union{Symbol,
               kernel=kernel, B=B, bc=:linear, derivative=derivative, lazy=lazy,
               boundary_fallback=boundary_fallback)
     end
-    return ConvolutionExtrapolation(itp, :line)
+    return ConvolutionExtrapolation(itp, Line())
 end
 
 const minimum_polynomial_bc_points = Dict(
@@ -196,3 +196,19 @@ const minimum_polynomial_bc_points = Dict(
     :b11 => 8,
     :b13 => 8
 )
+
+function _extrap_type(s::AbstractExtrapolation)
+    return s
+end
+
+function _extrap_type(s::Symbol)
+    if s == :throw
+        return Throw()
+    elseif s == :line
+        return Line()
+    elseif s == :flat
+        return Flat()
+    else
+        error("Unknown extrapolation type: $s, must be :throw, :line, :flat or :natural.")
+    end
+end

@@ -22,5 +22,9 @@ export
     FastConvolutionInterpolation,
     
     # Core Extrapolation type for advanced users
-    ConvolutionExtrapolation
+    ConvolutionExtrapolation,
+
+    # Extrapolation methods
+    Throw, Line, Flat, Natural
+
 end

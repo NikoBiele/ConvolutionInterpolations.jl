@@ -1,5 +1,5 @@
 """
-    (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},Val{DG},EQ})(x::Vararg{T,3}) where {T,TCoefs,IT,Axs,KA,DG,EQ}
+    (itp::ConvolutionInterpolation{T,3,TCoefs,Axs,KA,Val{3},Val{DG},EQ})(x::Vararg{T,3}) where {T,TCoefs,Axs,KA,DG,EQ}
 
 Evaluate a three-dimensional convolution interpolation at the given point.
 
@@ -30,10 +30,13 @@ less than or equal to `x₁`, `x₂`, and `x₃` respectively.
 # 3D eval with resolve pattern
 # ═══════════════════════════════════════════════════════════════
 
-function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
-                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,SG,NB,Val{true}})(x::Vararg{Number,3}) where 
-                    {T,TCoefs,IT,Axs,KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel,<:ConvolutionKernel},
-                    DG,EQ<:Tuple{Int,Int,Int},KBC,DO,FD,SD,SG,NB<:Nothing}
+function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
+                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,Val{:not_used},NB,Val{true},Val{0}})(x::Vararg{Number,3}) where 
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
+                    Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
+                    KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel,<:ConvolutionKernel},
+                    DG,EQ<:Tuple{Int,Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
+                    DO,FD,SD,NB<:Nothing}
 
     # === Uniform path ===
 
@@ -52,7 +55,7 @@ function (itp::ConvolutionInterpolation{T,3,TCoefs,IT,Axs,KA,Val{3},
                     is_boundary_stencil(j, size(itp.coefs, 2), itp.eqs[2]) ||
                     is_boundary_stencil(k, size(itp.coefs, 3), itp.eqs[3]))
         ng = itp.eqs[1] - 1 # lazy uses same kernel in all directions
-        ghost_matrix = get_polynomial_ghost_coeffs(_kernel_sym(itp.kernel_sym))
+        ghost_matrix = get_polynomial_ghost_coeffs(_kernel_sym(itp.kernel_sym)[1])
         factor_nd = -one(T)
         sw = 2 * itp.eqs[1]
         n1 = size(itp.coefs, 1)

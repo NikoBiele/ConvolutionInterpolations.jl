@@ -160,25 +160,42 @@ Antiderivatives (`derivative=-1`) are not supported with resampling, use `convol
 For truly scattered (unstructured) data, resample onto a uniform grid first using a radial basis functions (RBF) package such as [ScatteredInterpolation.jl](https://github.com/eljungsk/ScatteredInterpolation.jl), then apply ConvolutionInterpolations.jl for Gaussian smoothing, and high-order convolution interpolation:
 
 ```julia
-using ScatteredInterpolation, ConvolutionInterpolations
+using ScatteredInterpolation, ConvolutionInterpolations, Plots
 
-# Scattered noisy data
-points = rand(2, 500) .* 2π
-values = sin.(points[1,:]) .* cos.(points[2,:]) .+ 0.05.*randn(500)
+# true signal
+xs = ys = range(0.0, 2π, length=100)
+true_signal = [sin(x)*cos(y) for x in xs, y in ys]
+
+# scattered noisy measurements
+n_points = 1000
+points = rand(2, n_points) .* 2π
+values = sin.(points[1,:]) .* cos.(points[2,:]) .+ 0.1.*randn(n_points)
 
 # Step 1: RBF onto uniform grid
-itp_rbf = interpolate(Multiquadratic(), points, values)
-xs = ys = range(0, 2π, length=100)
-grid_values = [evaluate(itp_rbf, [x, y])[1] for x in xs, y in ys]
+itp_rbf = interpolate(NearestNeighbor(), points, values)
+grid_rbf = [evaluate(itp_rbf, [x, y])[1] for x in xs, y in ys]
 
-# Step 2: Remove noise from RBF artefacts and measurement noise
-grid_smooth = convolution_smooth((xs, ys), grid_values, 0.05)
+# Step 2: smooth
+grid_smooth = convolution_smooth((xs, ys), grid_rbf, 0.02)
 
-# Step 3: High-order interpolant — evaluate, differentiate, integrate
+# Step 3: plot and verify
+limits = extrema(grid_rbf)
+p1 = scatter(points[1,:], points[2,:], zcolor=values,
+             title="Scattered noisy data (n=$n_points)",
+             ms=3, markerstrokewidth=0, aspect_ratio=1, clims=limits)
+p2 = contourf(xs, ys, grid_rbf', title="After RBF gridding", clims=limits)
+p3 = contourf(xs, ys, grid_smooth', title="After smoothing (B=0.02)", clims=limits)
+p4 = contourf(xs, ys, true_signal', title="True signal", clims=limits)
+
+plot(p1, p2, p3, p4, layout=(2,2), size=(900,800), colorbar=false)
+
+# Step 4: High-order interpolant — evaluate, differentiate, integrate
 itp = convolution_interpolation((xs, ys), grid_smooth)           # f(x,y)
 itp_dx = convolution_interpolation((xs, ys), grid_smooth; derivative=(1,0))  # ∂f/∂x
 itp_int = convolution_interpolation((xs, ys), grid_smooth; derivative=-1)    # ∫∫f dx dy
 ```
+
+[![Scattered Data Pipeline](fig/scattered_data_pipeline.png)](fig/scattered_data_pipeline.png)
 
 This pipeline enables high-order evaluation, differentiation, and integration of noisy
 scattered data in arbitrary dimensions. The three steps are independent and composable:

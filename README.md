@@ -391,8 +391,8 @@ itp(1.0)   # ≈ 0.4597  (= 1 - cos(1), anchored at x=0)
 
 The result is zero-anchored at the leftmost interior knot: `F(anchor) = 0` exactly.
 The fast path (default) precomputes the anchor-side contribution at construction time.
-In 1D and 2D, prefix sums further reduce evaluation to O(stencil) and O(stencil²)
-respectively, independent of grid size. In higher dimensions, evaluation falls back to
+In 1D and 2D, prefix sums further reduce evaluation to O(stencil), O(stencil²) and and O(stencil³)
+respectively, independent of grid size after construction. In higher dimensions, evaluation falls back to
 a general path that sums over the full coefficient array — accurate but slower for large grids.
 
 In N dimensions the result is the iterated antiderivative:
@@ -559,7 +559,7 @@ The available subgrid order depends on remaining smooth derivatives: `max_deriva
 
 Cubic and quintic subgrids are implemented for 1D and 2D. Higher dimensions use `:linear` subgrid, as tensor products per cell grow as `(order+1)ᴺ`.
 
-Benchmarks in the [Speed](#speed) section use `:linear` subgrid.
+Benchmarks in the [Speed](#speed) section use the default `:cubic` subgrid.
 
 ## Performance Guidelines
 

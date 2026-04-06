@@ -1,10 +1,12 @@
 # ConvolutionInterpolations.jl
 
-Smooth interpolation, derivatives and antiderivatives from a discrete grid of samples.
+High-order interpolation, differentiation, integration and smoothing on discrete grids in arbitrary dimensions.
 
 [![Performance Comparison](fig/convolution_interpolation_kernels.png)](fig/convolution_interpolation_kernels.png)
 
 ## Why ConvolutionInterpolations.jl?
+
+ConvolutionInterpolations.jl uses a new family of high-order convolution kernels to provide a single unified interface for interpolation, differentiation, integration and smoothing - from nearest-neighbor to C⁶ smooth 13th-degree polynomial kernels, on uniform and non-uniform grids, in any number of dimensions.
 
 - **High accuracy by default**: The default `:b5` kernel gives 7th-order convergence
 - **Uniform grids**: Uniform grids use optimized precomputed kernels
@@ -185,14 +187,8 @@ of interpolation, derivatives, and antiderivatives for downstream analysis.
 
 ### Non-uniform Grid Interpolation
 
-Non-uniform grids are detected automatically.
-The `:a0` (nearest) and `:a1` (linear) kernels work natively on non-uniform grids.
-Higher `:a` kernels (`:a3` through `:a7`) fall back to the `:n3` kernel, which uses
-cubic weights equivalent to non-uniform Catmull-Rom splines with 3rd order convergence.
-
-For higher accuracy and derivatives, the `:b` kernels (`:b5` through `:b13`) can be used.
-The maximum derivative order depends on the kernel's continuity class (see [Available Kernels](#available-kernels)).
-Per-interval weight polynomials are precomputed using exact rational arithmetic.
+Non-uniform grids are detected automatically if an irregular vector of knots is passed.
+All `:b` kernels support non-uniform grids with full 7th-order accuracy and derivatives up to 6th order.
 
 ```julia
 x = [0.0, 0.15, 0.4, 0.7, 1.5, 2.5, 3.8, 4.2, 4.6, 4.8, 5.0,
@@ -210,10 +206,11 @@ itp_d5 = convolution_interpolation(x, y; kernel=:b11, derivative=5);  # f⁵(x)
 [![Nonuniform derivatives](fig/nonuniform_derivatives.png)](fig/nonuniform_derivatives.png)
 
 Dots are analytical values, solid lines are the `:b11` interpolant.
-Non-uniform interpolation works in any number of dimensions via tensor products.
-Non-uniform precomputation scales with the number of intervals; for performance-critical applications, 
-non-uniform kernels can be used once to resample data onto a uniform grid, 
-then efficient uniform kernels can be used for repeated evaluation.
+Non-uniform grids work in any number of dimensions via tensor products, though precomputation
+cost scales with the number of intervals and grows rapidly in high dimensions. For
+performance-critical or high-dimensional applications, consider constructing the non-uniform
+interpolant once to evaluate onto a uniform grid, then using efficient uniform kernels for
+repeated evaluation.
 
 ## Accuracy
 
@@ -296,7 +293,8 @@ Non-uniform grid kernels
 
 The default kernel is `:b5`, which provides 7th-order accuracy and C³ continuity.
 It works across all modes: uniform, non-uniform, derivatives, antiderivative, lazy, and
-arbitrary dimensions.
+arbitrary dimensions. The non-uniform `:n3` kernel uses cubic weights equivalent to
+non-uniform Catmull-Rom splines with ~3rd order convergence.
 
 ### Boundary Conditions
 
@@ -391,7 +389,7 @@ itp(1.0)   # ≈ 0.4597  (= 1 - cos(1), anchored at x=0)
 
 The result is zero-anchored at the leftmost interior knot: `F(anchor) = 0` exactly.
 The fast path (default) precomputes the anchor-side contribution at construction time.
-In 1D and 2D, prefix sums further reduce evaluation to O(stencil), O(stencil²) and and O(stencil³)
+In 1D, 2D and 3D, prefix sums further reduce evaluation to O(stencil), O(stencil²) and and O(stencil³)
 respectively, independent of grid size after construction. In higher dimensions, evaluation falls back to
 a general path that sums over the full coefficient array — accurate but slower for large grids.
 
@@ -582,8 +580,7 @@ This package introduces five main contributions:
 **Polynomial boundary conditions.** A boundary handling method that computes optimal ghost point values that preserve each kernel's polynomial reproduction properties. This maintains convergence order across the entire domain rather than degrading near boundaries.
 
 **Non-uniform b-kernel extension.** On non-uniform grids, each interval requires its own weights adapted to the local grid geometry. This is achieved by expanding the kernel in a binomial series around each interval's local coordinate, then projecting through a Vandermonde system to enforce polynomial reproduction up to the kernel's design order. The result is a compact set of polynomial coefficients per interval, evaluated via Horner's method at query time. All weight generation uses exact `Rational{BigInt}` arithmetic to avoid floating-point contamination, with conversion to `Float64` only at the final storage step. The same framework extends to derivatives by applying the binomial expansion to analytically differentiated kernel coefficients. On mixed grids (some dimensions uniform, some not), each dimension independently
-selects the appropriate path through the separable tensor product. Per-dimension kernels are supported on both uniform and non-uniform grids: ghost point
-arrays are padded per-dimension by each kernel's own stencil radius, and derivative scaling factors are applied independently per axis.
+selects the appropriate path through the separable tensor product. Per-dimension kernels are supported on both uniform and non-uniform grids: ghost point arrays are padded per-dimension by each kernel's own stencil radius, and derivative scaling factors are applied independently per axis.
 
 **Antiderivative via kernel integration.** For `derivative=-1`, each kernel `K` is
 analytically integrated to produce `K̃`, the antiderivative kernel, with coefficients

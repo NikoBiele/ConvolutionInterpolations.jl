@@ -2,14 +2,14 @@ using ConvolutionInterpolations
 using CairoMakie
 using Chairmarks
 using Printf
-using Scratch
+# using Scratch
 # Scratch.clear_scratchspaces!()
 
 # --- Benchmark setup ---
 kernels = [:a0, :a1, :a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11, :b13]
 kernel_labels = string.(kernels)
 dims = [1, 2, 3, 4]
-N = 100  # grid points per dimension
+N = 50  # grid points per dimension
 
 init_times = zeros(length(kernels), length(dims))   # in μs
 eval_times = zeros(length(kernels), length(dims))    # in ns
@@ -25,11 +25,11 @@ for (di, d) in enumerate(dims)
         print("  $kernel... ")
         
         # Benchmark initialization
-        b_init = @b convolution_interpolation($knots, $data; degree=$(kernel))
+        b_init = @b $convolution_interpolation($knots, $data; kernel=$(kernel))
         init_times[ki, di] = b_init.time / 1e-6  # s → μs
         
         # Benchmark evaluation
-        itp = convolution_interpolation(knots, data; degree=kernel)
+        itp = convolution_interpolation(knots, data; kernel=kernel)
         point = ntuple(_ -> 0.5, d)
         b_eval = nothing
         if d == 1

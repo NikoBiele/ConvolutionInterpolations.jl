@@ -25,4 +25,4 @@ Abstract supertype for all convolution-based interpolation types.
 This abstract type serves as the parent type for the concrete implementations
 `ConvolutionInterpolation` and `FastConvolutionInterpolation`.
 """
-abstract type AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,LZ,DI} end
+abstract type AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,LZ,DI,SZ} end

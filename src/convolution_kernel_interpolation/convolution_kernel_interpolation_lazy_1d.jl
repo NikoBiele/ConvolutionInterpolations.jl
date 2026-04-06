@@ -101,7 +101,7 @@ end
     result = zero(T)
     if DG !== Val{:a0} && DG !== Val{:a1} && is_boundary_stencil(i, n_d, itp.eqs[1])
         ng = itp.eqs[1] - 1
-        ghost_matrix = get_polynomial_ghost_coeffs(_kernel_sym(itp.kernel_sym))
+        ghost_matrix = get_polynomial_ghost_coeffs(:not_used, _kernel_sym(itp.kernel_sym)[1])
         factor_nd = one(T)
         stencil_width = 2 * itp.eqs[1]
         res = ntuple(s -> _resolve_dim_uniform(n_d, ng, i + ng + s - itp.eqs[1],

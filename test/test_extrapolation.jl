@@ -2,7 +2,7 @@
 ### TEST UNIFORM GRID EXTRAPOLATIONS IN 1D, 2D, 3D, 4D ########################
 ###############################################################################
 
-N = 4 # number of samples in each dimension
+N = 5 # number of samples in each dimension
 tolerance = 1e-6 # tight tolerance
 # test all kernels
 kernels = [:a1, :a3, :b5] #, :a4, :a5, :a7, :b7, :b9, :b11 :b13] # only test kernels with separate dispatch

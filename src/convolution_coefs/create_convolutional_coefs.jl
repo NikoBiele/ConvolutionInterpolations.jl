@@ -54,7 +54,7 @@ Creates workspace arrays sized to handle the worst-case scenario across all dime
 enabling allocation-free boundary computation throughout the interpolation setup.
 """
 
-function BoundaryWorkspace(T::Type, N::Int, max_eqs::Int, max_dim_size::Int)
+function BoundaryWorkspace(T::Type, ::Val{N}, max_eqs::Int, max_dim_size::Int) where N
     BoundaryWorkspace{T,N}(
         zeros(T, max_eqs - 1),                # ghost_vals - always eqs-1
         zeros(T, max_dim_size),               # y_temp
@@ -124,7 +124,7 @@ multidimensional cases.
 # Linear interpolation - no ghost points needed
 vs = rand(50, 50)
 h = (0.1, 0.1)
-coefs = create_convolutional_coefs(vs, h, 2, :auto, :a1)  # Returns vs unchanged
+coefs = create_convolutional_coefs(vs, h, 2, :detect, :a1)  # Returns vs unchanged
 
 # Higher-order kernel with ghost points
 coefs = create_convolutional_coefs(vs, h, 5, :poly, :b5)
@@ -140,8 +140,9 @@ See also: `apply_boundary_conditions_for_dim!`, `boundary_coefs`.
 
 function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, 
                                     eqs::NTuple{N,Int},
-                                    kernel_bc, 
-                                    kernel_types::NTuple{N,Symbol}) where {T,N}
+                                    kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}, 
+                                    kernel_types::NTuple{N,Symbol},
+                                    ::Val{UG}) where {T,N,UG}
     new_dims = ntuple(d -> size(vs, d) + 2*(eqs[d]-1), N)
     c = zeros(T, new_dims)
     inner_indices = ntuple(d -> (1+(eqs[d]-1)):(new_dims[d]-(eqs[d]-1)), N)
@@ -149,18 +150,18 @@ function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T},
 
     max_eqs = maximum(eqs)
     max_dim_size = maximum(size(vs))
-    workspace = BoundaryWorkspace(T, N, max_eqs, max_dim_size)
+    workspace = BoundaryWorkspace(T, Val(N), max_eqs, max_dim_size)
 
     for fixed_dim in 1:N
         apply_boundary_conditions_for_dim!(c, vs, fixed_dim, h, eqs[fixed_dim], kernel_bc, 
-                                           kernel_types[fixed_dim], workspace, size(vs))
+                                           kernel_types[fixed_dim], workspace, size(vs), Val(UG))
     end
     return c
 end
 function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs::Int,
-                                    kernel_bc, kernel_type::Symbol) where {T,N}
+                                    kernel_bc, kernel_type::Symbol, ::Val{UG}) where {T,N,UG}
     create_convolutional_coefs(vs, h, ntuple(_ -> eqs, N), kernel_bc,
-                               ntuple(_ -> kernel_type, N))
+                               ntuple(_ -> kernel_type, N), Val(UG))
 end
 
 """
@@ -198,21 +199,16 @@ See also: `fill_ghost_points_polynomial!`, `fill_ghost_points_recursive!`, `get_
 
 function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractArray, dim::Int, 
                                            h::NTuple{N,T}, eqs::Int,
-                                           kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}},NTuple{N,Tuple{Symbol,Symbol}}}, 
+                                           kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}, 
                                            kernel_type::Symbol,
                                            workspace::BoundaryWorkspace{T,N},
-                                           vs_size::NTuple{N,Int}) where {T,N}
+                                           vs_size::NTuple{N,Int}, ::Val{UG}) where {T,N,UG}
     
     if eqs == 1
         return  # :a0 and :a1 need no ghost points
     end
     
-    kernel_boundary_condition = if kernel_bc isa Symbol
-        (kernel_bc, kernel_bc)
-    else
-        kernel_bc[dim]
-    end
-    
+    kernel_boundary_condition = kernel_bc[dim]
     left_indices, right_indices = get_boundary_indices(size(c), dim, eqs)
     
     # Precompute slice_offset and c_offset once (reuse workspace arrays)
@@ -225,14 +221,10 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
     end
 
     # Fetch ghost matrix once (same for all boundary points)
-    ghost_matrix = get_polynomial_ghost_coeffs(kernel_type)
+    ghost_matrix = UG ? nothing : get_polynomial_ghost_coeffs(:not_used, kernel_type)
     n_dim = size(vs, dim)
-    n_interior = size(ghost_matrix, 2)
+    n_interior = UG ? eqs : size(ghost_matrix, 2)
     few_points = n_dim < n_interior
-    use_polynomial_left = kernel_boundary_condition[1] == :poly || 
-                          (kernel_boundary_condition[1] == :auto && !few_points)
-    use_polynomial_right = kernel_boundary_condition[2] == :poly || 
-                           (kernel_boundary_condition[2] == :auto && !few_points)
     
     c_offset_view = view(workspace.c_offset, 1:(eqs-1))
     
@@ -251,14 +243,63 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
         for k in 1:n_dim
             workspace.slice[k] -= y_mean
         end
-        
-        if use_polynomial_left
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :left, eqs,
-                                            workspace)
+    
+        if few_points || UG
+            use_polynomial_left = false
         else
-            coef = get_recursive_coefs(slice_view, h[dim], kernel_boundary_condition[1], :left)
+            ns_left = n_interior
+            # d1
+            mn1, mx1 = typemax(T), typemin(T)
+            for d in 1:(ns_left-1)
+                v = slice_view[d+1] - slice_view[d]
+                workspace.y_temp[d] = v
+                mn1 = min(mn1, v)
+                mx1 = max(mx1, v)
+            end
+            periodic_boundary_left = (mn1 * mx1) / h[dim]^2 < -1/10
+            # d2
+            mn2, mx2 = typemax(T), typemin(T)
+            for d in 1:(ns_left-2)
+                v = workspace.y_temp[d+1] - workspace.y_temp[d]
+                workspace.y_extended[d] = v
+                mn2 = min(mn2, v)
+                mx2 = max(mx2, v)
+            end
+            high_curvature_left = abs(mx2 - mn2) / h[dim] > 1/2
+            # d3 - only meaningful for ns_left > 4 (b-kernels)
+            high_d3_left = if ns_left > 4
+                mn3, mx3 = typemax(T), typemin(T)
+                for d in 1:(ns_left-3)
+                    v = workspace.y_extended[d+1] - workspace.y_extended[d]
+                    mn3 = min(mn3, v)
+                    mx3 = max(mx3, v)
+                end
+                abs(mx3 - mn3) / h[dim] > 1/2
+            else
+                false
+            end            
+            use_polynomial_left = (kernel_boundary_condition[1] == :poly ||
+                    (kernel_boundary_condition[1] == :detect && 
+                    !periodic_boundary_left && !high_curvature_left && !high_d3_left))
+        end
+
+        if use_polynomial_left
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :left, eqs, workspace)
+        elseif UG
+            fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mean, eqs, workspace, :left)
+        elseif kernel_boundary_condition[1] == :linear || kernel_boundary_condition[1] == :quadratic
+            bc_matrix = get_polynomial_ghost_coeffs(kernel_boundary_condition[1], kernel_type)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :left, eqs, workspace)
+        elseif few_points || kernel_boundary_condition[1] == :poly || kernel_boundary_condition[1] == :detect
+            bc_matrix = get_polynomial_ghost_coeffs(:linear, kernel_type)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :left, eqs, workspace)
+        elseif kernel_boundary_condition[1] == :periodic
+            signal_tuple = ntuple(k -> slice_view[k], n_dim)
+            coef = get_recursive_coefs(signal_tuple, h[dim], kernel_boundary_condition[1], :left)
             fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :left, eqs,
                                                 workspace, vs_size)
+        else
+            error("Unsupported boundary condition: $(kernel_boundary_condition[1])")
         end
     end
     
@@ -271,20 +312,69 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
                 workspace.slice[j] = c[idx - workspace.slice_offset[n_dim - j + 1]]
             end
         end
-        
+
         slice_view = view(workspace.slice, 1:n_dim)
         y_mean = sum(slice_view) / n_dim
         for k in 1:n_dim
             workspace.slice[k] -= y_mean
         end
-        
-        if use_polynomial_right
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :right, eqs,
-                                            workspace)
+
+        if few_points || UG
+            use_polynomial_right = false
         else
-            coef = get_recursive_coefs(slice_view, h[dim], kernel_boundary_condition[2], :right)
+            ns_right = n_interior
+            # d1 - note: right boundary uses the last ns_right points
+            mn1, mx1 = typemax(T), typemin(T)
+            for d in 1:(ns_right-1)
+                v = slice_view[end-(ns_right-1)+d] - slice_view[end-(ns_right-1)+d-1]
+                workspace.y_temp[d] = v
+                mn1 = min(mn1, v)
+                mx1 = max(mx1, v)
+            end
+            periodic_boundary_right = (mn1 * mx1) / h[dim]^2 < -1/10
+            # d2
+            mn2, mx2 = typemax(T), typemin(T)
+            for d in 1:(ns_right-2)
+                v = workspace.y_temp[d+1] - workspace.y_temp[d]
+                workspace.y_extended[d] = v
+                mn2 = min(mn2, v)
+                mx2 = max(mx2, v)
+            end
+            high_curvature_right = abs(mx2 - mn2) / h[dim] > 1/2
+            # d3 - only meaningful for ns_right > 4 (b-kernels)
+            high_d3_right = if ns_right > 4
+                mn3, mx3 = typemax(T), typemin(T)
+                for d in 1:(ns_right-3)
+                    v = workspace.y_extended[d+1] - workspace.y_extended[d]
+                    mn3 = min(mn3, v)
+                    mx3 = max(mx3, v)
+                end
+                abs(mx3 - mn3) / h[dim] > 1/2
+            else
+                false
+            end
+            use_polynomial_right = (kernel_boundary_condition[2] == :poly ||
+                                    (kernel_boundary_condition[2] == :detect && 
+                                    !periodic_boundary_right && !high_curvature_right && !high_d3_right))
+        end
+
+        if use_polynomial_right
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :right, eqs, workspace)
+        elseif UG
+            fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mean, eqs, workspace, :right)
+        elseif kernel_boundary_condition[2] == :linear || kernel_boundary_condition[2] == :quadratic
+            bc_matrix = get_polynomial_ghost_coeffs(kernel_boundary_condition[2], kernel_type)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :right, eqs, workspace)
+        elseif few_points || kernel_boundary_condition[2] == :poly || kernel_boundary_condition[2] == :detect
+            bc_matrix = get_polynomial_ghost_coeffs(:linear, kernel_type)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :right, eqs, workspace)
+        elseif kernel_boundary_condition[2] == :periodic
+            signal_tuple = ntuple(k -> slice_view[k], n_dim)
+            coef = get_recursive_coefs(signal_tuple, h[dim], kernel_boundary_condition[2], :right)
             fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :right, eqs, 
                                             workspace, vs_size)
+        else
+            error("Unsupported boundary condition: $(kernel_boundary_condition[2])")
         end
     end
 end
@@ -339,7 +429,7 @@ function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
         coef_view = view(coef, 1:num_ghost, :)  # Only use first eqs-1 rows
         
         mul!(ghost_vals_view, coef_view, y_view)
-        
+
         for j in 1:num_ghost
             c[idx - c_offset[j]] = y_offset + workspace.ghost_vals[j]
         end
@@ -382,7 +472,7 @@ See also: `fill_ghost_points_polynomial!`, `get_recursive_coefs`.
 
 function fill_ghost_points_recursive!(c::AbstractArray{T}, idx::CartesianIndex,
                                      c_offset::AbstractVector{CartesianIndex{N}},
-                                     coef::Vector, y_offset::T, y_centered::AbstractVector{T},
+                                     coef, y_offset::T, y_centered::AbstractVector{T},
                                      side::Symbol, eqs::Int,
                                      workspace::BoundaryWorkspace{T,N},
                                      vs_size::NTuple) where {T,N}
@@ -409,10 +499,60 @@ function fill_ghost_points_recursive!(c::AbstractArray{T}, idx::CartesianIndex,
 
         for j in 1:(eqs-1)
             y_ext_view[1+(eqs-1)-j] = sum(coef[k] * y_ext_view[1 + (eqs-1) - j + k] for k = 1:length(coef))
+            c[idx + c_offset[j]] = y_offset + y_ext_view[1+(eqs-1)-j]
+        end
+    end
+end
+
+function fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mean, eqs, workspace, vs_side)
+    if vs_side == :left
+        n_fit = min(max(6, eqs÷3), length(slice_view))
+        # accumulate sums for normal equations
+        sx = zero(T); sy = zero(T); sxx = zero(T); sxy = zero(T)
+        for k in 1:n_fit
+            xk = T(k)
+            yk = slice_view[k]
+            sx  += xk
+            sy  += yk
+            sxx += xk * xk
+            sxy += xk * yk
+        end
+        # solve 2x2 system: [n sx; sx sxx] * [a; b] = [sy; sxy]
+        denom = n_fit * sxx - sx * sx
+        b = (n_fit * sxy - sx * sy) / denom  # slope
+        a = (sy - b * sx) / n_fit            # intercept
+
+        # evaluate at ghost point positions (0, -1, -2, ...)
+        # and store mean-centered values in workspace
+        for k in 1:(eqs-1)
+            workspace.y_temp[k] = a + b * T(1 - k) - y_mean  # x = 0, -1, -2, ...
+        end
+
+        # now fill ghost points directly without bc_matrix
+        for j in 1:(eqs-1)
+            c[idx - c_offset_view[j]] = y_mean + workspace.y_temp[j]
+        end
+    else # vs_side == :right
+        n_fit = min(max(6, eqs÷3), length(slice_view))
+        sx = zero(T); sy = zero(T); sxx = zero(T); sxy = zero(T)
+        for k in 1:n_fit
+            xk = T(k)
+            yk = slice_view[end - k + 1]
+            sx  += xk
+            sy  += yk
+            sxx += xk * xk
+            sxy += xk * yk
+        end
+        denom = n_fit * sxx - sx * sx
+        b = (n_fit * sxy - sx * sy) / denom
+        a = (sy - b * sx) / n_fit
+
+        for k in 1:(eqs-1)
+            workspace.y_temp[k] = a + b * T(1 - k) - y_mean
         end
 
         for j in 1:(eqs-1)
-            c[idx + c_offset[j]] = y_offset + y_ext_view[1+(eqs-1)-j]
+            c[idx + c_offset_view[j]] = y_mean + workspace.y_temp[j]
         end
     end
 end

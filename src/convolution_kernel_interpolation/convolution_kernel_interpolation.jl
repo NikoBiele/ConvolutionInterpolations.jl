@@ -22,3 +22,8 @@ include("convolution_nonuniform_b_kernels_eager.jl")
 include("convolution_nonuniform_n3_kernel_eager.jl")
 include("convolution_nonuniform_n3_kernel_lazy.jl")
 include("convolution_nonuniform_a0_a1_kernels.jl")
+# gaussian
+include("convolution_kernel_interpolation_gaussian_1d.jl")
+include("convolution_kernel_interpolation_gaussian_2d.jl")
+include("convolution_kernel_interpolation_gaussian_3d.jl")
+include("convolution_kernel_interpolation_gaussian_nd.jl")

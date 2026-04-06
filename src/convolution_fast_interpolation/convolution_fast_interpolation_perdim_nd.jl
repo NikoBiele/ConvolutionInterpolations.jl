@@ -4,9 +4,9 @@
 function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},DG,EQ,PR,KP,KBC,
             DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,N}) where
             {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
-            Axs<:Tuple{Vararg{AbstractVector}},
-            KA<:Tuple{Vararg{Nothing}},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Vararg{Int}},
-            PR<:Tuple{Vararg{AbstractVector}},KP,KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},
+            Axs<:NTuple{N,<:AbstractVector},
+            KA<:NTuple{N,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:NTuple{N,Int},
+            PR<:NTuple{N,<:AbstractVector},KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},
             DO,FD,SD,SG}
             
     pos_ids = ntuple(d -> clamp(floor(Int, (x[d]-itp.knots[d][1])/itp.h[d]+one(T)),

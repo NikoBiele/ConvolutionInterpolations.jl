@@ -55,7 +55,7 @@ function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
                     is_boundary_stencil(j, size(itp.coefs, 2), itp.eqs[2]) ||
                     is_boundary_stencil(k, size(itp.coefs, 3), itp.eqs[3]))
         ng = itp.eqs[1] - 1 # lazy uses same kernel in all directions
-        ghost_matrix = get_polynomial_ghost_coeffs(_kernel_sym(itp.kernel_sym)[1])
+        ghost_matrix = get_polynomial_ghost_coeffs(:not_used, _kernel_sym(itp.kernel_sym)[1])
         factor_nd = -one(T)
         sw = 2 * itp.eqs[1]
         n1 = size(itp.coefs, 1)

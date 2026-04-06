@@ -44,10 +44,20 @@ A structure that implements convolution-based interpolation with precomputed ker
 This implementation uses precomputed kernel values,
 offering significantly faster performance than `ConvolutionInterpolation`.
 """
-struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray,
-                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP,KBC,DOT,FD,SD,SG,LZ,DI} <: 
-                                AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,DI}
+
+struct LazyBoundaryWorkspace{T,N}
+    ghost_buf::Vector{T}      # length 9, scratch for mul!
+    stencil_buf::Array{T,N}   # size (2*eqs, 2*eqs, ...) for ND stencil
+end
+
+LazyBoundaryWorkspace(T::Type, ::Val{N}, eqs::Int) where N = 
+    LazyBoundaryWorkspace{T,N}(zeros(T, 9), zeros(T, ntuple(_ -> 2*eqs, N)...))
+
+struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
+                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP,KBC,DOT,FD,SD,SG,LZ,DI,SZ} <: 
+                                AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,DI,SZ}
     coefs::TCoefs
+    domain_size::SZ
     knots::Axs
     h::NTuple{N,T}
     kernel::KA
@@ -66,6 +76,7 @@ struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray,
     left_values::NTuple{N, Vector{T}}
     anchor::NTuple{N, T}
     dim_integral::DI
+    lazy_workspace::LazyBoundaryWorkspace{T,N}
     # 1d and 2d integral tails
     tail1_left::NTuple{N, Array{T,N}}
     tail1_right::NTuple{N, Array{T,N}}

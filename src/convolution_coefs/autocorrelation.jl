@@ -1,5 +1,5 @@
 """
-    autocorrelation(signal::Vector{T}) where T<:Number
+    autocorrelation(signal::NTuple{NS,T}) where {NS,T}
 
 Computes the autocorrelation function of a signal.
 
@@ -17,10 +17,9 @@ This function:
 
 The autocorrelation values provide information about signal periodicity and structure, which is used for determining appropriate boundary conditions.
 """
-function autocorrelation(signal::SubArray{T, 1, Vector{T}, Tuple{UnitRange{Int64}}, true}) where T
-    n = length(signal)
-    signal_centered = signal .- sum(signal)/length(signal)
-    variance = max(1e-6, sum(abs2, signal_centered) / n)
-    acf = T[sum(signal_centered[1:n-k] .* signal_centered[k+1:end]) for k in 0:n-1] ./ (n * variance)
-    return acf
+function autocorrelation(signal::NTuple{NS,T}) where {NS,T}
+    s = sum(signal) / NS
+    signal_centered = ntuple(i -> signal[i] - s, NS)
+    variance = max(T(1e-6), sum(x -> x^2, signal_centered) / NS)
+    return ntuple(k -> sum(i -> signal_centered[i] * signal_centered[i+k], 1:NS-k) / (NS * variance), 6)
 end

@@ -30,8 +30,8 @@ is across all dimensions. This generalizes to any number of dimensions efficient
 function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
                     DG,EQ,KBC,DerivativeOrder{DO},FD,SD,Val{:not_used},NB,Val{true},Val{0}})(x::Vararg{Number,N}) where 
                     {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
-                    KA<:Tuple{Vararg{ConvolutionKernel}},Axs<:Tuple{Vararg{AbstractVector}},
-                    DG,EQ<:Tuple{Vararg{Int}},KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,NB<:Nothing}
+                    KA<:NTuple{N,ConvolutionKernel},Axs<:NTuple{N,<:AbstractVector},
+                    DG,EQ<:NTuple{N,Int},KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO,FD,SD,NB<:Nothing}
 
     # === Uniform path ===
 
@@ -46,7 +46,7 @@ function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
         s = ntuple(d -> (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
         @inbounds for offsets in Iterators.product(ntuple(dim -> -(itp.eqs[dim]-1):itp.eqs[dim], N)...)
             vidx = ntuple(d -> pos_ids[d] + ng + offsets[d], N)
-            coef = lazy_ghost_value(itp.coefs, vidx, itp.eqs, kernel_type)
+            coef = lazy_ghost_value(itp.coefs, vidx, itp.eqs, kernel_type, itp.h, itp.bc)
             result += coef * prod(itp.kernel(s[d] - T(offsets[d])) for d in 1:N)
         end
     else

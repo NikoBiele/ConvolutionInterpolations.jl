@@ -3,7 +3,7 @@
 #######################################################################
 
 # 3D test function: f(x,y,z) = sin(x)*cos(y)*exp(z/4)
-# Construct on grids (20, 40) with lazy=true for fast construction.
+# Construct on grids (20, 40) with lazy=false.
 # Evaluate well inside domain (away from boundaries) to avoid
 # boundary ghost point computation. b5 has 5+5=10 point stencil,
 # so we stay at least 5 grid points from each boundary.
@@ -50,7 +50,7 @@ z1d, z2d = 2.2, 3.3
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(-1,0,0), fast=true, bc=:poly, lazy=true)
+                      derivative=(-1,0,0), fast=true, bc=:poly, lazy=false)
             err = maximum(abs(itp(x2d,y,z) - itp(x1d,y,z)
                 - exact_intx_3d(x1d,x2d,y,z))
                 for y in ys_eval, z in zs_eval)
@@ -70,7 +70,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(0,-1,0), fast=true, bc=:poly, lazy=true)
+                      derivative=(0,-1,0), fast=true, bc=:poly, lazy=false)
             err = maximum(abs(itp(x,y2d,z) - itp(x,y1d,z)
                 - exact_inty_3d(x,y1d,y2d,z))
                 for x in xs_eval, z in zs_eval)
@@ -90,7 +90,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(0,0,-1), fast=true, bc=:poly, lazy=true)
+                      derivative=(0,0,-1), fast=true, bc=:poly, lazy=false)
             err = maximum(abs(itp(x,y,z2d) - itp(x,y,z1d)
                 - exact_intz_3d(x,y,z1d,z2d))
                 for x in xs_eval, y in ys_eval)
@@ -110,7 +110,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(-1,1,0), fast=true, bc=:poly, lazy=true)
+                      derivative=(-1,1,0), fast=true, bc=:poly, lazy=false)
             err = maximum(abs(itp(x2d,y,z) - itp(x1d,y,z)
                 - exact_intx_dy(x1d,x2d,y,z))
                 for y in ys_eval, z in zs_eval)
@@ -130,7 +130,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(-1,0,1), fast=true, bc=:poly, lazy=true)
+                      derivative=(-1,0,1), fast=true, bc=:poly, lazy=false)
             err = maximum(abs(itp(x2d,y,z) - itp(x1d,y,z)
                 - exact_intx_dz(x1d,x2d,y,z))
                 for y in ys_eval, z in zs_eval)
@@ -150,7 +150,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(1,-1,0), fast=true, bc=:poly, lazy=true)
+                      derivative=(1,-1,0), fast=true, bc=:poly, lazy=false)
             err = maximum(abs(itp(x,y2d,z) - itp(x,y1d,z)
                 - exact_dx_inty(x,y1d,y2d,z))
                 for x in xs_eval, z in zs_eval)
@@ -172,7 +172,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(-1,-1,0), fast=true, bc=:poly, lazy=true)
+                      derivative=(-1,-1,0), fast=true, bc=:poly, lazy=false)
             err = maximum(abs(
                 itp(x2d,y2d,z) - itp(x1d,y2d,z) - itp(x2d,y1d,z) + itp(x1d,y1d,z)
                 - exact_intxy(x1d,x2d,y1d,y2d,z))
@@ -193,7 +193,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(-1,0,-1), fast=true, bc=:poly, lazy=true)
+                      derivative=(-1,0,-1), fast=true, bc=:poly, lazy=false)
             err = maximum(abs(
                 itp(x2d,y,z2d) - itp(x1d,y,z2d) - itp(x2d,y,z1d) + itp(x1d,y,z1d)
                 - exact_intxz(x1d,x2d,y,z1d,z2d))
@@ -214,7 +214,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(0,-1,-1), fast=true, bc=:poly, lazy=true)
+                      derivative=(0,-1,-1), fast=true, bc=:poly, lazy=false)
             err = maximum(abs(
                 itp(x,y2d,z2d) - itp(x,y1d,z2d) - itp(x,y2d,z1d) + itp(x,y1d,z1d)
                 - exact_intyz(x,y1d,y2d,z1d,z2d))
@@ -237,7 +237,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(-1,-1,-1), fast=true, bc=:poly, lazy=true)
+                      derivative=(-1,-1,-1), fast=true, bc=:poly, lazy=false)
             err = abs(
                 itp(x2d,y2d,z2d) - itp(x1d,y2d,z2d) - itp(x2d,y1d,z2d) + itp(x1d,y1d,z2d)
               - itp(x2d,y2d,z1d) + itp(x1d,y2d,z1d) + itp(x2d,y1d,z1d) - itp(x1d,y1d,z1d)
@@ -282,7 +282,7 @@ end
                       (-1,1,0), (-1,0,1), (1,-1,0),
                       (-1,-1,-1)]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=deriv, fast=true, bc=:poly, lazy=true)
+                      derivative=deriv, fast=true, bc=:poly, lazy=false)
             ax, ay, az = itp.itp.anchor
             @test abs(itp(ax, ay, az)) < 1e-10
         end
@@ -306,7 +306,7 @@ println("Testing 4D mixed integral/derivative (fast path)...")
                   (-1,-1,-1,0), (-1,-1,0,1),
                   (-1,-1,-1,-1)]
         itp = convolution_interpolation((xs,ys,zs,ws), vs;
-                  kernel=:b5, derivative=deriv, fast=true, bc=:poly, lazy=true)
+                  kernel=:b5, derivative=deriv, fast=true, bc=:poly, lazy=false)
         @test itp isa ConvolutionExtrapolation
         result = itp(x1d, y1d, z1d, 2.0)
         @test result isa Float64
@@ -322,7 +322,7 @@ end
     ws = range(0.0, 2π, length=n)
     vs = [sin(x)*cos(y)*exp(z/4)*sin(w) for x in xs, y in ys, z in zs, w in ws]
     itp = convolution_interpolation((xs,ys,zs,ws), vs;
-              kernel=:b5, derivative=(-1,-1,-1,0), fast=true, bc=:poly, lazy=true)
+              kernel=:b5, derivative=(-1,-1,-1,0), fast=true, bc=:poly, lazy=false)
     err = maximum(abs(
         itp(x2d,y2d,z2d,w) - itp(x1d,y2d,z2d,w) - itp(x2d,y1d,z2d,w) + itp(x1d,y1d,z2d,w)
       - itp(x2d,y2d,z1d,w) + itp(x1d,y2d,z1d,w) + itp(x2d,y1d,z1d,w) - itp(x1d,y1d,z1d,w)
@@ -339,7 +339,7 @@ end
     ws = range(0.0, 2π, length=n)
     vs = [sin(x)*cos(y)*exp(z/4)*sin(w) for x in xs, y in ys, z in zs, w in ws]
     itp = convolution_interpolation((xs,ys,zs,ws), vs;
-              kernel=:b5, derivative=(-1,0,0,1), fast=true, bc=:poly, lazy=true)
+              kernel=:b5, derivative=(-1,0,0,1), fast=true, bc=:poly, lazy=false)
     for (y,z,w) in [(2.1, 2.2, 2.3), (2.5, 2.7, 2.9), (3.0, 3.1, 3.2)]
         numerical  = itp(x2d,y,z,w) - itp(x1d,y,z,w)
         analytical = (-cos(x2d)+cos(x1d)) * cos(y) * exp(z/4) * cos(w)
@@ -361,7 +361,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(-1,0,0), fast=false, bc=:poly, lazy=true)
+                      derivative=(-1,0,0), fast=false, bc=:poly, lazy=false)
             err = maximum(abs(itp(x2d,y,z) - itp(x1d,y,z)
                 - exact_intx_3d(x1d,x2d,y,z))
                 for y in ys_eval, z in zs_eval)
@@ -381,7 +381,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(0,-1,0), fast=false, bc=:poly, lazy=true)
+                      derivative=(0,-1,0), fast=false, bc=:poly, lazy=false)
             err = maximum(abs(itp(x,y2d,z) - itp(x,y1d,z)
                 - exact_inty_3d(x,y1d,y2d,z))
                 for x in xs_eval, z in zs_eval)
@@ -401,7 +401,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(0,0,-1), fast=false, bc=:poly, lazy=true)
+                      derivative=(0,0,-1), fast=false, bc=:poly, lazy=false)
             err = maximum(abs(itp(x,y,z2d) - itp(x,y,z1d)
                 - exact_intz_3d(x,y,z1d,z2d))
                 for x in xs_eval, y in ys_eval)
@@ -421,7 +421,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(-1,1,0), fast=false, bc=:poly, lazy=true)
+                      derivative=(-1,1,0), fast=false, bc=:poly, lazy=false)
             err = maximum(abs(itp(x2d,y,z) - itp(x1d,y,z)
                 - exact_intx_dy(x1d,x2d,y,z))
                 for y in ys_eval, z in zs_eval)
@@ -441,7 +441,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(-1,0,1), fast=false, bc=:poly, lazy=true)
+                      derivative=(-1,0,1), fast=false, bc=:poly, lazy=false)
             err = maximum(abs(itp(x2d,y,z) - itp(x1d,y,z)
                 - exact_intx_dz(x1d,x2d,y,z))
                 for y in ys_eval, z in zs_eval)
@@ -461,7 +461,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(1,-1,0), fast=false, bc=:poly, lazy=true)
+                      derivative=(1,-1,0), fast=false, bc=:poly, lazy=false)
             err = maximum(abs(itp(x,y2d,z) - itp(x,y1d,z)
                 - exact_dx_inty(x,y1d,y2d,z))
                 for x in xs_eval, z in zs_eval)
@@ -481,7 +481,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(-1,-1,0), fast=false, bc=:poly, lazy=true)
+                      derivative=(-1,-1,0), fast=false, bc=:poly, lazy=false)
             err = maximum(abs(
                 itp(x2d,y2d,z) - itp(x1d,y2d,z) - itp(x2d,y1d,z) + itp(x1d,y1d,z)
                 - exact_intxy(x1d,x2d,y1d,y2d,z))
@@ -502,7 +502,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(-1,0,-1), fast=false, bc=:poly, lazy=true)
+                      derivative=(-1,0,-1), fast=false, bc=:poly, lazy=false)
             err = maximum(abs(
                 itp(x2d,y,z2d) - itp(x1d,y,z2d) - itp(x2d,y,z1d) + itp(x1d,y,z1d)
                 - exact_intxz(x1d,x2d,y,z1d,z2d))
@@ -523,7 +523,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(0,-1,-1), fast=false, bc=:poly, lazy=true)
+                      derivative=(0,-1,-1), fast=false, bc=:poly, lazy=false)
             err = maximum(abs(
                 itp(x,y2d,z2d) - itp(x,y1d,z2d) - itp(x,y2d,z1d) + itp(x,y1d,z1d)
                 - exact_intyz(x,y1d,y2d,z1d,z2d))
@@ -544,7 +544,7 @@ end
             zs = range(0.0, 2π, length=n)
             vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
             itp = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                      derivative=(-1,-1,-1), fast=false, bc=:poly, lazy=true)
+                      derivative=(-1,-1,-1), fast=false, bc=:poly, lazy=false)
             err = abs(
                 itp(x2d,y2d,z2d) - itp(x1d,y2d,z2d) - itp(x2d,y1d,z2d) + itp(x1d,y1d,z2d)
               - itp(x2d,y2d,z1d) + itp(x1d,y2d,z1d) + itp(x2d,y1d,z1d) - itp(x1d,y1d,z1d)
@@ -570,9 +570,9 @@ end
                       (-1,1,0), (-1,0,1), (1,-1,0),
                       (-1,-1,-1)]
             itp_fast   = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                             derivative=deriv, fast=true,  bc=:poly, lazy=true)
+                             derivative=deriv, fast=true,  bc=:poly, lazy=false)
             itp_direct = convolution_interpolation((xs,ys,zs), vs; kernel=kernel,
-                             derivative=deriv, fast=false, bc=:poly, lazy=true)
+                             derivative=deriv, fast=false, bc=:poly, lazy=false)
             err = maximum(abs(itp_fast(x,y,z) - itp_direct(x,y,z))
                 for x in xs_eval[5:5:15], y in ys_eval[5:5:15], z in zs_eval[5:5:15])
             @test err < 1e-6
@@ -585,7 +585,7 @@ end
 @testset "4D mixed fast vs direct agreement" begin
     for kernel in mixed_kernels_3d
         println("Testing 4D mixed fast vs direct: ", kernel)
-        n = 15
+        n = 20
         xs = range(0.0, 2π, length=n)
         ys = range(0.0, 2π, length=n)
         zs = range(0.0, 2π, length=n)
@@ -593,10 +593,11 @@ end
         vs = [sin(x)*cos(y)*exp(z/4)*sin(w) for x in xs, y in ys, z in zs, w in ws]
         for deriv in [(-1,0,0,0), (0,-1,0,0), (-1,-1,0,0),
                       (-1,-1,-1,0), (-1,-1,-1,-1)]
+            println("Testing 4D mixed fast vs direct: ", kernel, " ", deriv)
             itp_fast   = convolution_interpolation((xs,ys,zs,ws), vs; kernel=kernel,
-                             derivative=deriv, fast=true,  bc=:poly, lazy=true)
+                             derivative=deriv, fast=true,  bc=:poly, lazy=false)
             itp_direct = convolution_interpolation((xs,ys,zs,ws), vs; kernel=kernel,
-                             derivative=deriv, fast=false, bc=:poly, lazy=true)
+                             derivative=deriv, fast=false, bc=:poly, lazy=false)
             for (x,y,z,w) in [(x1d,y1d,z1d,2.0), (x2d,y2d,z2d,2.5), (2.8,2.9,3.0,3.1)]
                 @test abs(itp_fast(x,y,z,w) - itp_direct(x,y,z,w)) < 1e-6
             end

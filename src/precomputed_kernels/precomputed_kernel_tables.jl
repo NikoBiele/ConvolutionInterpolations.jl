@@ -16,234 +16,234 @@ include("kernel_b11.jl")
 include("kernel_b13.jl")
 
 function get_shipped_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) where T
-    pre_range = T.(PRE_RANGE_101)
-    
-    # Special cases: a0 and a1 use 2-point range
-    if degree == :a0 || degree == :a1
-        pre_range = T.(PRE_RANGE_2)
-    end
+    pre_range = PRE_RANGE_101
     if degree == :a0
-        if derivative == 0
-            kp = T.(KERNEL_PRE_a0_d0)
-            kd1 = nothing
-            kd2 = nothing
+        if derivative == -1
+            kp = KERNEL_PRE_a0_i1
+            kd1 = Matrix{T}(undef, 0, 0)
+            kd2 = Matrix{T}(undef, 0, 0)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 0
+            kp = KERNEL_PRE_a0_d0
+            kd1 = Matrix{T}(undef, 0, 0)
+            kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :a1
         if derivative == -1
-            kp = T.(KERNEL_PRE_a1_i1)
-            kd1 = T.(KERNEL_D1_PRE_a1_i1)
-            kd2 = nothing
+            kp = KERNEL_PRE_a1_i1
+            kd1 = KERNEL_D1_PRE_a1_i1
+            kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         elseif derivative == 0
-            kp = T.(KERNEL_PRE_a1_d0)
-            kd1 = nothing
-            kd2 = nothing
+            kp = KERNEL_PRE_a1_d0
+            kd1 = Matrix{T}(undef, 0, 0)
+            kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :a3
         if derivative == -1
-            kp = T.(KERNEL_PRE_a3_i1)
-            kd1 = T.(KERNEL_D1_PRE_a3_i1)
-            kd2 = T.(KERNEL_D2_PRE_a3_i1)
+            kp = KERNEL_PRE_a3_i1
+            kd1 = KERNEL_D1_PRE_a3_i1
+            kd2 = KERNEL_D2_PRE_a3_i1
             return pre_range, kp, kd1, kd2
         elseif derivative == 0
-            kp = T.(KERNEL_PRE_a3_d0)
-            kd1 = T.(KERNEL_D1_PRE_a3_d0)
-            kd2 = nothing
+            kp = KERNEL_PRE_a3_d0
+            kd1 = KERNEL_D1_PRE_a3_d0
+            kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :a4
         if derivative == -1
-            kp = T.(KERNEL_PRE_a4_i1)
-            kd1 = T.(KERNEL_D1_PRE_a4_i1)
-            kd2 = T.(KERNEL_D2_PRE_a4_i1)
+            kp = KERNEL_PRE_a4_i1
+            kd1 = KERNEL_D1_PRE_a4_i1
+            kd2 = KERNEL_D2_PRE_a4_i1
             return pre_range, kp, kd1, kd2
         elseif derivative == 0
-            kp = T.(KERNEL_PRE_a4_d0)
-            kd1 = T.(KERNEL_D1_PRE_a4_d0)
-            kd2 = nothing
+            kp = KERNEL_PRE_a4_d0
+            kd1 = KERNEL_D1_PRE_a4_d0
+            kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :a5
         if derivative == -1
-            kp = T.(KERNEL_PRE_a5_i1)
-            kd1 = T.(KERNEL_D1_PRE_a5_i1)
-            kd2 = T.(KERNEL_D2_PRE_a5_i1)
+            kp = KERNEL_PRE_a5_i1
+            kd1 = KERNEL_D1_PRE_a5_i1
+            kd2 = KERNEL_D2_PRE_a5_i1
             return pre_range, kp, kd1, kd2
         elseif derivative == 0
-            kp = T.(KERNEL_PRE_a5_d0)
-            kd1 = T.(KERNEL_D1_PRE_a5_d0)
-            kd2 = nothing
+            kp = KERNEL_PRE_a5_d0
+            kd1 = KERNEL_D1_PRE_a5_d0
+            kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :a7
         if derivative == -1
-            kp = T.(KERNEL_PRE_a7_i1)
-            kd1 = T.(KERNEL_D1_PRE_a7_i1)
-            kd2 = T.(KERNEL_D2_PRE_a7_i1)
+            kp = KERNEL_PRE_a7_i1
+            kd1 = KERNEL_D1_PRE_a7_i1
+            kd2 = KERNEL_D2_PRE_a7_i1
             return pre_range, kp, kd1, kd2
         elseif derivative == 0
-            kp = T.(KERNEL_PRE_a7_d0)
-            kd1 = T.(KERNEL_D1_PRE_a7_d0)
-            kd2 = nothing
+            kp = KERNEL_PRE_a7_d0
+            kd1 = KERNEL_D1_PRE_a7_d0
+            kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :b5
         if derivative == -1
-            kp = T.(KERNEL_PRE_b5_i1)
-            kd1 = T.(KERNEL_D1_PRE_b5_i1)
-            kd2 = T.(KERNEL_D2_PRE_b5_i1)
+            kp = KERNEL_PRE_b5_i1
+            kd1 = KERNEL_D1_PRE_b5_i1
+            kd2 = KERNEL_D2_PRE_b5_i1
             return pre_range, kp, kd1, kd2
         elseif derivative == 0
-            kp = T.(KERNEL_PRE_b5_d0)
-            kd1 = T.(KERNEL_D1_PRE_b5_d0)
-            kd2 = T.(KERNEL_D2_PRE_b5_d0)
+            kp = KERNEL_PRE_b5_d0
+            kd1 = KERNEL_D1_PRE_b5_d0
+            kd2 = KERNEL_D2_PRE_b5_d0
             return pre_range, kp, kd1, kd2
         elseif derivative == 1
-            kp = T.(KERNEL_PRE_b5_d1)
-            kd1 = T.(KERNEL_D1_PRE_b5_d1)
-            kd2 = T.(KERNEL_D2_PRE_b5_d1)
+            kp = KERNEL_PRE_b5_d1
+            kd1 = KERNEL_D1_PRE_b5_d1
+            kd2 = KERNEL_D2_PRE_b5_d1
             return pre_range, kp, kd1, kd2
         elseif derivative == 2
-            kp = T.(KERNEL_PRE_b5_d2)
-            kd1 = T.(KERNEL_D1_PRE_b5_d2)
-            kd2 = nothing
+            kp = KERNEL_PRE_b5_d2
+            kd1 = KERNEL_D1_PRE_b5_d2
+            kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :b7
         if derivative == -1
-            kp = T.(KERNEL_PRE_b7_i1)
-            kd1 = T.(KERNEL_D1_PRE_b7_i1)
-            kd2 = T.(KERNEL_D2_PRE_b7_i1)
+            kp = KERNEL_PRE_b7_i1
+            kd1 = KERNEL_D1_PRE_b7_i1
+            kd2 = KERNEL_D2_PRE_b7_i1
             return pre_range, kp, kd1, kd2
         elseif derivative == 0
-            kp = T.(KERNEL_PRE_b7_d0)
-            kd1 = T.(KERNEL_D1_PRE_b7_d0)
-            kd2 = T.(KERNEL_D2_PRE_b7_d0)
+            kp = KERNEL_PRE_b7_d0
+            kd1 = KERNEL_D1_PRE_b7_d0
+            kd2 = KERNEL_D2_PRE_b7_d0
             return pre_range, kp, kd1, kd2
         elseif derivative == 1
-            kp = T.(KERNEL_PRE_b7_d1)
-            kd1 = T.(KERNEL_D1_PRE_b7_d1)
-            kd2 = T.(KERNEL_D2_PRE_b7_d1)
+            kp = KERNEL_PRE_b7_d1
+            kd1 = KERNEL_D1_PRE_b7_d1
+            kd2 = KERNEL_D2_PRE_b7_d1
             return pre_range, kp, kd1, kd2
         elseif derivative == 2
-            kp = T.(KERNEL_PRE_b7_d2)
-            kd1 = T.(KERNEL_D1_PRE_b7_d2)
-            kd2 = T.(KERNEL_D2_PRE_b7_d2)
+            kp = KERNEL_PRE_b7_d2
+            kd1 = KERNEL_D1_PRE_b7_d2
+            kd2 = KERNEL_D2_PRE_b7_d2
             return pre_range, kp, kd1, kd2
         elseif derivative == 3
-            kp = T.(KERNEL_PRE_b7_d3)
-            kd1 = T.(KERNEL_D1_PRE_b7_d3)
-            kd2 = nothing
+            kp = KERNEL_PRE_b7_d3
+            kd1 = KERNEL_D1_PRE_b7_d3
+            kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :b9
         if derivative == -1
-            kp = T.(KERNEL_PRE_b9_i1)
-            kd1 = T.(KERNEL_D1_PRE_b9_i1)
-            kd2 = T.(KERNEL_D2_PRE_b9_i1)
+            kp = KERNEL_PRE_b9_i1
+            kd1 = KERNEL_D1_PRE_b9_i1
+            kd2 = KERNEL_D2_PRE_b9_i1
             return pre_range, kp, kd1, kd2
         elseif derivative == 0
-            kp = T.(KERNEL_PRE_b9_d0)
-            kd1 = T.(KERNEL_D1_PRE_b9_d0)
-            kd2 = T.(KERNEL_D2_PRE_b9_d0)
+            kp = KERNEL_PRE_b9_d0
+            kd1 = KERNEL_D1_PRE_b9_d0
+            kd2 = KERNEL_D2_PRE_b9_d0
             return pre_range, kp, kd1, kd2
         elseif derivative == 1
-            kp = T.(KERNEL_PRE_b9_d1)
-            kd1 = T.(KERNEL_D1_PRE_b9_d1)
-            kd2 = T.(KERNEL_D2_PRE_b9_d1)
+            kp = KERNEL_PRE_b9_d1
+            kd1 = KERNEL_D1_PRE_b9_d1
+            kd2 = KERNEL_D2_PRE_b9_d1
             return pre_range, kp, kd1, kd2
         elseif derivative == 2
-            kp = T.(KERNEL_PRE_b9_d2)
-            kd1 = T.(KERNEL_D1_PRE_b9_d2)
-            kd2 = T.(KERNEL_D2_PRE_b9_d2)
+            kp = KERNEL_PRE_b9_d2
+            kd1 = KERNEL_D1_PRE_b9_d2
+            kd2 = KERNEL_D2_PRE_b9_d2
             return pre_range, kp, kd1, kd2
         elseif derivative == 3
-            kp = T.(KERNEL_PRE_b9_d3)
-            kd1 = T.(KERNEL_D1_PRE_b9_d3)
-            kd2 = T.(KERNEL_D2_PRE_b9_d3)
+            kp = KERNEL_PRE_b9_d3
+            kd1 = KERNEL_D1_PRE_b9_d3
+            kd2 = KERNEL_D2_PRE_b9_d3
             return pre_range, kp, kd1, kd2
         elseif derivative == 4
-            kp = T.(KERNEL_PRE_b9_d4)
-            kd1 = T.(KERNEL_D1_PRE_b9_d4)
-            kd2 = nothing
+            kp = KERNEL_PRE_b9_d4
+            kd1 = KERNEL_D1_PRE_b9_d4
+            kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :b11
         if derivative == -1
-            kp = T.(KERNEL_PRE_b11_i1)
-            kd1 = T.(KERNEL_D1_PRE_b11_i1)
-            kd2 = T.(KERNEL_D2_PRE_b11_i1)
+            kp = KERNEL_PRE_b11_i1
+            kd1 = KERNEL_D1_PRE_b11_i1
+            kd2 = KERNEL_D2_PRE_b11_i1
             return pre_range, kp, kd1, kd2
         elseif derivative == 0
-            kp = T.(KERNEL_PRE_b11_d0)
-            kd1 = T.(KERNEL_D1_PRE_b11_d0)
-            kd2 = T.(KERNEL_D2_PRE_b11_d0)
+            kp = KERNEL_PRE_b11_d0
+            kd1 = KERNEL_D1_PRE_b11_d0
+            kd2 = KERNEL_D2_PRE_b11_d0
             return pre_range, kp, kd1, kd2
         elseif derivative == 1
-            kp = T.(KERNEL_PRE_b11_d1)
-            kd1 = T.(KERNEL_D1_PRE_b11_d1)
-            kd2 = T.(KERNEL_D2_PRE_b11_d1)
+            kp = KERNEL_PRE_b11_d1
+            kd1 = KERNEL_D1_PRE_b11_d1
+            kd2 = KERNEL_D2_PRE_b11_d1
             return pre_range, kp, kd1, kd2
         elseif derivative == 2
-            kp = T.(KERNEL_PRE_b11_d2)
-            kd1 = T.(KERNEL_D1_PRE_b11_d2)
-            kd2 = T.(KERNEL_D2_PRE_b11_d2)
+            kp = KERNEL_PRE_b11_d2
+            kd1 = KERNEL_D1_PRE_b11_d2
+            kd2 = KERNEL_D2_PRE_b11_d2
             return pre_range, kp, kd1, kd2
         elseif derivative == 3
-            kp = T.(KERNEL_PRE_b11_d3)
-            kd1 = T.(KERNEL_D1_PRE_b11_d3)
-            kd2 = T.(KERNEL_D2_PRE_b11_d3)
+            kp = KERNEL_PRE_b11_d3
+            kd1 = KERNEL_D1_PRE_b11_d3
+            kd2 = KERNEL_D2_PRE_b11_d3
             return pre_range, kp, kd1, kd2
         elseif derivative == 4
-            kp = T.(KERNEL_PRE_b11_d4)
-            kd1 = T.(KERNEL_D1_PRE_b11_d4)
-            kd2 = T.(KERNEL_D2_PRE_b11_d4)
+            kp = KERNEL_PRE_b11_d4
+            kd1 = KERNEL_D1_PRE_b11_d4
+            kd2 = KERNEL_D2_PRE_b11_d4
             return pre_range, kp, kd1, kd2
         elseif derivative == 5
-            kp = T.(KERNEL_PRE_b11_d5)
-            kd1 = T.(KERNEL_D1_PRE_b11_d5)
-            kd2 = nothing
+            kp = KERNEL_PRE_b11_d5
+            kd1 = KERNEL_D1_PRE_b11_d5
+            kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
     elseif degree == :b13
         if derivative == -1
-            kp = T.(KERNEL_PRE_b13_i1)
-            kd1 = T.(KERNEL_D1_PRE_b13_i1)
-            kd2 = T.(KERNEL_D2_PRE_b13_i1)
+            kp = KERNEL_PRE_b13_i1
+            kd1 = KERNEL_D1_PRE_b13_i1
+            kd2 = KERNEL_D2_PRE_b13_i1
             return pre_range, kp, kd1, kd2
         elseif derivative == 0
-            kp = T.(KERNEL_PRE_b13_d0)
-            kd1 = T.(KERNEL_D1_PRE_b13_d0)
-            kd2 = T.(KERNEL_D2_PRE_b13_d0)
+            kp = KERNEL_PRE_b13_d0
+            kd1 = KERNEL_D1_PRE_b13_d0
+            kd2 = KERNEL_D2_PRE_b13_d0
             return pre_range, kp, kd1, kd2
         elseif derivative == 1
-            kp = T.(KERNEL_PRE_b13_d1)
-            kd1 = T.(KERNEL_D1_PRE_b13_d1)
-            kd2 = T.(KERNEL_D2_PRE_b13_d1)
+            kp = KERNEL_PRE_b13_d1
+            kd1 = KERNEL_D1_PRE_b13_d1
+            kd2 = KERNEL_D2_PRE_b13_d1
             return pre_range, kp, kd1, kd2
         elseif derivative == 2
-            kp = T.(KERNEL_PRE_b13_d2)
-            kd1 = T.(KERNEL_D1_PRE_b13_d2)
-            kd2 = T.(KERNEL_D2_PRE_b13_d2)
+            kp = KERNEL_PRE_b13_d2
+            kd1 = KERNEL_D1_PRE_b13_d2
+            kd2 = KERNEL_D2_PRE_b13_d2
             return pre_range, kp, kd1, kd2
         elseif derivative == 3
-            kp = T.(KERNEL_PRE_b13_d3)
-            kd1 = T.(KERNEL_D1_PRE_b13_d3)
-            kd2 = T.(KERNEL_D2_PRE_b13_d3)
+            kp = KERNEL_PRE_b13_d3
+            kd1 = KERNEL_D1_PRE_b13_d3
+            kd2 = KERNEL_D2_PRE_b13_d3
             return pre_range, kp, kd1, kd2
         elseif derivative == 4
-            kp = T.(KERNEL_PRE_b13_d4)
-            kd1 = T.(KERNEL_D1_PRE_b13_d4)
-            kd2 = T.(KERNEL_D2_PRE_b13_d4)
+            kp = KERNEL_PRE_b13_d4
+            kd1 = KERNEL_D1_PRE_b13_d4
+            kd2 = KERNEL_D2_PRE_b13_d4
             return pre_range, kp, kd1, kd2
         elseif derivative == 5
-            kp = T.(KERNEL_PRE_b13_d5)
-            kd1 = T.(KERNEL_D1_PRE_b13_d5)
-            kd2 = nothing
+            kp = KERNEL_PRE_b13_d5
+            kd1 = KERNEL_D1_PRE_b13_d5
+            kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
     end
-    error("No shipped kernel table for degree=$degree, derivative=$derivative")
+    error("No shipped kernel table for kernel=$degree, derivative=$derivative")
 end

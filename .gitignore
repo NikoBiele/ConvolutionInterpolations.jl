@@ -2,3 +2,4 @@
 /test_nonuniform.jl
 /test_nonuniform.py
 /generate_kernel_tables.jl
+/generate_conv_itp_methods.jl

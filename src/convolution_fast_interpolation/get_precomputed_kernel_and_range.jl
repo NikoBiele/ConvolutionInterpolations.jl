@@ -14,19 +14,19 @@ precision, computes high-resolution tables on demand and caches them to disk.
 Tuple of `(pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre)`.
 """
 
-function get_precomputed_kernel_and_range(degree::Symbol;
-            precompute::Int=101, float_type::Type{T},
-            derivative::Int=0, subgrid::Symbol=:cubic) where {T}
-
+function get_precomputed_kernel_and_range(degree::Symbol,
+            precompute::Int, float_type::Type{T},
+            derivative::Int, subgrid::Symbol) where {T}
     # Use cache path for: linear/nearest subgrid, BigFloat, or top derivative
-    if subgrid == :linear || float_type <: BigFloat ||
-        _is_top_derivative(degree, derivative) || precompute != 101
-        return _get_cached_kernel(degree; precompute=precompute,
-                    float_type=float_type, derivative=derivative, subgrid=subgrid)
+    r, d0, d1, d2 = if (subgrid == :linear || float_type <: BigFloat ||
+        _is_top_derivative(degree, derivative) || precompute != 101) && !(degree in (:a0, :a1))
+        _get_cached_kernel(degree, precompute,
+                    float_type, derivative, subgrid)
+    else
+        # For :cubic and :quintic subgrid at Float64/Float32, use shipped tables
+        get_shipped_kernel_tables(degree, derivative, float_type)
     end
-
-    # For :cubic and :quintic subgrid at Float64/Float32, use shipped tables
-    return get_shipped_kernel_tables(degree, derivative, float_type)
+    return (r::Vector{T}, d0::Matrix{T}, d1::Matrix{T}, d2::Matrix{T})
 end
 
 # Top derivative: only :linear subgrid is possible, not shipped
@@ -39,9 +39,9 @@ const _max_shipped_derivative = Dict(
 _is_top_derivative(degree::Symbol, derivative::Int) =
     derivative > get(_max_shipped_derivative, degree, -1)
 
-function _get_cached_kernel(degree::Symbol;
+function _get_cached_kernel(degree::Symbol,
             precompute::Int, float_type::Type{T},
-            derivative::Int=0, subgrid::Symbol=:linear) where {T}
+            derivative::Int, subgrid::Symbol) where {T}
 
     cache_dir = @get_scratch!("precomputed_kernels")
     degree_str = string(degree)
@@ -60,11 +60,11 @@ function _get_cached_kernel(degree::Symbol;
     cache_file_d2 = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_$(type_tag)_derivative_$(derivative+2)_kernel.jls")
 
     if degree == :a0 && isfile(cache_file_range) && isfile(cache_file_d0)
-        return deserialize(cache_file_range), deserialize(cache_file_d0), nothing, nothing
+        return deserialize(cache_file_range), deserialize(cache_file_d0), Matrix{T}(undef,0,0), Matrix{T}(undef,0,0)
     elseif subgrid == :linear && isfile(cache_file_range) && isfile(cache_file_d0)
-        return deserialize(cache_file_range), deserialize(cache_file_d0), nothing, nothing
+        return deserialize(cache_file_range), deserialize(cache_file_d0), Matrix{T}(undef,0,0), Matrix{T}(undef,0,0)
     elseif subgrid == :cubic && isfile(cache_file_range) && isfile(cache_file_d0) && isfile(cache_file_d1)
-        return deserialize(cache_file_range), deserialize(cache_file_d0), deserialize(cache_file_d1), nothing
+        return deserialize(cache_file_range), deserialize(cache_file_d0), deserialize(cache_file_d1), Matrix{T}(undef,0,0)
     elseif subgrid == :quintic && isfile(cache_file_range) && isfile(cache_file_d0) && isfile(cache_file_d1) && isfile(cache_file_d2)
         return deserialize(cache_file_range), deserialize(cache_file_d0), deserialize(cache_file_d1), deserialize(cache_file_d2)
     else

@@ -1,8 +1,8 @@
 @inline function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
                     DG,EQ,KBC,DerivativeOrder{DO},FD,SD,Val{:not_used},NB,Val{false},Val{0}})(x::Vararg{Number,N}) where 
-                    {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},KA<:Tuple{Vararg{ConvolutionKernel}},
-                    Axs<:Tuple{Vararg{AbstractVector}},DG,EQ<:Tuple{Vararg{Int}},
-                    KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,NB<:Nothing}
+                    {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},KA<:NTuple{N,ConvolutionKernel},
+                    Axs<:NTuple{N,<:AbstractVector},DG,EQ<:NTuple{N,Int},
+                    KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO,FD,SD,NB<:Nothing}
 
     i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
     pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[d], length(itp.knots[d]) - itp.eqs[d]), N)

@@ -140,7 +140,7 @@ differentiability but introduces controlled blurring.
 
 The implementation defines specific behavior through method specialization.
 """
-struct GaussianConvolutionKernel{B} end
+struct GaussianConvolutionKernel{B,NT} end
 
 """
     GaussianConvolutionKernel(::Val{B}) where B
@@ -150,7 +150,7 @@ Construct a `GaussianConvolutionKernel{B}` type from a `Val{B}` for dispatch pur
 This is a convenience constructor that creates a `GaussianConvolutionKernel{B}` instance
 from a value type, used for implementing specialized Gaussian kernel methods.
 """
-GaussianConvolutionKernel(::Val{B}) where B = GaussianConvolutionKernel{B}()
+GaussianConvolutionKernel(::Val{B}, ::Val{NT}) where {B,NT} = GaussianConvolutionKernel{B,NT}()
 
 """
     IntegralOrder
@@ -163,6 +163,8 @@ type when `derivative=-1` is passed at construction.
 See also: `DerivativeOrder`, `convolution_interpolation`.
 """
 struct IntegralOrder end
+
+struct FastIntegralOrder end
 
 """
     DerivativeOrder{DO}

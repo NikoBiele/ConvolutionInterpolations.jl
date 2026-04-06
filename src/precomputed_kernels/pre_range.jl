@@ -1,6 +1,5 @@
-# Shared precomputed range vectors
+# Shared precomputed range vector
 # pre_range: 101 points from 0 to 1
-# pre_range_2: 2 points for a0/a1
 
 const PRE_RANGE_101 = Float64[
     0.0,
@@ -103,12 +102,6 @@ const PRE_RANGE_101 = Float64[
     0.97,
     0.98,
     0.99,
-    1.0
-]
-
-
-const PRE_RANGE_2 = Float64[
-    0.0,
     1.0
 ]
 

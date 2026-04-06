@@ -1,5 +1,5 @@
 @inline function (itp::FastConvolutionInterpolation{T,3,3,TCoefs,Axs,KA,Val{3},
-                    DG,EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{SG},Val{false},Val{3}})(x::Vararg{Number,3}) where
+                    DG,EQ,PR,KP,KBC,FastIntegralOrder,FD,SD,Val{SG},Val{false},Val{3}})(x::Vararg{Number,3}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},

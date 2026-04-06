@@ -139,8 +139,12 @@ Returns a `Matrix{Float64}` from `POLYNOMIAL_GHOST_COEFFS`.
 See also: `POLYNOMIAL_GHOST_COEFFS`.
 """
 
-function get_polynomial_ghost_coeffs(kernel_type::Symbol)
-    if !haskey(POLYNOMIAL_GHOST_COEFFS, kernel_type)
+function get_polynomial_ghost_coeffs(kernel_bc::Symbol, kernel_type::Symbol)
+    if kernel_bc == :linear
+        return LINEAR_GHOST_MATRIX
+    elseif kernel_bc == :quadratic
+        return QUADRATIC_GHOST_MATRIX
+    elseif !haskey(POLYNOMIAL_GHOST_COEFFS, kernel_type)
         available = join(keys(POLYNOMIAL_GHOST_COEFFS), ", ")
         throw(ArgumentError(
             "Unsupported kernel type: $kernel_type. " *
@@ -149,3 +153,27 @@ function get_polynomial_ghost_coeffs(kernel_type::Symbol)
     end
     return POLYNOMIAL_GHOST_COEFFS[kernel_type]
 end
+
+const LINEAR_GHOST_MATRIX = [
+     2.0   -1.0
+     3.0   -2.0
+     4.0   -3.0
+     5.0   -4.0
+     6.0   -5.0
+     7.0   -6.0
+     8.0   -7.0
+     9.0   -8.0
+    10.0   -9.0
+]
+
+const QUADRATIC_GHOST_MATRIX = [
+     3.0   -3.0    1.0
+     6.0   -8.0    3.0
+    10.0  -15.0    6.0
+    15.0  -24.0   10.0
+    21.0  -35.0   15.0
+    28.0  -48.0   21.0
+    36.0  -63.0   28.0
+    45.0  -80.0   36.0
+    55.0  -99.0   45.0
+]

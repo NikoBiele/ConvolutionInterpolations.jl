@@ -24,4 +24,5 @@ using Test
     include("test_gaussian.jl")
     include("test_bigfloat_precision.jl")
     include("test_allocations.jl")
+    include("test_resample.jl")
 end

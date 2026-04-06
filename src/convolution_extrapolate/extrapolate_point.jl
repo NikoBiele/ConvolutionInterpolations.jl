@@ -101,28 +101,33 @@ end
     knots = itp.knots
 
     # Determine which dimensions need extrapolation
-    clamped_x = zeros(T, N)
     needs_extrapolation = false
     
+    clamped_x = ntuple(N) do d
+        lo, hi = _domain_bounds(itp, d)
+        if x[d] < lo
+            lo
+        elseif x[d] > hi
+            hi
+        else
+            x[d]
+        end
+    end
     for d in 1:N
         lo, hi = _domain_bounds(itp, d)
         if x[d] < lo
-            clamped_x[d] = lo
             needs_extrapolation = true
+            break
         elseif x[d] > hi
-            clamped_x[d] = hi
             needs_extrapolation = true
-        else
-            clamped_x[d] = x[d]
+            break
         end
     end
-    
+
     if !needs_extrapolation
         return itp(x...)
     end
-    
-    clamped_x = ntuple(i -> clamped_x[i], N)
-    
+        
     # Handle different extrapolation types
     if ET === Line
         # 2-point directional derivative: 2 evaluations total regardless of dimension
@@ -172,10 +177,9 @@ end
 
 @inline function _domain_bounds(itp::AbstractConvolutionInterpolation{T,N,NI,TCoefs,
                     Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,Val{true},DI}, d) where {T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,DI}
-    eqs_d = itp.eqs isa Tuple ? itp.eqs[d] : itp.eqs
     k = itp.knots[d]
     n_k = length(k)
     n_d = size(itp.coefs, d)
-    ng = itp.boundary_fallback ? eqs_d - 1 : (n_k - n_d) ÷ 2
+    ng = (n_k - n_d) ÷ 2
     return k[1 + ng], k[end - ng]
 end

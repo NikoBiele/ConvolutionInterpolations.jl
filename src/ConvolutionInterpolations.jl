@@ -14,8 +14,11 @@ include("convolution_coefs/convolution_coefs.jl")
 include("precomputed_kernels/precomputed_kernel_tables.jl")
 
 export 
-    # Main convenience function
+    # Main convenience functions
     convolution_interpolation,
+    convolution_gaussian,
+    convolution_smooth,
+    convolution_resample,
 
     # Core interpolation types for advanced users
     ConvolutionInterpolation,

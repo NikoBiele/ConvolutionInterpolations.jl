@@ -1,7 +1,7 @@
 """
     lazy_ghost_value(values::AbstractArray{T,N}, virtual_idx::NTuple{N,Int},
                      eqs::Int, kernel_type::Symbol;
-                     kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}}}=:auto) where {T,N}
+                     kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}}}=:detect) where {T,N}
 
 Compute the coefficient value at a virtual (expanded-array) index on the fly,
 without materializing the expanded array.
@@ -37,8 +37,8 @@ Both methods apply mean-centering matching the eager code exactly.
 See also: [`is_boundary_stencil`](@ref), [`POLYNOMIAL_GHOST_COEFFS`](@ref).
 """
 function lazy_ghost_value(values::AbstractArray{T,N}, virtual_idx::NTuple{N,Int},
-                          eqs::Int, kernel_type::Symbol;
-                          kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}}}=:auto) where {T,N}
+                          eqs::Int, kernel_type::Symbol, h::NTuple{N,T},
+                          kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}) where {T,N}
     ng = eqs - 1
     factor_nd = N == 1 ? one(T) : -one(T)
 
@@ -56,7 +56,7 @@ function lazy_ghost_value(values::AbstractArray{T,N}, virtual_idx::NTuple{N,Int}
         return @inbounds values[raw_idx...]
     end
 
-    ghost_matrix = get_polynomial_ghost_coeffs(kernel_type)
+    ghost_matrix = get_polynomial_ghost_coeffs(:not_used, kernel_type)
     n_stencil = size(ghost_matrix, 2)
 
     # Track weighted index pairs (polynomial) and scalar accumulator (recursive)
@@ -85,9 +85,22 @@ function lazy_ghost_value(values::AbstractArray{T,N}, virtual_idx::NTuple{N,Int}
             ghost_side = vid <= ng ? :left : :right
             ghost_layer = ghost_side === :left ? (ng + 1 - vid) : (vid - ng - n_d)
             bc_side = ghost_side === :left ? bc_pair[1] : bc_pair[2]
-            use_polynomial = (bc_side == :poly) || (bc_side == :auto && n_d >= n_stencil)
             factor = ghost_side === :right ? factor_nd : one(T)
-
+            # Sign change check matching eager path
+            ns = 4  # compile-time constant
+            slice_check = if ghost_side === :left
+                ntuple(k -> values[ntuple(dd -> dd == d ? k : clamp(ix[dd] - ng, 1, size(values, dd)), Val(N))...], ns)
+            else
+                ntuple(k -> values[ntuple(dd -> dd == d ? (n_d - ns + k) : clamp(ix[dd] - ng, 1, size(values, dd)), Val(N))...], ns)
+            end
+            d1 = ntuple(k -> slice_check[k+1] - slice_check[k], 3)
+            d2 = ntuple(k -> d1[k+1] - d1[k], 2)
+            # d3 = d2[2] - d2[1]
+            mn1, mx1 = minimum(d1), maximum(d1)
+            periodic_boundary = (mn1 * mx1) / h[d]^2 < -1/10
+            high_curvature    = abs(d2[2] - d2[1]) / h[d] > 1/10  # == abs(d3)
+            use_polynomial = (bc_side === :poly || bc_side === :detect) && n_d >= n_stencil && !periodic_boundary && !high_curvature
+            
             if use_polynomial
                 # ── Polynomial path: expand into weights ──
                 # ghost = y_mean + factor * Σ coef[m] * (stencil[m] - y_mean)
@@ -153,7 +166,7 @@ function lazy_ghost_value(values::AbstractArray{T,N}, virtual_idx::NTuple{N,Int}
 
                 h_d = one(T)
                 coef = get_recursive_coefs(y_centered, h_d,
-                           bc_side == :auto ? :auto : bc_side, :left)
+                           bc_side == :detect ? :detect : bc_side, :left)
 
                 y_ext = Vector{T}(undef, n_d + ng)
                 y_ext[ng+1:ng+n_d] .= y_centered
@@ -196,3 +209,6 @@ end
 # Helper to extract kernel symbol from degree type parameter (zero-cost dispatch)
 @inline _kernel_sym(::Val{S}) where S = S
 @inline _kernel_sym(::HigherOrderKernel{S}) where S = S
+@inline _kernel_sym(::LowerOrderKernel{S}) where S = S
+@inline _kernel_sym(::HigherOrderMixedKernel{S}) where S = S
+@inline _kernel_sym(::LowerOrderMixedKernel{S}) where S = S

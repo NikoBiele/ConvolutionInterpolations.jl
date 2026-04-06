@@ -1473,3 +1473,7 @@ const KERNEL_D1_PRE_b7_d3 = Float64[
 ]
 
 
+const KERNEL_D2_PRE_b7_d3 = Float64[
+]
+
+

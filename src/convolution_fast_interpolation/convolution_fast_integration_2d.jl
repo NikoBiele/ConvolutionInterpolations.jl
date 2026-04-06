@@ -14,7 +14,7 @@ See also: FastConvolutionInterpolation, convolution_fast_integration_1d.
 """
 
 @inline function (itp::FastConvolutionInterpolation{T,2,2,TCoefs,Axs,KA,Val{2},
-                    DG,EQ,PR,KP,KBC,IntegralOrder,FD,SD,Val{SG},Val{false},Val{2}})(x::Vararg{Number,2}) where 
+                    DG,EQ,PR,KP,KBC,FastIntegralOrder,FD,SD,Val{SG},Val{false},Val{2}})(x::Vararg{Number,2}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},

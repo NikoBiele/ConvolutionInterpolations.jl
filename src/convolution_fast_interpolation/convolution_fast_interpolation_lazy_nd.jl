@@ -1,38 +1,37 @@
 @inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
                     LowerOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},
                     Val{true},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
-                    KA<:Tuple{Vararg{Nothing}},Axs<:Tuple{Vararg{AbstractVector}},DG,EQ<:Tuple{Vararg{Int}},
-                    PR<:Tuple{Vararg{AbstractVector}},KP,KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},
+                    KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},DG,EQ<:NTuple{N,Int},
+                    PR<:NTuple{N,<:AbstractVector},KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},
                     DO,FD,SD,SG}
     
-    same_kernel = allequal(DG)
+    # same as eager path
+    if DG[1] == :a0
+        return _eval_a0_nd(itp, x)
+    elseif DG[1] == :a1
+        return _eval_a1_nd(itp, x, Val{DO}())
+    end
+end
+
+@inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
+            DG,EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},
+                    Val{true},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
+                    KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},DG,
+                    EQ<:NTuple{N,Int},PR<:NTuple{N,<:AbstractVector},KP,
+                    KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+                    
+    # specialized dispatch for N-dimensional higher-order kernel
     
-    if DG[1] == :a0 && same_kernel
-        # specialized dispatch for N-dimensional nearest neighbor kernel
-
-        # Compute i_float once per dimension
-        i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
-        
-        # Find knot indices for each dimension
-        pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[d], length(itp.knots[d]) - itp.eqs[d]), N)
-        
-        # Compute normalized left distances - recompute from actual knot positions
-        diff_left = ntuple(d -> (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
-
-        # Nearest neighbor: return coefficient at nearest grid point
-        nearest_ids = ntuple(d -> diff_left[d] < 0.5 ? pos_ids[d] : pos_ids[d]+1, N)
-        return itp.coefs[nearest_ids...]
-
-    elseif DG[1] == :a1 && same_kernel
-
-        # specialized dispatch for N-dimensional linear kernel
+    # Compute i_float once per dimension
+    i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
     
-        # Compute i_float once per dimension
-        i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
-        
-        # Find knot indices for each dimension
-        pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[d], length(itp.knots[d]) - itp.eqs[d]), N)
-        
+    # Find knot indices for each dimension
+    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), 1, length(itp.knots[d]) - 1), N)
+    
+    is_boundary = ntuple(d -> is_boundary_stencil(pos_ids[d], size(itp.coefs, d), itp.eqs[d]), N)
+
+    if any(is_boundary)
+
         # Compute normalized left distances - recompute from actual knot positions
         weights = ntuple(d -> (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
         
@@ -59,52 +58,36 @@
         end
         
         return @inbounds @fastmath result * prod((-one(T)/itp.h[d])^DO[d] for d in 1:N)
-    end
-end
 
-function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-            DG,EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},
-                    Val{true},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
-                    KA<:Tuple{Vararg{Nothing}},Axs<:Tuple{Vararg{AbstractVector}},DG,
-                    EQ<:Tuple{Vararg{Int}},PR<:Tuple{Vararg{AbstractVector}},KP,
-                    KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
-                    
-    # specialized dispatch for N-dimensional higher-order kernel
-    
-    # Compute i_float once per dimension
-    i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
-    
-    # Find knot indices for each dimension
-    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), 1, length(itp.knots[d]) - 1), N)
-    
-    # Compute normalized left distances - recompute from actual knot positions
-    diff_left = ntuple(d -> (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
-    diff_right = ntuple(d -> one(T) - diff_left[d], N)
+    else
 
-    idx_lower = ntuple(d -> clamp(floor(Int, diff_right[d] * (length(itp.pre_range[d]) - one(Int64))) + one(Int64),
-                                   one(Int64), length(itp.pre_range[d]) - one(Int64)), N)
-    
-    idx_upper = ntuple(d -> idx_lower[d] + 1, N)
-    t = ntuple(d -> (diff_right[d] - itp.pre_range[d][idx_lower[d]]) / 
-                     (itp.pre_range[d][idx_upper[d]] - itp.pre_range[d][idx_lower[d]]), N)
+        # Compute normalized left distances - recompute from actual knot positions
+        diff_left = ntuple(d -> (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
+        diff_right = ntuple(d -> one(T) - diff_left[d], N)
 
-    result = zero(T)
-    
-    kernel_type = _kernel_sym(itp.kernel_sym) # lazy only for same kernel in all directions
-    ng = itp.eqs[1] - 1
-    @inbounds for offsets in Iterators.product(ntuple(d -> -(itp.eqs[d]-1):itp.eqs[d], N)...)
-        vidx = ntuple(d -> pos_ids[d] + ng + offsets[d], N)
-        coef = lazy_ghost_value(itp.coefs, vidx, itp.eqs[1], kernel_type[1])
+        idx_lower = ntuple(d -> clamp(floor(Int, diff_right[d] * (length(itp.pre_range[d]) - one(Int64))) + one(Int64),
+                                    one(Int64), length(itp.pre_range[d]) - one(Int64)), N)
         
-        kernel_val = one(T)
-        @inbounds for d in 1:N
-            k_lower = itp.kernel_pre[d][idx_lower[d], offsets[d]+itp.eqs[d]]
-            k_upper = itp.kernel_pre[d][idx_upper[d], offsets[d]+itp.eqs[d]]
-            kernel_val *= (one(T) - t[d]) * k_lower + t[d] * k_upper
+        idx_upper = ntuple(d -> idx_lower[d] + 1, N)
+        t = ntuple(d -> (diff_right[d] - itp.pre_range[d][idx_lower[d]]) / 
+                        (itp.pre_range[d][idx_upper[d]] - itp.pre_range[d][idx_lower[d]]), N)
+
+        result = zero(T)
+        
+        @inbounds for offsets in Iterators.product(ntuple(d -> -(itp.eqs[d]-1):itp.eqs[d], N)...)
+            idxs = ntuple(d -> pos_ids[d] + offsets[d], N)
+            coef = itp.coefs[idxs...]
+
+            kernel_val = one(T)
+            @inbounds for d in 1:N
+                k_lower = itp.kernel_pre[d][idx_lower[d], offsets[d]+itp.eqs[d]]
+                k_upper = itp.kernel_pre[d][idx_upper[d], offsets[d]+itp.eqs[d]]
+                kernel_val *= (one(T) - t[d]) * k_lower + t[d] * k_upper
+            end
+            
+            result += coef * kernel_val
         end
         
-        result += coef * kernel_val
+        return  @inbounds @fastmath result * prod((-one(T)/itp.h[d])^DO[d] for d in 1:N)
     end
-    
-    return  @inbounds @fastmath result * prod((-one(T)/itp.h[d])^DO[d] for d in 1:N)
 end

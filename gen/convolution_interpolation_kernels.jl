@@ -4,7 +4,7 @@ using Plots
 f(x) = cos(x^2 / 9.0)
 
 # Data points
-x_data = range(0, 10, length=16)
+x_data = range(0, 10, length=9)
 y_data = f.(x_data)
 x_fine = range(0, 10, length=1000)
 y_true = f.(x_fine)

@@ -14,9 +14,9 @@ See also: FastConvolutionInterpolation, convolution_fast_integration_1d, convolu
 
 function (itp::FastConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,HigherDimension{N},DG,EQ,PR,KP,KBC,
             FastMixedIntegralOrder{DO},FD,SD,SG,Val{false},HigherDimension{NI}})(x::Vararg{Number,N}) where
-            {T<:AbstractFloat,N,NI,TCoefs<:AbstractArray{T,N},Axs<:Tuple{Vararg{AbstractVector}},
-            KA<:Tuple{Vararg{Nothing}},DG,EQ<:Tuple{Vararg{Int}},PR<:Tuple{Vararg{AbstractVector}},
-            KP,KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
+            {T<:AbstractFloat,N,NI,TCoefs<:AbstractArray{T,N},Axs<:NTuple{N,<:AbstractVector},
+            KA<:NTuple{N,<:Nothing},DG,EQ<:NTuple{N,Int},PR<:NTuple{N,AbstractVector},
+            KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
     result = zero(T)
 

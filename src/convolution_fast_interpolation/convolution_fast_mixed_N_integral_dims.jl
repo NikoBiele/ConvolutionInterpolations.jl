@@ -13,7 +13,7 @@ See also: FastConvolutionInterpolation, convolution_fast_integration_1d, convolu
 """
 
 function (itp::FastConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,HigherDimension{N},DG,EQ,PR,KP,KBC,
-            FastMixedIntegralOrder{DO},FD,SD,SG,Val{false},HigherDimension{NI}})(x::Vararg{Number,N}) where
+            FastMixedIntegralOrder{DO},FD,SD,Val{SG},Val{false},HigherDimension{NI}})(x::Vararg{Number,N}) where
             {T<:AbstractFloat,N,NI,TCoefs<:AbstractArray{T,N},Axs<:NTuple{N,<:AbstractVector},
             KA<:NTuple{N,<:Nothing},DG,EQ<:NTuple{N,Int},PR<:NTuple{N,AbstractVector},
             KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO,FD,SD,SG}
@@ -42,7 +42,7 @@ function (itp::FastConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,HigherDimension
                     t      = continuous_idx - T(i)
                     ktd = (one(T) - t) * itp.kernel_pre[d][i, col] + t * itp.kernel_pre[d][i_next, col]
                 end
-
+                    
                 kt_prod *= ktd - itp.left_values[d][idx[d]]
 
             else

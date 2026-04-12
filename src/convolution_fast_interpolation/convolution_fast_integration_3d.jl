@@ -7,29 +7,10 @@
                     KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     FD,SD,SG}
 
-    result = zero(T)
+    n_pre_d = ntuple(i -> length(itp.pre_range[i]), 3)
+    h_pre_d = ntuple(i -> one(T) / T(n_pre_d[i] - 1), 3)
 
-    @inline function eval_kt_d(sj, ::Val{D}) where D
-        abs(sj) >= T(itp.eqs[D]) && return T(1//2) * T(sign(sj))
-        col_float = T(itp.eqs[D]) + sj
-        col = clamp(floor(Int, col_float) + 1, 1, 2 * itp.eqs[D])
-        n_pre_d = length(itp.pre_range[D])
-        h_pre_d = one(T) / T(n_pre_d - 1)
-        t = (col_float - T(col - 1)) * T(length(itp.pre_range[D]) - 1) + one(T)
-        idx = clamp(floor(Int, t), 1, length(itp.pre_range[D]) - 1); t -= T(idx)
-        if SG[D] == :quintic
-            quintic_hermite(t,
-                itp.kernel_pre[D][idx, col],    itp.kernel_pre[D][idx+1, col],
-                itp.kernel_d1_pre[D][idx, col], itp.kernel_d1_pre[D][idx+1, col],
-                itp.kernel_d2_pre[D][idx, col], itp.kernel_d2_pre[D][idx+1, col], h_pre_d)
-        elseif SG[D] == :cubic
-            cubic_hermite(t,
-                itp.kernel_pre[D][idx, col],    itp.kernel_pre[D][idx+1, col],
-                itp.kernel_d1_pre[D][idx, col], itp.kernel_d1_pre[D][idx+1, col], h_pre_d)
-        else
-            (one(T) - t) * itp.kernel_pre[D][idx, col] + t * itp.kernel_pre[D][idx+1, col]
-        end
-    end
+    result = zero(T)
 
     i1_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
     i1       = clamp(floor(Int, i1_float), itp.eqs[1], size(itp.coefs, 1) - itp.eqs[1])
@@ -47,18 +28,16 @@
 
     # ── center: K̃×K̃×K̃ + face contributions from tail1 ──────────────────────
     @inbounds for j3 in (i3 - itp.eqs[3] + 1):(i3 + itp.eqs[3])
-        sj3 = (x[3] - (itp.knots[3][itp.eqs[3]] + (j3 - itp.eqs[3]) * itp.h[3])) / itp.h[3]
-        lv3 = eval_kt_d(sj3, Val(3)) - itp.left_values[3][j3]
+        lv3 = eval_sg_kt(itp, j3, Val(3), Val(SG), h_pre_d[3], x) - itp.left_values[3][j3]
 
         @inbounds for j2 in (i2 - itp.eqs[2] + 1):(i2 + itp.eqs[2])
-            sj2 = (x[2] - (itp.knots[2][itp.eqs[2]] + (j2 - itp.eqs[2]) * itp.h[2])) / itp.h[2]
-            lv2 = eval_kt_d(sj2, Val(2)) - itp.left_values[2][j2]
+            lv2 = eval_sg_kt(itp, j2, Val(2), Val(SG), h_pre_d[2], x) - itp.left_values[2][j2]
             lv23 = lv2 * lv3
 
             # center: K̃₁ × K̃₂ × K̃₃
             @inbounds for j1 in (i1 - itp.eqs[1] + 1):(i1 + itp.eqs[1])
-                sj1 = (x[1] - (itp.knots[1][itp.eqs[1]] + (j1 - itp.eqs[1]) * itp.h[1])) / itp.h[1]
-                result += itp.coefs[j1, j2, j3] * (eval_kt_d(sj1, Val(1)) - itp.left_values[1][j1]) * lv23
+                result += itp.coefs[j1, j2, j3] *
+                    (eval_sg_kt(itp, j1, Val(1), Val(SG), h_pre_d[1], x) - itp.left_values[1][j1]) * lv23
             end
 
             # face: tail1[1] × K̃₂ × K̃₃  (saturated in dim 1)
@@ -68,8 +47,7 @@
 
         # face: K̃₁ × tail1[2] × K̃₃  (saturated in dim 2)
         @inbounds for j1 in (i1 - itp.eqs[1] + 1):(i1 + itp.eqs[1])
-            sj1 = (x[1] - (itp.knots[1][itp.eqs[1]] + (j1 - itp.eqs[1]) * itp.h[1])) / itp.h[1]
-            lv1 = eval_kt_d(sj1, Val(1)) - itp.left_values[1][j1]
+            lv1 = eval_sg_kt(itp, j1, Val(1), Val(SG), h_pre_d[1], x) - itp.left_values[1][j1]
             result += (l2_ok ? itp.tail1_left[2][j1,  l2, j3] : zero(T)) * lv1 * lv3
             result += (r2_ok ? itp.tail1_right[2][j1, r2, j3] : zero(T)) * lv1 * lv3
         end
@@ -83,11 +61,9 @@
 
     # face: K̃₁ × K̃₂ × tail1[3]  (saturated in dim 3)
     @inbounds for j2 in (i2 - itp.eqs[2] + 1):(i2 + itp.eqs[2])
-        sj2 = (x[2] - (itp.knots[2][itp.eqs[2]] + (j2 - itp.eqs[2]) * itp.h[2])) / itp.h[2]
-        lv2 = eval_kt_d(sj2, Val(2)) - itp.left_values[2][j2]
+        lv2 = eval_sg_kt(itp, j2, Val(2), Val(SG), h_pre_d[2], x) - itp.left_values[2][j2]
         @inbounds for j1 in (i1 - itp.eqs[1] + 1):(i1 + itp.eqs[1])
-            sj1 = (x[1] - (itp.knots[1][itp.eqs[1]] + (j1 - itp.eqs[1]) * itp.h[1])) / itp.h[1]
-            lv1 = eval_kt_d(sj1, Val(1)) - itp.left_values[1][j1]
+            lv1 = eval_sg_kt(itp, j1, Val(1), Val(SG), h_pre_d[1], x) - itp.left_values[1][j1]
             result += (l3_ok ? itp.tail1_left[3][j1,  j2, l3] : zero(T)) * lv1 * lv2
             result += (r3_ok ? itp.tail1_right[3][j1, j2, r3] : zero(T)) * lv1 * lv2
         end
@@ -95,8 +71,7 @@
 
     # edge: tail3_edge[2] × K̃₂  (saturated in dims 1&3, free in dim 2)
     @inbounds for j2 in (i2 - itp.eqs[2] + 1):(i2 + itp.eqs[2])
-        sj2 = (x[2] - (itp.knots[2][itp.eqs[2]] + (j2 - itp.eqs[2]) * itp.h[2])) / itp.h[2]
-        lv2 = eval_kt_d(sj2, Val(2)) - itp.left_values[2][j2]
+        lv2 = eval_sg_kt(itp, j2, Val(2), Val(SG), h_pre_d[2], x) - itp.left_values[2][j2]
         result += (l1_ok && l3_ok ? itp.tail3_edge_ll[2][l1, j2, l3] : zero(T)) * lv2
         result += (r1_ok && l3_ok ? itp.tail3_edge_rl[2][r1, j2, l3] : zero(T)) * lv2
         result += (l1_ok && r3_ok ? itp.tail3_edge_lr[2][l1, j2, r3] : zero(T)) * lv2
@@ -105,8 +80,7 @@
 
     # edge: tail3_edge[1] × K̃₁  (saturated in dims 2&3, free in dim 1)
     @inbounds for j1 in (i1 - itp.eqs[1] + 1):(i1 + itp.eqs[1])
-        sj1 = (x[1] - (itp.knots[1][itp.eqs[1]] + (j1 - itp.eqs[1]) * itp.h[1])) / itp.h[1]
-        lv1 = eval_kt_d(sj1, Val(1)) - itp.left_values[1][j1]
+        lv1 = eval_sg_kt(itp, j1, Val(1), Val(SG), h_pre_d[1], x) - itp.left_values[1][j1]
         result += (l2_ok && l3_ok ? itp.tail3_edge_ll[1][j1, l2, l3] : zero(T)) * lv1
         result += (r2_ok && l3_ok ? itp.tail3_edge_rl[1][j1, r2, l3] : zero(T)) * lv1
         result += (l2_ok && r3_ok ? itp.tail3_edge_lr[1][j1, l2, r3] : zero(T)) * lv1

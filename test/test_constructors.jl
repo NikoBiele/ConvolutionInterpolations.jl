@@ -28,10 +28,8 @@
         etp_throw = ConvolutionExtrapolation(itp_fast, Throw())
         @test_throws ErrorException etp_throw(-0.5)
 
-        # Lazy variants
-        itp_direct_lazy = ConvolutionInterpolation((x,), vs, kernel=(kernel,), lazy=true, boundary_fallback=false)
+        # Lazy variant (only fast path)
         itp_fast_lazy = FastConvolutionInterpolation((x,), vs, kernel=(kernel,), lazy=true, boundary_fallback=false)
-        @test itp_direct_lazy(1.0) ≈ itp_direct(1.0) atol=1e-6
         @test itp_fast_lazy(1.0) ≈ itp_fast(1.0) atol=1e-6
 
         # 2D

@@ -11,7 +11,7 @@ high-order separable convolution interpolation.
 - `values`: array of values on `knots_in`, must have `size(values, d) == length(knots_in[d])`
 
 # Keyword Arguments
-- `kernel`: convolution kernel, default `:b9`. A `Symbol` applies to all dimensions;
+- `kernel`: convolution kernel, default `:b13`. A `Symbol` applies to all dimensions;
   an `NTuple{N,Symbol}` specifies per-dimension kernels. See [Kernel Reference] for options.
 - `derivative`: derivative order, default `0`. An `Int` applies to all dimensions;
   an `NTuple{N,Int}` specifies per-dimension orders. Negative values compute antiderivatives.
@@ -21,8 +21,7 @@ high-order separable convolution interpolation.
 
 # Default kernels by dimension
 The convenience wrappers (called without keywords) use dimension-appropriate defaults:
-- 1D, 2D: `:b9` with `:cubic` subgrid
-- 3D–10D: `:b9` with `:linear` subgrid
+- 1D, 2D, 3D to 10D: `:b13` with `:cubic` subgrid
 
 # Returns
 Array of resampled values with `size(result, d) == length(knots_out[d])`.
@@ -65,8 +64,8 @@ See also: [`convolution_interpolation`](@ref), [`convolution_smooth`](@ref)
 # 1D convenience wrapper
 function convolution_resample(knots_in::AbstractVector, knots_out::AbstractVector, values::AbstractVector{T}) where {T}
     return convolution_resample_internal((knots_in,), (knots_out,), values,
-                                        101,
-                                        (:b9,),
+                                        (101,),
+                                        (:b13,),
                                         (0,),
                                         ((:detect,:detect),),
                                         (:cubic,))
@@ -76,8 +75,8 @@ end
 function convolution_resample(knots_in::NTuple{2,AbstractVector}, knots_out::NTuple{2,AbstractVector},
                                 values::AbstractArray{T,2}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        101,
-                                        (:b9,:b9),
+                                        (101,101),
+                                        (:b13,:b13),
                                         (0,0),
                                         ((:detect,:detect),(:detect,:detect)),
                                         (:cubic,:cubic))
@@ -87,66 +86,66 @@ end
 function convolution_resample(knots_in::NTuple{3,AbstractVector}, knots_out::NTuple{3,AbstractVector},
                                 values::AbstractArray{T,3}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        101,
-                                        (:b9,:b9,:b9),
+                                        (101,101,101),
+                                        (:b13,:b13,:b13),
                                         (0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:linear,:linear,:linear))
+                                        (:cubic,:cubic,:cubic))
 end
 
 # 4D convenience wrapper
 function convolution_resample(knots_in::NTuple{4,AbstractVector}, knots_out::NTuple{4,AbstractVector},
                                 values::AbstractArray{T,4}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        101,
-                                        (:b9,:b9,:b9,:b9),
+                                        (101,101,101,101),
+                                        (:b13,:b13,:b13,:b13),
                                         (0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:linear,:linear,:linear,:linear))
+                                        (:cubic,:cubic,:cubic,:cubic))
 end
 
 # 5D convenience wrapper
 function convolution_resample(knots_in::NTuple{5,AbstractVector}, knots_out::NTuple{5,AbstractVector},
                                 values::AbstractArray{T,5}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        101,
-                                        (:b9,:b9,:b9,:b9,:b9),
+                                        (101,101,101,101,101),
+                                        (:b13,:b13,:b13,:b13,:b13),
                                         (0,0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:linear,:linear,:linear,:linear,:linear))
+                                        (:cubic,:cubic,:cubic,:cubic,:cubic))
 end
 
 # 6D convenience wrapper
 function convolution_resample(knots_in::NTuple{6,AbstractVector}, knots_out::NTuple{6,AbstractVector},
                                 values::AbstractArray{T,6}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        101,
-                                        (:b9,:b9,:b9,:b9,:b9,:b9),
+                                        (101,101,101,101,101,101),
+                                        (:b13,:b13,:b13,:b13,:b13,:b13),
                                         (0,0,0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:linear,:linear,:linear,:linear,:linear,:linear))
+                                        (:cubic,:cubic,:cubic,:cubic,:cubic,:cubic))
 end
 
 # 7D convenience wrapper
 function convolution_resample(knots_in::NTuple{7,AbstractVector}, knots_out::NTuple{7,AbstractVector},
                                 values::AbstractArray{T,7}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        101,
-                                        (:b9,:b9,:b9,:b9,:b9,:b9,:b9),
+                                        (101,101,101,101,101,101,101),
+                                        (:b13,:b13,:b13,:b13,:b13,:b13,:b13),
                                         (0,0,0,0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:linear,:linear,:linear,:linear,:linear,:linear,:linear))
+                                        (:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic))
 end
 
 # 8D convenience wrapper
 function convolution_resample(knots_in::NTuple{8,AbstractVector}, knots_out::NTuple{8,AbstractVector},
                                 values::AbstractArray{T,8}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        101,
-                                        (:b9,:b9,:b9,:b9,:b9,:b9,:b9,:b9),
+                                        (101,101,101,101,101,101,101,101),
+                                        (:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13),
                                         (0,0,0,0,0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:linear,:linear,:linear,:linear,:linear,:linear,:linear,:linear))
+                                        (:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic))
 end
 
 
@@ -154,29 +153,29 @@ end
 function convolution_resample(knots_in::NTuple{9,AbstractVector}, knots_out::NTuple{9,AbstractVector},
                                 values::AbstractArray{T,9}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        101,
-                                        (:b9,:b9,:b9,:b9,:b9,:b9,:b9,:b9,:b9),
+                                        (101,101,101,101,101,101,101,101,101),
+                                        (:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13),
                                         (0,0,0,0,0,0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:linear,:linear,:linear,:linear,:linear,:linear,:linear,:linear,:linear))
+                                        (:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic))
 end
 
 # 10D convenience wrapper
 function convolution_resample(knots_in::NTuple{10,AbstractVector}, knots_out::NTuple{10,AbstractVector},
                                 values::AbstractArray{T,10}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        101,
-                                        (:b9,:b9,:b9,:b9,:b9,:b9,:b9,:b9,:b9,:b9),
+                                        (101,101,101,101,101,101,101,101,101,101),
+                                        (:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13),
                                         (0,0,0,0,0,0,0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:linear,:linear,:linear,:linear,:linear,:linear,:linear,:linear,:linear,:linear))
+                                        (:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic))
 end
 
 function convolution_resample(knots_in::NTuple{N,AbstractVector},
                                knots_out::NTuple{N,AbstractVector},
                                values::AbstractArray{T,N};
-                               precompute::Int=101,
-                               kernel::Union{Symbol,NTuple{N,Symbol}}=:b9,
+                               precompute::Union{Int,NTuple{N,Int}}=101,
+                               kernel::Union{Symbol,NTuple{N,Symbol}}=:b13,
                                derivative::Union{Int,NTuple{N,Int}}=0,
                                bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect,
                                subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic) where {T,N}
@@ -205,6 +204,10 @@ function convolution_resample(knots_in::NTuple{N,AbstractVector},
                     bc isa NTuple{1,Tuple{Symbol,Symbol}} ? ntuple(_ -> bc[1], N) :
                     bc isa Symbol ? ntuple(_ -> (bc, bc), N) :
                     error("Invalid bc specification: $bc.")
+    precompute_tuple = precompute isa NTuple{N,Int} ? precompute :
+                    precompute isa Int ? ntuple(_ -> precompute, N) :
+                    precompute isa NTuple{1,Int} ? ntuple(_ -> precompute[1], N) :
+                    error("Invalid precompute specification $precompute")
 
     # validate subgrid/kernel combinations
     for d in 1:N
@@ -220,19 +223,24 @@ function convolution_resample(knots_in::NTuple{N,AbstractVector},
         end
     end
 
+    subgrids_valid = _build_subgrids(Val{kernels_tuple}(), Val{derivatives_tuple}(), Val{subgrids_tuple}(), Val{N}())
+
+    precompute_actual = ntuple(d -> (subgrids_valid[d] == :linear && !(kernels_tuple[d] in (:a0, :a1)) ?
+                                    max(precompute_tuple[d], 10_000) : precompute_tuple[d]), N)
+
     return convolution_resample_internal(knots_in_tuple, knots_out_tuple, values,
-                                        precompute,
+                                        precompute_actual,
                                         kernels_tuple,
                                         derivatives_tuple,
                                         bcs_tuple,
-                                        subgrids_tuple)
+                                        subgrids_valid)
 
 end
 
 function convolution_resample_internal(knots_in::NTuple{N,AbstractVector},
                                knots_out::NTuple{N,AbstractVector},
                                values::AbstractArray{T,N},
-                               precompute::Int,
+                               precompute::NTuple{N,Int},
                                kernels::NTuple{N,Symbol},
                                derivatives::NTuple{N,Int},
                                bcs::NTuple{N,Tuple{Symbol,Symbol}},
@@ -242,7 +250,7 @@ function convolution_resample_internal(knots_in::NTuple{N,AbstractVector},
     same_all = allequal(kernels) && allequal(derivatives) && allequal(subgrids)
     if same_all
         pre_range, kernel_pre, kd1_pre, kd2_pre = get_precomputed_kernel_and_range(
-            kernels[1], precompute, T, derivatives[1], subgrids[1])
+            kernels[1], precompute[1], T, derivatives[1], subgrids[1])
         eqs_same = DEGREE_TO_EQUATIONS[kernels[1]]
         l_range  = -(eqs_same-1):eqs_same
     end
@@ -269,7 +277,7 @@ function convolution_resample_internal(knots_in::NTuple{N,AbstractVector},
         workspace = BoundaryWorkspace(T, Val(1), eqs_d, n_in)
         if !same_all
             pre_range, kernel_pre, kd1_pre, kd2_pre = get_precomputed_kernel_and_range(
-                kernels[d], precompute, T, derivatives[d], sg)
+                kernels[d], precompute[d], T, derivatives[d], sg)
             l_range = -(eqs_d-1):eqs_d
         end
         n_pre        = length(pre_range)

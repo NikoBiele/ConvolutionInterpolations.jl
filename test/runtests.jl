@@ -17,6 +17,7 @@ using Test
     include("test_perdim_derivatives.jl")
     include("test_mixed_integral_1D_2D.jl")
     include("test_mixed_integral_3D_4D.jl")
+    include("test_mixed_integral_5D.jl")
     include("test_perdim_kernel_derivatives.jl")
     include("test_boundary_condition.jl")
     include("test_extrapolation.jl")

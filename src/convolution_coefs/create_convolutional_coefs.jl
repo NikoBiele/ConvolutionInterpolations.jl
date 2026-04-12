@@ -244,7 +244,7 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
             workspace.slice[k] -= y_mean
         end
     
-        if few_points || UG
+        if few_points || UG || !(kernel_boundary_condition[1] in (:detect, :poly))
             use_polynomial_left = false
         else
             ns_left = n_interior
@@ -293,11 +293,6 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
         elseif few_points || kernel_boundary_condition[1] == :poly || kernel_boundary_condition[1] == :detect
             bc_matrix = get_polynomial_ghost_coeffs(:linear, kernel_type)
             fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :left, eqs, workspace)
-        elseif kernel_boundary_condition[1] == :periodic
-            signal_tuple = ntuple(k -> slice_view[k], n_dim)
-            coef = get_recursive_coefs(signal_tuple, h[dim], kernel_boundary_condition[1], :left)
-            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :left, eqs,
-                                                workspace, vs_size)
         else
             error("Unsupported boundary condition: $(kernel_boundary_condition[1])")
         end
@@ -319,7 +314,7 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
             workspace.slice[k] -= y_mean
         end
 
-        if few_points || UG
+        if few_points || UG || !(kernel_boundary_condition[2] in (:detect, :poly))
             use_polynomial_right = false
         else
             ns_right = n_interior
@@ -368,11 +363,6 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
         elseif few_points || kernel_boundary_condition[2] == :poly || kernel_boundary_condition[2] == :detect
             bc_matrix = get_polynomial_ghost_coeffs(:linear, kernel_type)
             fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :right, eqs, workspace)
-        elseif kernel_boundary_condition[2] == :periodic
-            signal_tuple = ntuple(k -> slice_view[k], n_dim)
-            coef = get_recursive_coefs(signal_tuple, h[dim], kernel_boundary_condition[2], :right)
-            fill_ghost_points_recursive!(c, idx, c_offset_view, coef, y_mean, slice_view, :right, eqs, 
-                                            workspace, vs_size)
         else
             error("Unsupported boundary condition: $(kernel_boundary_condition[2])")
         end
@@ -446,60 +436,6 @@ function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
         
         for j in 1:num_ghost
             c[idx + c_offset[j]] = y_offset + workspace.ghost_vals[j]
-        end
-    end
-end
-
-"""
-    fill_ghost_points_recursive!(c::AbstractArray{T}, idx::CartesianIndex,
-        c_offset::AbstractVector{CartesianIndex{N}},
-        coef::Vector, y_offset::T, y_centered::AbstractVector{T},
-        side::Symbol, eqs::Int, vs_size::NTuple,
-        workspace::BoundaryWorkspace{T,N}) where {T,N}
-
-Fill ghost points using recursive (iterative) extrapolation.
-
-Each ghost point depends on previously computed ghost points and interior values:
-`ghost[j] = sum(coef[k] * extended[j-k] for k in 1:length(coef))`.
-
-Uses `workspace.y_extended` for the extended signal array. Fallback method for small grids
-or non-polynomial boundary conditions.
-
-`y_centered` is an `AbstractVector{T}` (typically a view into the workspace slice).
-
-See also: `fill_ghost_points_polynomial!`, `get_recursive_coefs`.
-"""
-
-function fill_ghost_points_recursive!(c::AbstractArray{T}, idx::CartesianIndex,
-                                     c_offset::AbstractVector{CartesianIndex{N}},
-                                     coef, y_offset::T, y_centered::AbstractVector{T},
-                                     side::Symbol, eqs::Int,
-                                     workspace::BoundaryWorkspace{T,N},
-                                     vs_size::NTuple) where {T,N}
-    if side == :left
-        y_len = length(y_centered)
-        y_ext_view = view(workspace.y_extended, 1:((eqs-1) + y_len))
-        y_ext_view[1+(eqs-1):end] .= y_centered
-        
-        for j in 1:(eqs-1)
-            y_ext_view[1+(eqs-1)-j] = sum(coef[k] * y_ext_view[1 + (eqs-1) - j + k] for k = 1:length(coef))
-            c[idx - c_offset[j]] = y_offset + y_ext_view[1+(eqs-1)-j]
-        end
-    else  # :right
-        y_len = length(y_centered)
-
-        # reverse into y_temp, like polynomial path
-        for k in 1:y_len
-            workspace.y_temp[k] = y_centered[end - k + 1]
-        end
-
-        # mirror left side approach on reversed signal
-        y_ext_view = view(workspace.y_extended, 1:((eqs-1) + y_len))
-        y_ext_view[1+(eqs-1):end] .= view(workspace.y_temp, 1:y_len)
-
-        for j in 1:(eqs-1)
-            y_ext_view[1+(eqs-1)-j] = sum(coef[k] * y_ext_view[1 + (eqs-1) - j + k] for k = 1:length(coef))
-            c[idx + c_offset[j]] = y_offset + y_ext_view[1+(eqs-1)-j]
         end
     end
 end

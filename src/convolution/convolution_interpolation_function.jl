@@ -23,7 +23,7 @@ Create a convolution-based interpolation object with automatic optimization and 
 - `extrap=:throw`: Behavior outside the grid domain.
   Options: `:throw`, `:flat`, `:line` or `:natural`.
 - `bc=:detect`: Boundary condition for kernel evaluation at domain edges.
-  Options: `:detect`, `:poly`, `:linear`, `:quadratic`, `:periodic`.
+  Options: `:detect`, `:poly`, `:linear`, `:quadratic`.
 - `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
   kernels. For `a`-series kernels the top derivative automatically uses linear interpolation
   to match the kernel's continuity class.
@@ -174,30 +174,6 @@ function _build_slow(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N}
     itp = ConvolutionInterpolation(knots, values; kernel, bc,
                                   derivative, lazy, boundary_fallback)
     return ConvolutionExtrapolation(itp, _extrap_type(extrap))
-end
-
-function _build_natural(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N}, 
-                        kernel::NTuple{N,Symbol}, fast::Bool,
-                        precompute::Int,
-                        bc::NTuple{N,Tuple{Symbol,Symbol}},
-                        derivative::NTuple{N,Int},
-                        subgrid::NTuple{N,Symbol}, 
-                        lazy::Bool, boundary_fallback::Bool) where {T,N}
-    # Natural extrapolation always uses eager mode (needs double-extrapolation)
-    itp = ConvolutionInterpolation(knots, values; kernel, B, bc, derivative, 
-                                  lazy=false, boundary_fallback=boundary_fallback)
-    bc_linear = ntuple(_ -> (:linear,:linear), N)
-    if fast
-        itp = FastConvolutionInterpolation(itp.knots, itp.coefs;
-                        kernel, precompute, bc_linear,
-                        derivative, subgrid,
-                        lazy, boundary_fallback)
-    else
-        itp = ConvolutionInterpolation(itp.knots, itp.coefs;
-                        kernel, B, bc_linear, derivative, 
-                        lazy, boundary_fallback)
-    end
-    return ConvolutionExtrapolation(itp, Line())
 end
 
 const minimum_polynomial_bc_points = Dict(

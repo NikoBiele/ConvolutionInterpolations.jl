@@ -17,7 +17,7 @@ wraps this with extrapolation handling.
   `:a0`, `:a1`, and all `b`-series kernels work on both uniform and nonuniform grids.
   Higher `a`-series kernels (`:a3`, `:a4`, `:a5`, `:a7`) fall back to `:n3` on nonuniform grids.
 - `bc=:detect`: Boundary condition for kernel evaluation at domain edges.
-  Options: `:detect`, `:poly`, `:linear`, `:quadratic`, `:periodic`.
+  Options: `:detect`, `:poly`, `:linear`, `:quadratic`.
 - `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
   kernels. For `a`-series kernels the top derivative automatically uses linear interpolation
   to match the kernel's continuity class.

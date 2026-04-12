@@ -3,11 +3,6 @@ include("convolution_kernel_interpolation_eager_1d.jl")
 include("convolution_kernel_interpolation_eager_2d.jl")
 include("convolution_kernel_interpolation_eager_3d.jl")
 include("convolution_kernel_interpolation_eager_nd.jl")
-# lazy
-include("convolution_kernel_interpolation_lazy_1d.jl")
-include("convolution_kernel_interpolation_lazy_2d.jl")
-include("convolution_kernel_interpolation_lazy_3d.jl")
-include("convolution_kernel_interpolation_lazy_nd.jl")
 # pure integration
 include("convolution_kernel_integration_1d.jl")
 include("convolution_kernel_integration_2d.jl")

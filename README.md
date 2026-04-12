@@ -136,21 +136,21 @@ plot(p1, p2, layout=(1,2), size=(800,350))
 
 [![Grid resampling 2D](fig/resample_2d.png)](fig/resample_2d.png)
 
-The default kernel is `:b9`, a 9th degree polynomial kernel with 7th order convergence.
+The default kernel is `:b13`, a 13th degree polynomial kernel with 7th order convergence.
 Resampling is separable and allocation-free in the inner loop, with alloc count independent of grid size:
 
 | Grid | Time |
 |------|------|
-| 1D 50→100 | 2.8 μs |
-| 2D 30²→60² | 185 μs |
-| 3D 20³→40³ | 2.8 ms |
+| 1D 50→100 | 3.1 μs |
+| 2D 30²→60² | 192 μs |
+| 3D 20³→40³ | 4.1 ms |
 
 Derivatives can be resampled simultaneously:
 
 ```julia
 # resample and differentiate in one pass
 z_dx = convolution_resample((x_coarse, y_coarse), (x_fine, y_fine), z_coarse;
-                             kernel=:b9, derivative=(1, 0))  # d/dx only
+                             kernel=:b13, derivative=(1, 0))  # d/dx only
 ```
 
 Antiderivatives (`derivative=-1`) are not supported with resampling, use `convolution_interpolation` with `derivative=-1` instead.
@@ -266,14 +266,14 @@ Evaluation cost scales as (stencil)ᴺ across dimensions due to tensor product s
 
 `convolution_resample` is faster than constructing a full interpolant and evaluating
 at each output point, with the advantage growing with dimension. Note that the default
-kernel for `convolution_resample` is `:b9` while `convolution_interpolation` defaults
+kernel for `convolution_resample` is `:b13` while `convolution_interpolation` defaults
 to `:b5`, so resampling also provides higher accuracy by default:
 
-| Grid | `convolution_resample` (:b9) | construct + eval (:b5) | Speedup |
+| Grid | `convolution_resample` (:b13) | construct + eval (:b5) | Speedup |
 |------|----------------------|------------------|---------|
-| 1D 500→1000 | 22 μs | 29 μs | 1.3× |
-| 2D 100²→200² | 1.9 ms | 7.0 ms | 3.6× |
-| 3D 30³→60³ | 8.9 ms | 127 ms | 14× |
+| 1D 500→1000 | 24 μs | 29 μs | 1.2× |
+| 2D 100²→200² | 2.0 ms | 7.0 ms | 3.5× |
+| 3D 30³→60³ | 14 ms | 2,302 ms | 164× |
 
 ## Kernel Reference
 
@@ -322,7 +322,6 @@ itp = convolution_interpolation(x, y; bc=:detect);        # Default
 itp = convolution_interpolation(x, y; bc=:poly);   # Optimal for b-series
 itp = convolution_interpolation(x, y; bc=:linear);
 itp = convolution_interpolation(x, y; bc=:quadratic);
-itp = convolution_interpolation(x, y; bc=:periodic);
 ```
 
 The default `:detect` prioritizes `:poly`, which preserves each kernel's polynomial reproduction properties at domain edges.
@@ -336,7 +335,7 @@ Per-dimension and per-direction boundary conditions are supported:
 ```julia
 bcs = [
     (:linear, :quadratic),   # First dimension: linear at start, quadratic at end
-    (:periodic, :poly)     # Second dimension: periodic at start, polynomial at end
+    (:detect, :poly)     # Second dimension: detect at start, polynomial at end
 ]
 itp = convolution_interpolation((x, y), z; bc=bcs);
 ```
@@ -497,11 +496,7 @@ Define behavior outside the data domain:
 itp = convolution_interpolation(x, y; extrap=Throw());     # Error (default)
 itp = convolution_interpolation(x, y; extrap=Line());      # Linear
 itp = convolution_interpolation(x, y; extrap=Flat());      # Constant
-itp = convolution_interpolation(x, y; extrap=Natural());   # Smooth boundary preservation
 ```
-
-The `Natural()` mode transforms extrapolation into interpolation by expanding the domain with boundary coefficients before applying linear extrapolation. This preserves the kernel's full smoothness across the boundary region, rather than abruptly transitioning at the domain edge.
-`Natural()` is not recommended in high dimensions due to the double construction cost.
 
 ### High-Dimensional Interpolation
 
@@ -572,7 +567,9 @@ Cubic and quintic subgrids use analytically predifferentiated kernels for Hermit
 
 The available subgrid order depends on remaining smooth derivatives: `max_derivative[kernel] - derivative`. For example, b5 with `derivative=3` has no remaining derivatives, so only `:linear` is available.
 
-Cubic and quintic subgrids are implemented for 1D and 2D. Higher dimensions use `:linear` subgrid, as tensor products per cell grow as `(order+1)ᴺ`.
+Cubic and quintic subgrids are implemented for 1D and 2D.
+Linear and cubic subgrids are implemented for 3D.
+Higher dimensions use `:linear` subgrid, as tensor products per cell grow as `(order+1)ᴺ`.
 
 Benchmarks in the [Speed](#speed) section use the default `:cubic` subgrid.
 

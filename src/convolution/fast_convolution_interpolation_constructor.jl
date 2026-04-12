@@ -21,7 +21,7 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
 - `B::Float64=-1.0`: If a positive value is provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
   Forces eager mode.
 - `bc=:detect`: Boundary condition for kernel evaluation at domain edges.
-  Options: `:detect`, `:poly`, `:linear`, `:quadratic`, `:periodic`.
+  Options: `:detect`, `:poly`, `:linear`, `:quadratic`.
 - `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
   kernels. For `a`-series kernels the top derivative automatically uses linear interpolation
   to match the kernel's continuity class.
@@ -48,7 +48,8 @@ See also: [`convolution_interpolation`](@ref), [`ConvolutionInterpolation`](@ref
 
 function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}},
                                       vs::AbstractArray{T,N};
-                                      kernel::Union{Symbol,NTuple{N,Symbol}}=:b5, precompute::Int=101,
+                                      kernel::Union{Symbol,NTuple{N,Symbol}}=:b5,
+                                      precompute::Union{Int,NTuple{N,Int}}=101,
                                       bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect,
                                       derivative::Union{Int,NTuple{N,Int}}=0,
                                       subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic,
@@ -75,6 +76,10 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                     bc isa NTuple{1,Tuple{Symbol,Symbol}} ? ntuple(_ -> bc[1], N) :
                     bc isa Symbol ? ntuple(_ -> (bc, bc), N) :
                     error("Invalid bc specification: $bc.")
+    precompute_tuple = precompute isa NTuple{N,Int} ? precompute :
+                    precompute isa Int ? ntuple(_ -> precompute, N) :
+                    precompute isa NTuple{1,Int} ? ntuple(_ -> precompute[1], N) :
+                    error("Invalid precompute specification $precompute")
 
     if any(==(:n3), kernels_tuple)
         error("The :n3 kernel is not supported by FastConvolutionInterpolation.")
@@ -86,7 +91,7 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         error("Derivatives not supported in lazy mode with 'boundary_fallback=true'.")
     end
 
-    return _build_fast_uniform_convolution(knots_tuple, vs, bcs_tuple, precompute, boundary_fallback,
+    return _build_fast_uniform_convolution(knots_tuple, vs, bcs_tuple, precompute_tuple, boundary_fallback,
                                            Val(kernels_tuple), Val(lazy),
                                            Val(derivatives_tuple), Val(subgrids_tuple))
 end
@@ -94,7 +99,7 @@ end
 function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
                                          vs::AbstractArray{T,N},
                                          bc::BCT,
-                                         precompute::Int,
+                                         precompute::NTuple{N,Int},
                                          boundary_fallback::Bool,
                                          ::Val{KS},
                                          ::Val{LZ},
@@ -108,9 +113,11 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
     n_integral = _count_integrals(Val{DV}())
 
     subgrids = _build_subgrids(Val{KS}(), Val{DV}(), Val{SG}(), Val{N}())
+    
+    precompute_actual = ntuple(d -> (subgrids[d] == :linear && !(kernel[d] in (:a0, :a1)) ?
+                                max(precompute[d], 10_000) : precompute[d]), N)
 
     h = ntuple(d -> knots[d][2] - knots[d][1], N)
-    precompute_actual = ntuple(d -> (subgrids[d] == :linear && !(kernel[d] in (:a0, :a1)) ? max(precompute, 10_000) : precompute), N)
 
     all_kernels_low_order = all(d -> kernel[d] == :a0 || kernel[d] == :a1, 1:N)
     coefs, knots_new = if LZ || all_kernels_low_order
@@ -447,14 +454,16 @@ function _suffix_sum(A::AbstractArray, dims::Int)
 end
 
 @generated function _build_subgrids(::Val{KS}, ::Val{DV}, ::Val{SG}, ::Val{N}) where {KS,DV,SG,N}
-    has_integral = any(==(-1), DV)
+    a0_a1_kernel_present = any(k -> k == :a0 || k == :a1, KS)
+    all_cubic_subgrid = allequal(SG) && SG[1] == :cubic
+    has_integral_dim = any(dv -> dv == -1, DV)
     result = ntuple(N) do d
         k = KS[d]
         dv = DV[d]
         sg = SG[d]
         # integral direction
         if dv == -1
-            if k == :a0 || k == :a1
+            if k == :a0 || k == :a1 || N >= 4
                 :linear
             elseif k in (:a3, :a4, :a5, :a7)
                 :cubic
@@ -463,7 +472,8 @@ end
             end
         # interpolation direction
         elseif dv == 0
-            if k == :a0 || k == :a1 || N >= 3 || has_integral
+            if a0_a1_kernel_present || (N == 3 && !all_cubic_subgrid) || 
+                                    N >= 4 || has_integral_dim
                 :linear
             else
                 sg
@@ -472,7 +482,8 @@ end
         else # if dv >= 1
             max_deriv = get(ConvolutionInterpolations.max_smooth_derivative, k, 0)
             available = max_deriv - dv
-            if available <= 0 || N >= 3 || has_integral
+            if available <= 0 || (N == 3 && !all_cubic_subgrid) || 
+                        N >= 4 || a0_a1_kernel_present || has_integral_dim
                 :linear
             else
                 sg

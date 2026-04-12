@@ -41,64 +41,12 @@ See also: FastConvolutionInterpolation, convolution_fast_integration_1d.
 
     # ── center: K̃×K̃, and side strips: cumcoefs×K̃ ──────────────────
     @inbounds for j2 in (i2 - eqs_2 + 1):(i2 + eqs_2)
-        xj2 = itp.knots[2][eqs_2] + (j2 - eqs_2) * itp.h[2]
-        sj2 = (x[2] - xj2) / itp.h[2]
-        if abs(sj2) >= T(eqs_2)
-            kt2 = T(1//2) * T(sign(sj2))
-        else
-            col_float2      = T(eqs_2) + sj2
-            col2            = clamp(floor(Int, col_float2) + 1, 1, 2 * eqs_2)
-            x_diff_right2   = col_float2 - T(col2 - 1)
-            continuous_idx2 = x_diff_right2 * T(n_pre[2] - 1) + one(T)
-            idx2      = clamp(floor(Int, continuous_idx2), 1, n_pre[2] - 1)
-            idx2_next = idx2 + 1
-            t2        = continuous_idx2 - T(idx2)
-            if SG[2] == :linear
-                kt2 = (one(T) - t2) * itp.kernel_pre[2][idx2, col2] + t2 * itp.kernel_pre[2][idx2_next, col2]
-            elseif SG[2] == :cubic
-                kt2 = cubic_hermite(t2,
-                    itp.kernel_pre[2][idx2,    col2], itp.kernel_pre[2][idx2_next,    col2],
-                    itp.kernel_d1_pre[2][idx2, col2], itp.kernel_d1_pre[2][idx2_next, col2],
-                    h_pre[2])
-            elseif SG[2] == :quintic
-                kt2 = quintic_hermite(t2,
-                    itp.kernel_pre[2][idx2,    col2], itp.kernel_pre[2][idx2_next,    col2],
-                    itp.kernel_d1_pre[2][idx2, col2], itp.kernel_d1_pre[2][idx2_next, col2],
-                    itp.kernel_d2_pre[2][idx2, col2], itp.kernel_d2_pre[2][idx2_next, col2],
-                    h_pre[2])
-            end
-        end
+        kt2 = eval_sg_kt(itp, j2, Val(2), Val(SG), h_pre[2], x)
         lv2 = kt2 - itp.left_values[2][j2]
 
         # center: K̃×K̃
         @inbounds for j1 in (i1 - eqs_1 + 1):(i1 + eqs_1)
-            xj1 = itp.knots[1][eqs_1] + (j1 - eqs_1) * itp.h[1]
-            sj1 = (x[1] - xj1) / itp.h[1]
-            if abs(sj1) >= T(eqs_1)
-                kt1 = T(1//2) * T(sign(sj1))
-            else
-                col_float1      = T(eqs_1) + sj1
-                col1            = clamp(floor(Int, col_float1) + 1, 1, 2 * eqs_1)
-                x_diff_right1   = col_float1 - T(col1 - 1)
-                continuous_idx1 = x_diff_right1 * T(n_pre[1] - 1) + one(T)
-                idx1      = clamp(floor(Int, continuous_idx1), 1, n_pre[1] - 1)
-                idx1_next = idx1 + 1
-                t1        = continuous_idx1 - T(idx1)
-                if SG[1] == :linear
-                    kt1 = (one(T) - t1) * itp.kernel_pre[1][idx1, col1] + t1 * itp.kernel_pre[1][idx1_next, col1]
-                elseif SG[1] == :cubic
-                    kt1 = cubic_hermite(t1,
-                        itp.kernel_pre[1][idx1,    col1], itp.kernel_pre[1][idx1_next,    col1],
-                        itp.kernel_d1_pre[1][idx1, col1], itp.kernel_d1_pre[1][idx1_next, col1],
-                        h_pre[1])
-                elseif SG[1] == :quintic
-                    kt1 = quintic_hermite(t1,
-                        itp.kernel_pre[1][idx1,    col1], itp.kernel_pre[1][idx1_next,    col1],
-                        itp.kernel_d1_pre[1][idx1, col1], itp.kernel_d1_pre[1][idx1_next, col1],
-                        itp.kernel_d2_pre[1][idx1, col1], itp.kernel_d2_pre[1][idx1_next, col1],
-                        h_pre[1])
-                end
-            end
+            kt1 = eval_sg_kt(itp, j1, Val(1), Val(SG), h_pre[1], x)
             result += itp.coefs[j1, j2] * (kt1 - itp.left_values[1][j1]) * lv2
         end
 
@@ -112,33 +60,7 @@ See also: FastConvolutionInterpolation, convolution_fast_integration_1d.
     # ── top strip: K̃×(-½) ────────────────────────────────────────────
     if l2_ok
         @inbounds for j1 in (i1 - eqs_1 + 1):(i1 + eqs_1)
-            xj1 = itp.knots[1][eqs_1] + (j1 - eqs_1) * itp.h[1]
-            sj1 = (x[1] - xj1) / itp.h[1]
-            if abs(sj1) >= T(eqs_1)
-                kt1 = T(1//2) * T(sign(sj1))
-            else
-                col_float1      = T(eqs_1) + sj1
-                col1            = clamp(floor(Int, col_float1) + 1, 1, 2 * eqs_1)
-                x_diff_right1   = col_float1 - T(col1 - 1)
-                continuous_idx1 = x_diff_right1 * T(n_pre[1] - 1) + one(T)
-                idx1      = clamp(floor(Int, continuous_idx1), 1, n_pre[1] - 1)
-                idx1_next = idx1 + 1
-                t1        = continuous_idx1 - T(idx1)
-                if SG[1] == :linear
-                    kt1 = (one(T) - t1) * itp.kernel_pre[1][idx1, col1] + t1 * itp.kernel_pre[1][idx1_next, col1]
-                elseif SG[1] == :cubic
-                    kt1 = cubic_hermite(t1,
-                        itp.kernel_pre[1][idx1,    col1], itp.kernel_pre[1][idx1_next,    col1],
-                        itp.kernel_d1_pre[1][idx1, col1], itp.kernel_d1_pre[1][idx1_next, col1],
-                        h_pre[1])
-                elseif SG[1] == :quintic
-                    kt1 = quintic_hermite(t1,
-                        itp.kernel_pre[1][idx1,    col1], itp.kernel_pre[1][idx1_next,    col1],
-                        itp.kernel_d1_pre[1][idx1, col1], itp.kernel_d1_pre[1][idx1_next, col1],
-                        itp.kernel_d2_pre[1][idx1, col1], itp.kernel_d2_pre[1][idx1_next, col1],
-                        h_pre[1])
-                end
-            end
+            kt1 = eval_sg_kt(itp, j1, Val(1), Val(SG), h_pre[1], x)
             result += itp.tail1_left[2][j1, l2] * (kt1 - itp.left_values[1][j1])
         end
         result += l1_ok ? itp.tail2_ll[l1, l2] : zero(T)
@@ -148,33 +70,7 @@ See also: FastConvolutionInterpolation, convolution_fast_integration_1d.
     # ── bottom strip: K̃×(+½) ─────────────────────────────────────────
     if r2_ok
         @inbounds for j1 in (i1 - eqs_1 + 1):(i1 + eqs_1)
-            xj1 = itp.knots[1][eqs_1] + (j1 - eqs_1) * itp.h[1]
-            sj1 = (x[1] - xj1) / itp.h[1]
-            if abs(sj1) >= T(eqs_1)
-                kt1 = T(1//2) * T(sign(sj1))
-            else
-                col_float1      = T(eqs_1) + sj1
-                col1            = clamp(floor(Int, col_float1) + 1, 1, 2 * eqs_1)
-                x_diff_right1   = col_float1 - T(col1 - 1)
-                continuous_idx1 = x_diff_right1 * T(n_pre[1] - 1) + one(T)
-                idx1      = clamp(floor(Int, continuous_idx1), 1, n_pre[1] - 1)
-                idx1_next = idx1 + 1
-                t1        = continuous_idx1 - T(idx1)
-                if SG[1] == :linear
-                    kt1 = (one(T) - t1) * itp.kernel_pre[1][idx1, col1] + t1 * itp.kernel_pre[1][idx1_next, col1]
-                elseif SG[1] == :cubic
-                    kt1 = cubic_hermite(t1,
-                        itp.kernel_pre[1][idx1,    col1], itp.kernel_pre[1][idx1_next,    col1],
-                        itp.kernel_d1_pre[1][idx1, col1], itp.kernel_d1_pre[1][idx1_next, col1],
-                        h_pre[1])
-                elseif SG[1] == :quintic
-                    kt1 = quintic_hermite(t1,
-                        itp.kernel_pre[1][idx1,    col1], itp.kernel_pre[1][idx1_next,    col1],
-                        itp.kernel_d1_pre[1][idx1, col1], itp.kernel_d1_pre[1][idx1_next, col1],
-                        itp.kernel_d2_pre[1][idx1, col1], itp.kernel_d2_pre[1][idx1_next, col1],
-                        h_pre[1])
-                end
-            end
+            kt1 = eval_sg_kt(itp, j1, Val(1), Val(SG), h_pre[1], x)
             result += itp.tail1_right[2][j1, r2] * (kt1 - itp.left_values[1][j1])
         end
         result += l1_ok ? itp.tail2_lr[l1, r2] : zero(T)

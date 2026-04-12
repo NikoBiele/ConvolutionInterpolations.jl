@@ -454,60 +454,197 @@ end
             end
         end
 
-        # Initialize all 8 corner results
-        result_000 = zero(T)
-        result_100 = zero(T)
-        result_010 = zero(T)
-        result_110 = zero(T)
-        result_001 = zero(T)
-        result_101 = zero(T)
-        result_011 = zero(T)
-        result_111 = zero(T)
-        
-        # Single triple loop - accumulate all 8 corners simultaneously
-        @inbounds for n in -(itp.eqs[3]-1):itp.eqs[3]
-            kz_0 = itp.kernel_pre[3][idx_z, n+itp.eqs[3]]
-            kz_1 = itp.kernel_pre[3][idx_z_next, n+itp.eqs[3]]
+        if SG == (:linear,:linear,:linear)
+
+            # Initialize all 8 corner results
+            result_000 = zero(T)
+            result_100 = zero(T)
+            result_010 = zero(T)
+            result_110 = zero(T)
+            result_001 = zero(T)
+            result_101 = zero(T)
+            result_011 = zero(T)
+            result_111 = zero(T)
             
-            @inbounds for m in -(itp.eqs[2]-1):itp.eqs[2]
-                ky_0 = itp.kernel_pre[2][idx_y, m+itp.eqs[2]]
-                ky_1 = itp.kernel_pre[2][idx_y_next, m+itp.eqs[2]]
+            # Single triple loop - accumulate all 8 corners simultaneously
+            @inbounds for n in -(itp.eqs[3]-1):itp.eqs[3]
+                kz_0 = itp.kernel_pre[3][idx_z, n+itp.eqs[3]]
+                kz_1 = itp.kernel_pre[3][idx_z_next, n+itp.eqs[3]]
                 
-                @inbounds for l in -(itp.eqs[1]-1):itp.eqs[1]
-                    abs_l = i + l
-                    abs_m = j + m
-                    abs_n = k + n
-                    coef = if abs_l >= 1 && abs_l <= n1 && abs_m >= 1 && abs_m <= n2 && abs_n >= 1 && abs_n <= n3
-                        itp.coefs[abs_l, abs_m, abs_n]
-                    else
-                        itp.lazy_workspace.stencil_buf[l + itp.eqs[1], m + itp.eqs[2], n + itp.eqs[3]]
-                    end
-                    kx_0 = itp.kernel_pre[1][idx_x, l+itp.eqs[1]]
-                    kx_1 = itp.kernel_pre[1][idx_x_next, l+itp.eqs[1]]
+                @inbounds for m in -(itp.eqs[2]-1):itp.eqs[2]
+                    ky_0 = itp.kernel_pre[2][idx_y, m+itp.eqs[2]]
+                    ky_1 = itp.kernel_pre[2][idx_y_next, m+itp.eqs[2]]
                     
-                    result_000 += coef * kx_0 * ky_0 * kz_0
-                    result_100 += coef * kx_1 * ky_0 * kz_0
-                    result_010 += coef * kx_0 * ky_1 * kz_0
-                    result_110 += coef * kx_1 * ky_1 * kz_0
-                    result_001 += coef * kx_0 * ky_0 * kz_1
-                    result_101 += coef * kx_1 * ky_0 * kz_1
-                    result_011 += coef * kx_0 * ky_1 * kz_1
-                    result_111 += coef * kx_1 * ky_1 * kz_1
+                    @inbounds for l in -(itp.eqs[1]-1):itp.eqs[1]
+                        abs_l = i + l
+                        abs_m = j + m
+                        abs_n = k + n
+                        coef = if abs_l >= 1 && abs_l <= n1 && abs_m >= 1 && abs_m <= n2 && abs_n >= 1 && abs_n <= n3
+                            itp.coefs[abs_l, abs_m, abs_n]
+                        else
+                            itp.lazy_workspace.stencil_buf[l + itp.eqs[1], m + itp.eqs[2], n + itp.eqs[3]]
+                        end
+                        kx_0 = itp.kernel_pre[1][idx_x, l+itp.eqs[1]]
+                        kx_1 = itp.kernel_pre[1][idx_x_next, l+itp.eqs[1]]
+                        
+                        result_000 += coef * kx_0 * ky_0 * kz_0
+                        result_100 += coef * kx_1 * ky_0 * kz_0
+                        result_010 += coef * kx_0 * ky_1 * kz_0
+                        result_110 += coef * kx_1 * ky_1 * kz_0
+                        result_001 += coef * kx_0 * ky_0 * kz_1
+                        result_101 += coef * kx_1 * ky_0 * kz_1
+                        result_011 += coef * kx_0 * ky_1 * kz_1
+                        result_111 += coef * kx_1 * ky_1 * kz_1
+                    end
                 end
             end
+            
+            # Trilinear interpolation formula
+            return @fastmath ((1-t_x)*(1-t_y)*(1-t_z)*result_000 + 
+                    t_x*(1-t_y)*(1-t_z)*result_100 + 
+                    (1-t_x)*t_y*(1-t_z)*result_010 + 
+                    t_x*t_y*(1-t_z)*result_110 +
+                    (1-t_x)*(1-t_y)*t_z*result_001 + 
+                    t_x*(1-t_y)*t_z*result_101 + 
+                    (1-t_x)*t_y*t_z*result_011 + 
+                    t_x*t_y*t_z*result_111) *
+                    (-one(T)/itp.h[1])^DO[1] * 
+                    (-one(T)/itp.h[2])^DO[2] * 
+                    (-one(T)/itp.h[3])^DO[3]
+
+        elseif SG == (:cubic,:cubic,:cubic)
+
+            n_pre_x = length(itp.pre_range[1])
+            n_pre_y = length(itp.pre_range[2])
+            n_pre_z = length(itp.pre_range[3])
+            h_pre_x = one(T) / T(n_pre_x - 1)
+            h_pre_y = one(T) / T(n_pre_y - 1)
+            h_pre_z = one(T) / T(n_pre_z - 1)
+
+            # 64 accumulators: [kx type][ky type][kz type][x bracket][y bracket][z bracket]
+            # naming: s_{x-type}{y-type}{z-type}_{x-bracket}{y-bracket}{z-bracket}
+            # types: f=function, d=derivative; brackets: 0=lower, 1=upper
+            s_fff_000=zero(T); s_fff_100=zero(T); s_fff_010=zero(T); s_fff_110=zero(T)
+            s_fff_001=zero(T); s_fff_101=zero(T); s_fff_011=zero(T); s_fff_111=zero(T)
+            s_dff_000=zero(T); s_dff_100=zero(T); s_dff_010=zero(T); s_dff_110=zero(T)
+            s_dff_001=zero(T); s_dff_101=zero(T); s_dff_011=zero(T); s_dff_111=zero(T)
+            s_fdf_000=zero(T); s_fdf_100=zero(T); s_fdf_010=zero(T); s_fdf_110=zero(T)
+            s_fdf_001=zero(T); s_fdf_101=zero(T); s_fdf_011=zero(T); s_fdf_111=zero(T)
+            s_ddf_000=zero(T); s_ddf_100=zero(T); s_ddf_010=zero(T); s_ddf_110=zero(T)
+            s_ddf_001=zero(T); s_ddf_101=zero(T); s_ddf_011=zero(T); s_ddf_111=zero(T)
+            s_ffd_000=zero(T); s_ffd_100=zero(T); s_ffd_010=zero(T); s_ffd_110=zero(T)
+            s_ffd_001=zero(T); s_ffd_101=zero(T); s_ffd_011=zero(T); s_ffd_111=zero(T)
+            s_dfd_000=zero(T); s_dfd_100=zero(T); s_dfd_010=zero(T); s_dfd_110=zero(T)
+            s_dfd_001=zero(T); s_dfd_101=zero(T); s_dfd_011=zero(T); s_dfd_111=zero(T)
+            s_fdd_000=zero(T); s_fdd_100=zero(T); s_fdd_010=zero(T); s_fdd_110=zero(T)
+            s_fdd_001=zero(T); s_fdd_101=zero(T); s_fdd_011=zero(T); s_fdd_111=zero(T)
+            s_ddd_000=zero(T); s_ddd_100=zero(T); s_ddd_010=zero(T); s_ddd_110=zero(T)
+            s_ddd_001=zero(T); s_ddd_101=zero(T); s_ddd_011=zero(T); s_ddd_111=zero(T)
+
+            @inbounds for n in -(itp.eqs[3]-1):itp.eqs[3]
+                col_z = n + itp.eqs[3]
+                kz_f0 = itp.kernel_pre[3][idx_z, col_z]
+                kz_f1 = itp.kernel_pre[3][idx_z+1, col_z]
+                kz_d0 = itp.kernel_d1_pre[3][idx_z, col_z]
+                kz_d1 = itp.kernel_d1_pre[3][idx_z+1, col_z]
+
+                @inbounds for m in -(itp.eqs[2]-1):itp.eqs[2]
+                    col_y = m + itp.eqs[2]
+                    ky_f0 = itp.kernel_pre[2][idx_y, col_y]
+                    ky_f1 = itp.kernel_pre[2][idx_y+1, col_y]
+                    ky_d0 = itp.kernel_d1_pre[2][idx_y, col_y]
+                    ky_d1 = itp.kernel_d1_pre[2][idx_y+1, col_y]
+
+                    @inbounds for l in -(itp.eqs[1]-1):itp.eqs[1]
+                        abs_l = i + l
+                        abs_m = j + m
+                        abs_n = k + n
+                        coef = if abs_l >= 1 && abs_l <= n1 && abs_m >= 1 && abs_m <= n2 && abs_n >= 1 && abs_n <= n3
+                            itp.coefs[abs_l, abs_m, abs_n]
+                        else
+                            itp.lazy_workspace.stencil_buf[l + itp.eqs[1], m + itp.eqs[2], n + itp.eqs[3]]
+                        end
+                        col_x = l + itp.eqs[1]
+                        kx_f0 = itp.kernel_pre[1][idx_x, col_x]
+                        kx_f1 = itp.kernel_pre[1][idx_x+1, col_x]
+                        kx_d0 = itp.kernel_d1_pre[1][idx_x, col_x]
+                        kx_d1 = itp.kernel_d1_pre[1][idx_x+1, col_x]
+
+                        # fff
+                        s_fff_000 += coef*kx_f0*ky_f0*kz_f0; s_fff_100 += coef*kx_f1*ky_f0*kz_f0
+                        s_fff_010 += coef*kx_f0*ky_f1*kz_f0; s_fff_110 += coef*kx_f1*ky_f1*kz_f0
+                        s_fff_001 += coef*kx_f0*ky_f0*kz_f1; s_fff_101 += coef*kx_f1*ky_f0*kz_f1
+                        s_fff_011 += coef*kx_f0*ky_f1*kz_f1; s_fff_111 += coef*kx_f1*ky_f1*kz_f1
+                        # dff
+                        s_dff_000 += coef*kx_d0*ky_f0*kz_f0; s_dff_100 += coef*kx_d1*ky_f0*kz_f0
+                        s_dff_010 += coef*kx_d0*ky_f1*kz_f0; s_dff_110 += coef*kx_d1*ky_f1*kz_f0
+                        s_dff_001 += coef*kx_d0*ky_f0*kz_f1; s_dff_101 += coef*kx_d1*ky_f0*kz_f1
+                        s_dff_011 += coef*kx_d0*ky_f1*kz_f1; s_dff_111 += coef*kx_d1*ky_f1*kz_f1
+                        # fdf
+                        s_fdf_000 += coef*kx_f0*ky_d0*kz_f0; s_fdf_100 += coef*kx_f1*ky_d0*kz_f0
+                        s_fdf_010 += coef*kx_f0*ky_d1*kz_f0; s_fdf_110 += coef*kx_f1*ky_d1*kz_f0
+                        s_fdf_001 += coef*kx_f0*ky_d0*kz_f1; s_fdf_101 += coef*kx_f1*ky_d0*kz_f1
+                        s_fdf_011 += coef*kx_f0*ky_d1*kz_f1; s_fdf_111 += coef*kx_f1*ky_d1*kz_f1
+                        # ddf
+                        s_ddf_000 += coef*kx_d0*ky_d0*kz_f0; s_ddf_100 += coef*kx_d1*ky_d0*kz_f0
+                        s_ddf_010 += coef*kx_d0*ky_d1*kz_f0; s_ddf_110 += coef*kx_d1*ky_d1*kz_f0
+                        s_ddf_001 += coef*kx_d0*ky_d0*kz_f1; s_ddf_101 += coef*kx_d1*ky_d0*kz_f1
+                        s_ddf_011 += coef*kx_d0*ky_d1*kz_f1; s_ddf_111 += coef*kx_d1*ky_d1*kz_f1
+                        # ffd
+                        s_ffd_000 += coef*kx_f0*ky_f0*kz_d0; s_ffd_100 += coef*kx_f1*ky_f0*kz_d0
+                        s_ffd_010 += coef*kx_f0*ky_f1*kz_d0; s_ffd_110 += coef*kx_f1*ky_f1*kz_d0
+                        s_ffd_001 += coef*kx_f0*ky_f0*kz_d1; s_ffd_101 += coef*kx_f1*ky_f0*kz_d1
+                        s_ffd_011 += coef*kx_f0*ky_f1*kz_d1; s_ffd_111 += coef*kx_f1*ky_f1*kz_d1
+                        # dfd
+                        s_dfd_000 += coef*kx_d0*ky_f0*kz_d0; s_dfd_100 += coef*kx_d1*ky_f0*kz_d0
+                        s_dfd_010 += coef*kx_d0*ky_f1*kz_d0; s_dfd_110 += coef*kx_d1*ky_f1*kz_d0
+                        s_dfd_001 += coef*kx_d0*ky_f0*kz_d1; s_dfd_101 += coef*kx_d1*ky_f0*kz_d1
+                        s_dfd_011 += coef*kx_d0*ky_f1*kz_d1; s_dfd_111 += coef*kx_d1*ky_f1*kz_d1
+                        # fdd
+                        s_fdd_000 += coef*kx_f0*ky_d0*kz_d0; s_fdd_100 += coef*kx_f1*ky_d0*kz_d0
+                        s_fdd_010 += coef*kx_f0*ky_d1*kz_d0; s_fdd_110 += coef*kx_f1*ky_d1*kz_d0
+                        s_fdd_001 += coef*kx_f0*ky_d0*kz_d1; s_fdd_101 += coef*kx_f1*ky_d0*kz_d1
+                        s_fdd_011 += coef*kx_f0*ky_d1*kz_d1; s_fdd_111 += coef*kx_f1*ky_d1*kz_d1
+                        # ddd
+                        s_ddd_000 += coef*kx_d0*ky_d0*kz_d0; s_ddd_100 += coef*kx_d1*ky_d0*kz_d0
+                        s_ddd_010 += coef*kx_d0*ky_d1*kz_d0; s_ddd_110 += coef*kx_d1*ky_d1*kz_d0
+                        s_ddd_001 += coef*kx_d0*ky_d0*kz_d1; s_ddd_101 += coef*kx_d1*ky_d0*kz_d1
+                        s_ddd_011 += coef*kx_d0*ky_d1*kz_d1; s_ddd_111 += coef*kx_d1*ky_d1*kz_d1
+                    end
+                end
+            end
+
+            # Reduce along x: 8 cubic Hermite calls (one per {y-type}{z-type}_{y-bracket}{z-bracket})
+            v_ff_00 = cubic_hermite(t_x, s_fff_000, s_fff_100, s_dff_000, s_dff_100, h_pre_x)
+            v_ff_10 = cubic_hermite(t_x, s_fff_010, s_fff_110, s_dff_010, s_dff_110, h_pre_x)
+            v_ff_01 = cubic_hermite(t_x, s_fff_001, s_fff_101, s_dff_001, s_dff_101, h_pre_x)
+            v_ff_11 = cubic_hermite(t_x, s_fff_011, s_fff_111, s_dff_011, s_dff_111, h_pre_x)
+            v_df_00 = cubic_hermite(t_x, s_fdf_000, s_fdf_100, s_ddf_000, s_ddf_100, h_pre_x)
+            v_df_10 = cubic_hermite(t_x, s_fdf_010, s_fdf_110, s_ddf_010, s_ddf_110, h_pre_x)
+            v_df_01 = cubic_hermite(t_x, s_fdf_001, s_fdf_101, s_ddf_001, s_ddf_101, h_pre_x)
+            v_df_11 = cubic_hermite(t_x, s_fdf_011, s_fdf_111, s_ddf_011, s_ddf_111, h_pre_x)
+
+            # Reduce along y: 4 cubic Hermite calls (one per {z-type}_{z-bracket})
+            w_f_0 = cubic_hermite(t_y, v_ff_00, v_ff_10, v_df_00, v_df_10, h_pre_y)
+            w_f_1 = cubic_hermite(t_y, v_ff_01, v_ff_11, v_df_01, v_df_11, h_pre_y)
+
+            # Now we need the z-derivative versions for the final z-Hermite
+            v_fd_00 = cubic_hermite(t_x, s_ffd_000, s_ffd_100, s_dfd_000, s_dfd_100, h_pre_x)
+            v_fd_10 = cubic_hermite(t_x, s_ffd_010, s_ffd_110, s_dfd_010, s_dfd_110, h_pre_x)
+            v_fd_01 = cubic_hermite(t_x, s_ffd_001, s_ffd_101, s_dfd_001, s_dfd_101, h_pre_x)
+            v_fd_11 = cubic_hermite(t_x, s_ffd_011, s_ffd_111, s_dfd_011, s_dfd_111, h_pre_x)
+            v_dd_00 = cubic_hermite(t_x, s_fdd_000, s_fdd_100, s_ddd_000, s_ddd_100, h_pre_x)
+            v_dd_10 = cubic_hermite(t_x, s_fdd_010, s_fdd_110, s_ddd_010, s_ddd_110, h_pre_x)
+            v_dd_01 = cubic_hermite(t_x, s_fdd_001, s_fdd_101, s_ddd_001, s_ddd_101, h_pre_x)
+            v_dd_11 = cubic_hermite(t_x, s_fdd_011, s_fdd_111, s_ddd_011, s_ddd_111, h_pre_x)
+
+            w_d_0 = cubic_hermite(t_y, v_fd_00, v_fd_10, v_dd_00, v_dd_10, h_pre_y)
+            w_d_1 = cubic_hermite(t_y, v_fd_01, v_fd_11, v_dd_01, v_dd_11, h_pre_y)
+
+            # Reduce along z: 1 cubic Hermite call
+            result = cubic_hermite(t_z, w_f_0, w_f_1, w_d_0, w_d_1, h_pre_z)
+
+            return result * (-one(T)/itp.h[1])^DO[1] * (-one(T)/itp.h[2])^DO[2] * (-one(T)/itp.h[3])^DO[3]
         end
-        
-        # Trilinear interpolation formula
-        return @fastmath ((1-t_x)*(1-t_y)*(1-t_z)*result_000 + 
-                t_x*(1-t_y)*(1-t_z)*result_100 + 
-                (1-t_x)*t_y*(1-t_z)*result_010 + 
-                t_x*t_y*(1-t_z)*result_110 +
-                (1-t_x)*(1-t_y)*t_z*result_001 + 
-                t_x*(1-t_y)*t_z*result_101 + 
-                (1-t_x)*t_y*t_z*result_011 + 
-                t_x*t_y*t_z*result_111) *
-                (-one(T)/itp.h[1])^DO[1] * 
-                (-one(T)/itp.h[2])^DO[2] * 
-                (-one(T)/itp.h[3])^DO[3]
     end
 end

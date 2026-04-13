@@ -53,7 +53,6 @@ end
         )
         analytical = (-cos(x2)+cos(x1)) * (sin(y2)-sin(y1)) *
                      4*(exp(z2/4)-exp(z1/4)) * (-cos(w2)+cos(w1)) * cos(u)
-        println("error $(abs(numerical - analytical))")
         @test abs(numerical - analytical) < 1e-3  # coarse grid, relaxed tolerance
     end
 end
@@ -71,7 +70,6 @@ end
     itp_direct = convolution_interpolation((xs,ys,zs,ws,us), vs;
                      kernel=:b5, derivative=(-1,-1,-1,-1,0), fast=false, bc=:poly, lazy=false)
     for (x,y,z,w,u) in [(2.0,2.1,2.2,2.3,2.4), (3.0,3.1,3.2,2.8,2.5)]
-        println("error $(abs(itp_fast(x,y,z,w,u) - itp_direct(x,y,z,w,u)))")
         @test abs(itp_fast(x,y,z,w,u) - itp_direct(x,y,z,w,u)) < 1e-6
     end
 end

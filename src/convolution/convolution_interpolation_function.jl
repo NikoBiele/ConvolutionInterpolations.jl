@@ -119,12 +119,16 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
       fast = false # nonuniform grids not supported in fast mode
     end
 
-    if lazy && N>=4 && !boundary_fallback
-        error("Lazy mode requires 'boundary_fallback=true' for dimensions >= 4.")
+    if lazy && N>=4 && !boundary_fallback && !is_nonuniform
+        error("Lazy uniform mode requires 'boundary_fallback=true' for dimensions >= 4.")
     end
 
-    if lazy && boundary_fallback && any(d -> derivatives_tuple[d] != 0, 1:N)
-        error("Derivatives not supported in lazy mode with 'boundary_fallback=true'.")
+    if lazy && any(d -> derivatives_tuple[d] != 0, 1:N) && (boundary_fallback || is_nonuniform)
+        error("In lazy mode, derivatives are only supported in the uniform fast path with 'boundary_fallback=false'.")
+    end
+
+    if lazy && !fast && !is_nonuniform
+        error("For uniform grids, lazy mode ('lazy=true') is only supported for the fast path ('fast=true').")
     end
 
     # Check sufficiency per dimension

@@ -131,6 +131,11 @@ end
     n = length(knots_exp)
     i = searchsortedlast(knots_exp, x[1])
     i = clamp(i, 2, n - 2)
+
+    if itp.boundary_fallback && (i < 3 || i > n - 1)
+        t = (T(x[1]) - knots_exp[i]) / (knots_exp[i+1] - knots_exp[i])
+        return (one(T) - t) * itp.coefs[i - 1] + t * itp.coefs[i]
+    end
     
     x_local = T(x[1]) - knots_exp[i]
     hm = knots_exp[i]   - knots_exp[i-1]
@@ -162,6 +167,16 @@ end
     i, wi = _nonuniform_dim_ghost(itp.knots[1], x[1])
     j, wj = _nonuniform_dim_ghost(itp.knots[2], x[2])
     
+    if itp.boundary_fallback && (i < 3 || i > length(itp.knots[1]) - 2 ||
+                                  j < 3 || j > length(itp.knots[2]) - 2)
+        t1 = (T(x[1]) - itp.knots[1][i]) / (itp.knots[1][i+1] - itp.knots[1][i])
+        t2 = (T(x[2]) - itp.knots[2][j]) / (itp.knots[2][j+1] - itp.knots[2][j])
+        @inbounds return (one(T)-t1)*(one(T)-t2)*itp.coefs[i-1, j-1] +
+                          t1*(one(T)-t2)*itp.coefs[i, j-1] +
+                          (one(T)-t1)*t2*itp.coefs[i-1, j] +
+                          t1*t2*itp.coefs[i, j]
+    end
+
     n1 = size(itp.coefs, 1)
     n2 = size(itp.coefs, 2)
     k1 = itp.knots[1][2:end-1]
@@ -197,6 +212,22 @@ end
     i, wi = _nonuniform_dim_ghost(itp.knots[1], x[1])
     j, wj = _nonuniform_dim_ghost(itp.knots[2], x[2])
     k, wk = _nonuniform_dim_ghost(itp.knots[3], x[3])
+
+    if itp.boundary_fallback && (i < 3 || i > length(itp.knots[1]) - 2 ||
+                                  j < 3 || j > length(itp.knots[2]) - 2 ||
+                                  k < 3 || k > length(itp.knots[3]) - 2)
+        t1 = (T(x[1]) - itp.knots[1][i]) / (itp.knots[1][i+1] - itp.knots[1][i])
+        t2 = (T(x[2]) - itp.knots[2][j]) / (itp.knots[2][j+1] - itp.knots[2][j])
+        t3 = (T(x[3]) - itp.knots[3][k]) / (itp.knots[3][k+1] - itp.knots[3][k])
+        result = zero(T)
+        @inbounds for c3 in 0:1, c2 in 0:1, c1 in 0:1
+            w = (c1 == 0 ? one(T) - t1 : t1) *
+                (c2 == 0 ? one(T) - t2 : t2) *
+                (c3 == 0 ? one(T) - t3 : t3)
+            result += w * itp.coefs[i-1+c1, j-1+c2, k-1+c3]
+        end
+        return result
+    end
     
     n1 = size(itp.coefs, 1)
     n2 = size(itp.coefs, 2)
@@ -239,6 +270,26 @@ end
     
     iw = ntuple(d -> _nonuniform_dim_ghost(itp.knots[d], x[d]), N)
     indices = ntuple(d -> iw[d][1], N)
+
+    is_boundary = any(d -> let id = indices[d]
+        id < 3 || id > length(itp.knots[d]) - 2
+    end, 1:N)
+    
+    if itp.boundary_fallback && is_boundary
+        ts = ntuple(N) do d
+            kd = itp.knots[d]
+            id = indices[d]
+            (T(x[d]) - kd[id]) / (kd[id+1] - kd[id])
+        end
+        result = zero(T)
+        @inbounds for offsets in Iterators.product(ntuple(_ -> 0:1, N)...)
+            w = prod(d -> offsets[d] == 0 ? one(T) - ts[d] : ts[d], 1:N)
+            idx = ntuple(d -> indices[d] - 1 + offsets[d], N)
+            result += w * itp.coefs[idx...]
+        end
+        return result
+    end
+
     weights = ntuple(d -> iw[d][2], N)
     
     result = zero(T)

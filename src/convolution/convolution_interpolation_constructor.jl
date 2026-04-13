@@ -70,21 +70,19 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
                     bc isa Symbol ? ntuple(_ -> (bc, bc), N) :
                     error("Invalid bc specification: $bc.")
 
-    if lazy && N >= 4 && !boundary_fallback
-        error("Lazy mode requires 'boundary_fallback=true' for dimensions >= 4.")
-    end
-    if lazy && boundary_fallback && any(d -> derivatives_tuple[d] != 0, 1:N)
-        error("Derivatives not supported in lazy mode with 'boundary_fallback=true'.")
-    end
-    if lazy && !boundary_fallback && !allequal(kernels_tuple)
-        error("Lazy non-fast mode with 'boundary_fallback=false' requires the same kernel for all dimensions, but got $(kernel).")
+    uniform_dims = ntuple(d -> is_uniform_grid(knots_tuple[d]), N)
+
+    if lazy && any(d -> derivatives_tuple[d] != 0, 1:N)
+        error("In lazy mode, derivatives are only supported in the uniform fast path.")
     end
 
-    uniform_dims = ntuple(d -> is_uniform_grid(knots_tuple[d]), N)
+    if lazy && all(uniform_dims)
+        error("For uniform grids, lazy mode ('lazy=true') is only supported for the fast path ('fast=true').")
+    end
 
     if all(uniform_dims)
         return _build_uniform_convolution(knots_tuple, vs, bcs_tuple,
-                boundary_fallback, Val(kernel), Val(lazy), Val(derivatives_tuple))
+                            false, Val(kernel), Val(false), Val(derivatives_tuple))
     else
         all_b_kernels = all(d -> kernels_tuple[d] in (:b5, :b7, :b9, :b11, :b13), 1:N)
         all_n3_kernels = allequal(kernels_tuple) && (kernels_tuple[1] == :n3 || kernels_tuple[1] == :a3)
@@ -108,7 +106,7 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
         end
 
         if all_b_kernels
-            return _build_nonuniform_b_convolution(knots_tuple, vs, bcs_tuple, boundary_fallback, uniform_dims,
+            return _build_nonuniform_b_convolution(knots_tuple, vs, bcs_tuple, false, uniform_dims,
                                     Val(kernels_tuple), Val(derivatives_tuple))
         else
             return _build_nonuniform_n3_convolution(knots_tuple, vs, bcs_tuple, boundary_fallback,

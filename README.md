@@ -493,11 +493,12 @@ This enables compact expressions for operators like the Leibniz integral rule, i
 Define behavior outside the data domain:
 
 ```julia
-itp = convolution_interpolation(x, y; extrap=Throw());     # Error (default)
-itp = convolution_interpolation(x, y; extrap=Line());      # Linear
-itp = convolution_interpolation(x, y; extrap=Flat());      # Constant
-itp = convolution_interpolation(x, y; extrap=Natural());   # extrapolates twice, then interpolates past boundary
+itp = convolution_interpolation(x, y; extrap=:throw)     # Error (default)
+itp = convolution_interpolation(x, y; extrap=:line)      # Linear
+itp = convolution_interpolation(x, y; extrap=:flat)      # Constant
+itp = convolution_interpolation(x, y; extrap=:natural)   # extrapolates twice, then interpolates past boundary
 ```
+The `Natural()` boundary condition is most useful in lower dimensions, as double extrapolation becomes expensive in higher dimensions.
 
 ### High-Dimensional Interpolation
 

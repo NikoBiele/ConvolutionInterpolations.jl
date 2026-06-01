@@ -14,6 +14,7 @@ const DEGREE_TO_EQUATIONS = Dict(
     :a0 => 1,
     :a1 => 1,
     :a3 => 2,
+    :n3 => 2,
     :a4 => 3,
     :a5 => 3,
     :a7 => 4,

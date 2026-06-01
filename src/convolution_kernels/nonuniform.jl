@@ -11,13 +11,13 @@ Returns `true` if all spacings are within relative tolerance `rtol`
 of the first spacing.
 """
 function is_uniform_grid(knots::AbstractVector{T}) where T
-    rtol = T <: Float32 ? 1e-5 : 1e-10
+    tol = T <: Float32 ? 1e-5 : 1e-10
     knots isa AbstractRange && return true  # ranges are uniform by construction
     h0 = knots[2] - knots[1]
-    h0 == 0 && return false
+    isapprox(h0, 0, atol=tol) && return false
     for i in 2:length(knots)-1
         hi = knots[i+1] - knots[i]
-        if abs(hi - h0) > rtol * abs(h0)
+        if abs(hi - h0) > tol * abs(h0)
             return false
         end
     end

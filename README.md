@@ -106,7 +106,7 @@ Smoothing is performed separably, one dimension at a time, making it fast even i
 | 4D 40⁴ | 273 ms | 206 ms | 169 ms |
 
 For point-wise Gaussian smoothing that also supports evaluation at arbitrary locations,
-use `convolution_gaussian` directly:
+use `convolution_gaussian` directly (works in higher dimensions too):
 
 ```julia
 itp = convolution_gaussian(x, y_noisy, 0.1)  # returns an interpolant
@@ -333,10 +333,10 @@ It falls back to `:linear` when:
 Per-dimension and per-direction boundary conditions are supported:
 
 ```julia
-bcs = [
+bcs = (
     (:linear, :quadratic),   # First dimension: linear at start, quadratic at end
     (:detect, :poly)     # Second dimension: detect at start, polynomial at end
-]
+)
 itp = convolution_interpolation((x, y), z; bc=bcs);
 ```
 
@@ -496,6 +496,7 @@ Define behavior outside the data domain:
 itp = convolution_interpolation(x, y; extrap=Throw());     # Error (default)
 itp = convolution_interpolation(x, y; extrap=Line());      # Linear
 itp = convolution_interpolation(x, y; extrap=Flat());      # Constant
+itp = convolution_interpolation(x, y; extrap=Natural());   # extrapolates twice, then interpolates past boundary
 ```
 
 ### High-Dimensional Interpolation

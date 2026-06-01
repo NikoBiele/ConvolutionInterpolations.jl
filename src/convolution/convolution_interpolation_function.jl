@@ -106,7 +106,7 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
                     bc isa Symbol ? ntuple(_ -> (bc, bc), N) :
                     error("Invalid bc specification: $bc.")
 
-    is_integral = count(d -> derivatives_tuple[d] == -1, 1:N) > 0
+    is_integral = any(d -> derivatives_tuple[d] == -1, 1:N)
     is_nonuniform = any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || any(d -> kernels_tuple[d] == :n3, 1:N)
 
     if is_integral && is_nonuniform
@@ -180,6 +180,30 @@ function _build_slow(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N}
     return ConvolutionExtrapolation(itp, _extrap_type(extrap))
 end
 
+function _build_natural(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N}, 
+                        kernel::NTuple{N,Symbol}, fast::Bool,
+                        precompute::Int,
+                        bc::NTuple{N,Tuple{Symbol,Symbol}},
+                        derivative::NTuple{N,Int},
+                        subgrid::NTuple{N,Symbol}, 
+                        lazy::Bool, boundary_fallback::Bool) where {T,N}
+    # Natural extrapolation always uses eager mode (needs double-extrapolation)
+    itp = ConvolutionInterpolation(knots, values; kernel, bc, derivative, 
+                                    lazy=false, boundary_fallback)
+    bc = ntuple(_ -> (:linear,:linear), N) # overwrites
+    if fast
+        itp = FastConvolutionInterpolation(itp.knots, itp.coefs;
+                        kernel, precompute, bc,
+                        derivative, subgrid,
+                        lazy, boundary_fallback)
+    else
+        itp = ConvolutionInterpolation(itp.knots, itp.coefs;
+                        kernel, bc, derivative, 
+                        lazy, boundary_fallback)
+    end
+    return ConvolutionExtrapolation(itp, Line())
+end
+
 const minimum_polynomial_bc_points = Dict(
     :a0 => 2,
     :a1 => 2,
@@ -205,6 +229,8 @@ function _extrap_type(s::Symbol)
         return Line()
     elseif s == :flat
         return Flat()
+    elseif s == :natural
+        return Natural()
     else
         error("Unknown extrapolation type: $s, must be :throw, :line, :flat or :natural.")
     end

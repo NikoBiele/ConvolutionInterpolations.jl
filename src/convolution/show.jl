@@ -31,7 +31,7 @@ end
 
 # --- Helpers ---
  
-_show_S(S) = allequal(S) ? ":$(S[1])" : "(" * join((":$s" for s in S), ", ") * ")"
+_show_S(S) = S isa Symbol ? ":$(S)" : allequal(S) ? ":$(S[1])" : "(" * join((":$s" for s in S), ", ") * ")"
 _show_deg(::Val{S}) where S = _show_S(S)
 _show_deg(::HigherOrderKernel{S}) where S = _show_S(S)
 _show_deg(::HigherOrderMixedKernel{S}) where S = _show_S(S)

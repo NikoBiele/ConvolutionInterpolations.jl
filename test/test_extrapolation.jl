@@ -21,6 +21,8 @@ println("Testing uniform grid extrapolations for direct and fast kernels for 1D,
         @test etp_1d_linear.([-0.2, -0.1, 1.1, 1.2]) ≈ [-0.2, -0.1, 1.1, 1.2]  atol=tolerance
         etp_1d_flat = convolution_interpolation(range_1d, vals_1d_linear; kernel=kernel, fast=false, bc=bc, extrap=:flat)
         @test etp_1d_flat.([-0.2, -0.1, 1.1, 1.2]) ≈ [0.0, 0.0, 1.0, 1.0]  atol=tolerance
+        etp_1d_natural = convolution_interpolation(range_1d, vals_1d_linear; kernel=kernel, fast=false, bc=bc, extrap=:natural)
+        @test etp_1d_natural.([-0.2, -0.1, 1.1, 1.2]) ≈ [-0.2, -0.1, 1.1, 1.2]  atol=tolerance        
     end
 end
 @testset "1D fast kernels" begin
@@ -34,6 +36,8 @@ end
         @test etp_1d_linear.([-0.2, -0.1, 1.1, 1.2]) ≈ [-0.2, -0.1, 1.1, 1.2]  atol=tolerance
         etp_1d_flat = convolution_interpolation(range_1d, vals_1d_linear; kernel=kernel, fast=true, bc=bc, extrap=:flat)
         @test etp_1d_flat.([-0.2, -0.1, 1.1, 1.2]) ≈ [0.0, 0.0, 1.0, 1.0]  atol=tolerance
+        etp_1d_natural = convolution_interpolation(range_1d, vals_1d_linear; kernel=kernel, fast=true, bc=bc, extrap=:natural)
+        @test etp_1d_natural.([-0.2, -0.1, 1.1, 1.2]) ≈ [-0.2, -0.1, 1.1, 1.2]  atol=tolerance        
     end
 end
 
@@ -50,6 +54,8 @@ end
         @test [etp_2d_linear(i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [-0.4, -0.2, 2.2, 2.4]  atol=tolerance
         etp_2d_flat = convolution_interpolation((range_2d, range_2d,), vals_2d_linear; kernel=kernel, fast=false, bc=bc, extrap=:flat)
         @test [etp_2d_flat(i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [0.0, 0.0, 2.0, 2.0]  atol=tolerance
+        etp_2d_natural = convolution_interpolation((range_2d, range_2d), vals_2d_linear; kernel=kernel, fast=false, bc=bc, extrap=:natural)
+        @test [etp_2d_natural(i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [-0.4, -0.2, 2.2, 2.4]  atol=tolerance
     end
 end
 @testset "2D fast kernels" begin
@@ -64,6 +70,8 @@ end
         @test [etp_2d_linear(i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [-0.4, -0.2, 2.2, 2.4]  atol=tolerance
         etp_2d_flat = convolution_interpolation((range_2d, range_2d,), vals_2d_linear; kernel=kernel, fast=true, bc=bc, extrap=:flat)
         @test [etp_2d_flat(i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [0.0, 0.0, 2.0, 2.0]  atol=tolerance
+        etp_2d_natural = convolution_interpolation((range_2d, range_2d), vals_2d_linear; kernel=kernel, fast=true, bc=bc, extrap=:natural)
+        @test [etp_2d_natural(i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [-0.4, -0.2, 2.2, 2.4]  atol=tolerance
     end
 end
 
@@ -83,6 +91,8 @@ end
         @test isapprox([etp_3d_linear(i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]], [-0.6, -0.3, 3.3, 3.6], atol=1e-3)  atol=tolerance
         etp_3d_flat = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_linear; kernel=kernel, fast=false, bc=bc, extrap=:flat)
         @test [etp_3d_flat(i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [0.0, 0.0, 3.0, 3.0]  atol=tolerance
+        etp_3d_natural = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_linear; kernel=kernel, fast=false, bc=bc, extrap=:natural)
+        @test isapprox([etp_3d_natural(i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]], [-0.6, -0.3, 3.3, 3.6], atol=1e-3)  atol=tolerance
     end
 end
 @testset "3D fast kernels" begin
@@ -100,6 +110,8 @@ end
         @test isapprox([etp_3d_linear(i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]], [-0.6, -0.3, 3.3, 3.6], atol=1e-3)  atol=tolerance
         etp_3d_flat = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_linear; kernel=kernel, fast=true, bc=bc, extrap=:flat)
         @test [etp_3d_flat(i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [0.0, 0.0, 3.0, 3.0]  atol=tolerance
+        etp_3d_natural = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_linear; kernel=kernel, fast=true, bc=bc, extrap=:natural)
+        @test isapprox([etp_3d_natural(i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]], [-0.6, -0.3, 3.3, 3.6], atol=1e-3)  atol=tolerance
     end
 end
 
@@ -119,6 +131,8 @@ end
         @test [etp_4d_linear( i, i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [-0.8, -0.4, 4.4, 4.8]  atol=tolerance
         etp_4d_flat = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_linear; kernel=kernel, fast=false, bc=bc, extrap=:flat)
         @test [etp_4d_flat( i, i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [0.0, 0.0, 4.0, 4.0]  atol=tolerance
+        etp_4d_natural = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_linear; kernel=kernel, fast=false, bc=bc, extrap=:natural)
+        @test [etp_4d_natural( i, i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [-0.8, -0.4, 4.4, 4.8]  atol=tolerance
     end
 end
 @testset "4D fast kernels" begin
@@ -136,5 +150,7 @@ end
         @test [etp_4d_linear( i, i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [-0.8, -0.4, 4.4, 4.8]  atol=tolerance
         etp_4d_flat = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_linear; kernel=kernel, fast=true, bc=bc, extrap=:flat)
         @test [etp_4d_flat( i, i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [0.0, 0.0, 4.0, 4.0]  atol=tolerance
+        etp_4d_natural = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_linear; kernel=kernel, fast=true, bc=bc, extrap=:natural)
+        @test [etp_4d_natural( i, i, i, i) for i in [-0.2, -0.1, 1.1, 1.2]] ≈ [-0.8, -0.4, 4.4, 4.8]  atol=tolerance
     end
 end

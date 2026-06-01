@@ -36,6 +36,9 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Float64}}(
         10  -20  15  -4;   # g_{-2}
     ],
 
+    # dummy entry
+    :n3 => Matrix{Float64}(undef, 2, 2),
+
     # b3: Reproduces polynomials up to degree 3
     # Support: [-3, 3], needs 3 ghost points
     # Uses 4 interior points (degree + 1)

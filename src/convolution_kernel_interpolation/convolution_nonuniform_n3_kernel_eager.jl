@@ -46,6 +46,7 @@ This is the fallback path for a-series kernels on nonuniform grids.
 
     # itp.knots[1] is the expanded knot vector
     # itp.coefs includes ghost values
+    x = T.(x)
     i, w = _nonuniform_dim_ghost(itp.knots[1], x[1])
     @inbounds return w[1] * itp.coefs[i-1] + w[2] * itp.coefs[i] + 
                      w[3] * itp.coefs[i+1] + w[4] * itp.coefs[i+2]
@@ -61,6 +62,7 @@ end
                     KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
+    x = T.(x)
     i, wi = _nonuniform_dim_ghost(itp.knots[1], x[1])
     j, wj = _nonuniform_dim_ghost(itp.knots[2], x[2])
     
@@ -84,6 +86,7 @@ end
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     DO,FD,SD,SG}
 
+    x = T.(x)
     i, wi = _nonuniform_dim_ghost(itp.knots[1], x[1])
     j, wj = _nonuniform_dim_ghost(itp.knots[2], x[2])
     k, wk = _nonuniform_dim_ghost(itp.knots[3], x[3])
@@ -108,6 +111,7 @@ end
         KA<:Tuple{Vararg{Nothing}},DG,EQ<:Tuple{Vararg{Int}},
         KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
 
+    x = T.(x)
     iw = ntuple(d -> _nonuniform_dim_ghost(itp.knots[d], x[d]), N)
     indices = ntuple(d -> iw[d][1], N)
     weights = ntuple(d -> iw[d][2], N)

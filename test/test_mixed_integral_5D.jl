@@ -1,11 +1,14 @@
+println("\n" * "-"^60)
+println("Testing 5D mixed integral/derivative (fast path, N-integral functor)...")
+println("-"^60)
+
 # ── 5D mixed: exercises the N-integral-dims functor ──────────────────
 # f(x,y,z,w,v) = sin(x)*cos(y)*exp(z/4)*sin(w)*cos(v)
 # With derivative=(-1,-1,-1,-1,0), the 5th dim is interpolation,
 # first 4 are integrals → hits the generic N-integral functor.
 
-println("Testing 5D mixed integral/derivative (fast path, N-integral functor)...")
-
 @testset "5D mixed construction and callability" begin
+    println("    - 5D mixed construction and callability")
     n = 10
     xs = range(0.0, 2π, length=n)
     ys = range(0.0, 2π, length=n)
@@ -24,6 +27,7 @@ println("Testing 5D mixed integral/derivative (fast path, N-integral functor)...
 end
 
 @testset "5D mixed (-1,-1,-1,-1,0) numerical fast" begin
+    println("    - 5D mixed numerical")
     n = 10
     xs = range(0.0, 2π, length=n)
     ys = range(0.0, 2π, length=n)
@@ -58,6 +62,7 @@ end
 end
 
 @testset "5D mixed (-1,-1,-1,-1,0) fast vs direct agreement" begin
+    println("    - 5D mixed fast vs direct agreement")
     n = 10
     xs = range(0.0, 2π, length=n)
     ys = range(0.0, 2π, length=n)
@@ -75,6 +80,7 @@ end
 end
 
 @testset "5D mixed anchor is zero fast" begin
+    println("    - 5D mixed anchor is zero fast")
     n = 10
     xs = range(0.0, 2π, length=n)
     ys = range(0.0, 2π, length=n)

@@ -127,6 +127,7 @@ end
                     KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
+    x = T.(x)
     knots_exp = itp.knots[1]
     n = length(knots_exp)
     i = searchsortedlast(knots_exp, x[1])
@@ -164,6 +165,7 @@ end
                     KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
+    x = T.(x)
     i, wi = _nonuniform_dim_ghost(itp.knots[1], x[1])
     j, wj = _nonuniform_dim_ghost(itp.knots[2], x[2])
     
@@ -209,6 +211,7 @@ end
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     DO,FD,SD,SG}
 
+    x = T.(x)
     i, wi = _nonuniform_dim_ghost(itp.knots[1], x[1])
     j, wj = _nonuniform_dim_ghost(itp.knots[2], x[2])
     k, wk = _nonuniform_dim_ghost(itp.knots[3], x[3])
@@ -266,6 +269,7 @@ end
         KA<:Tuple{Vararg{Nothing}},DG,EQ<:Tuple{Vararg{Int}},
         KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
 
+    x = T.(x)
     knots_orig = ntuple(d -> itp.knots[d][2:end-1], N)
     
     iw = ntuple(d -> _nonuniform_dim_ghost(itp.knots[d], x[d]), N)

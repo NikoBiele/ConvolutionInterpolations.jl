@@ -4,6 +4,7 @@
                     KA<:Tuple{<:ConvolutionKernel},DG,EQ<:Tuple{Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol}},FD,SD,NB<:Nothing}
 
+    x = T.(x)
     result = zero(T)
     @inbounds for j in 1:length(itp.coefs)
         xj = itp.knots[1][itp.eqs[1]] + (j - itp.eqs[1]) * itp.h[1]

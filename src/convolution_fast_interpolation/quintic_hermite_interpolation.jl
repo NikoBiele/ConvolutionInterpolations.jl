@@ -13,7 +13,8 @@ Quintic Hermite interpolation using values, first and second derivatives at endp
 # Returns
 Interpolated value with O(h⁶) error for C⁶ functions.
 """
-@inline function quintic_hermite(t::T, f0::T, f1::T, d0::T, d1::T, dd0::T, dd1::T, h::T) where T
+@inline function quintic_hermite(t::G, f0::T, f1::T, d0::T, d1::T, dd0::T, dd1::T, h::T) where {G,T}
+    t = T(t)
     t2 = t * t
     t3 = t2 * t
     t4 = t3 * t

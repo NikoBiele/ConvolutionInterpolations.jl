@@ -1,6 +1,6 @@
-###########################################################################
-### NONUNIFORM PER-DIM DERIVATIVES ########################################
-###########################################################################
+println("\n" * "-"^60)
+println("Testing per-dim nonuniform b-kernel per-dim derivatives in 2D...")
+println("-"^60)
 
 ### Per-dimension nonuniform b-kernel derivatives
 nu_pd_kernels = [:b5] #, :b7, :b9, :b11]
@@ -26,10 +26,8 @@ end
 #   (2,0) → -sin(x)*cos(y)
 #   (0,2) → -sin(x)*cos(y)
 
-println("Testing per-dim nonuniform b-kernel interpolation in 2D...")
-
 @testset "2D nonuniform per-dim (0,0) — interpolation" begin
-    println("Testing 2D nonuniform per-dim (0,0) — interpolation...")
+    println("    - 2D nonuniform per-dim (0,0) — interpolation...")
     for kx in nu_pd_kernels, ky in nu_pd_kernels
         x_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π)
         y_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π, strength=0.2)
@@ -43,7 +41,7 @@ println("Testing per-dim nonuniform b-kernel interpolation in 2D...")
 end
 
 @testset "2D nonuniform per-dim (1,0) — d/dx" begin
-    println("Testing 2D nonuniform per-dim (1,0) — d/dx...")
+    println("    - 2D nonuniform per-dim (1,0) — d/dx...")
     for kx in nu_pd_kernels, ky in nu_pd_kernels
         x_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π)
         y_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π, strength=0.2)
@@ -57,7 +55,7 @@ end
 end
 
 @testset "2D nonuniform per-dim (0,1) — d/dy" begin
-    println("Testing 2D nonuniform per-dim (0,1) — d/dy...")
+    println("    - 2D nonuniform per-dim (0,1) — d/dy...")
     for kx in nu_pd_kernels, ky in nu_pd_kernels
         x_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π)
         y_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π, strength=0.2)
@@ -71,7 +69,7 @@ end
 end
 
 @testset "2D nonuniform per-dim (1,1) — d²/dxdy" begin
-    println("Testing 2D nonuniform per-dim (1,1) — d²/dxdy...")
+    println("    - 2D nonuniform per-dim (1,1) — d²/dxdy...")
     for kx in nu_pd_kernels, ky in nu_pd_kernels
         x_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π)
         y_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π, strength=0.2)
@@ -85,7 +83,7 @@ end
 end
 
 @testset "2D nonuniform per-dim (2,0) — d²/dx²" begin
-    println("Testing 2D nonuniform per-dim (2,0) — d²/dx²...")
+    println("    - 2D nonuniform per-dim (2,0) — d²/dx²...")
     for kx in [:b7, :b9, :b11], ky in nu_pd_kernels   # b5 d2 at N=12 may be marginal
         x_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π)
         y_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π, strength=0.2)
@@ -99,7 +97,7 @@ end
 end
 
 @testset "2D nonuniform per-dim consistency: tuple vs scalar same kernel" begin
-    println("Testing 2D nonuniform per-dim consistency: tuple vs scalar same kernel...")
+    println("    - 2D nonuniform per-dim consistency: tuple vs scalar same kernel...")
     for kernel in nu_pd_kernels
         for deriv in [(0,0), (1,0), (0,1), (1,1)]
             x_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π)

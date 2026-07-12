@@ -1,6 +1,6 @@
-#######################################################################
-### TEST MIXED INTEGRAL ORDER (derivative = (-1,...) per dimension) ###
-#######################################################################
+println("\n" * "-"^60)
+println("Testing mixed integral/derivative order in 2D (fast and direct paths)...")
+println("-"^60)
 
 # f(x,y) = sin(x)*cos(y)
 # ∫f dx   = -cos(x)*cos(y) + C,  anchor ax: C = cos(ax)*cos(y)  → exact(x,y) = (-cos(x) + cos(ax))*cos(y)
@@ -16,8 +16,6 @@ expected_order_mixed = Dict(:b5 => 5, :b7 => 5, :b9 => 5)
 
 interior_pts_2d_integral(r1, r2) = [(x, y) for x in range(r1[8], r1[end-7], length=8),
                                     y in range(r2[8], r2[end-7], length=8)]
-
-println("Testing mixed integral/derivative order in 2D (fast and direct paths)...")
 
 # ── helpers ───────────────────────────────────────────────────────────
 
@@ -41,7 +39,7 @@ end
 
 @testset "2D mixed (-1,0) convergence fast" begin
     for kernel in mixed_kernels
-        println("Testing 2D mixed (-1,0) fast: ", kernel)
+        println("    - 2D mixed (-1,0) fast: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
@@ -63,7 +61,7 @@ end
 
 @testset "2D mixed (-1,0) convergence direct" begin
     for kernel in mixed_kernels
-        println("Testing 2D mixed (-1,0) direct: ", kernel)
+        println("    - 2D mixed (-1,0) direct: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
@@ -85,7 +83,7 @@ end
 
 @testset "2D mixed (0,-1) convergence fast" begin
     for kernel in mixed_kernels
-        println("Testing 2D mixed (0,-1) fast: ", kernel)
+        println("    - 2D mixed (0,-1) fast: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
@@ -107,7 +105,7 @@ end
 
 @testset "2D mixed (0,-1) convergence direct" begin
     for kernel in mixed_kernels
-        println("Testing 2D mixed (0,-1) direct: ", kernel)
+        println("    - 2D mixed (0,-1) direct: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
@@ -129,7 +127,7 @@ end
 
 @testset "2D mixed (-1,1) convergence fast" begin
     for kernel in mixed_kernels
-        println("Testing 2D mixed (-1,1) fast: ", kernel)
+        println("    - 2D mixed (-1,1) fast: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
@@ -151,7 +149,7 @@ end
 
 @testset "2D mixed (-1,1) convergence direct" begin
     for kernel in mixed_kernels
-        println("Testing 2D mixed (-1,1) direct: ", kernel)
+        println("    - 2D mixed (-1,1) direct: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
@@ -173,7 +171,7 @@ end
 
 @testset "2D mixed (1,-1) convergence fast" begin
     for kernel in mixed_kernels
-        println("Testing 2D mixed (1,-1) fast: ", kernel)
+        println("    - 2D mixed (1,-1) fast: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
@@ -195,7 +193,7 @@ end
 
 @testset "2D mixed (1,-1) convergence direct" begin
     for kernel in mixed_kernels
-        println("Testing 2D mixed (1,-1) direct: ", kernel)
+        println("    - 2D mixed (1,-1) direct: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
             xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
@@ -217,7 +215,7 @@ end
 
 @testset "2D mixed fast vs direct agreement" begin
     for kernel in mixed_kernels
-        println("Testing 2D mixed fast vs direct: ", kernel)
+        println("    - 2D mixed fast vs direct: ", kernel)
         n = 30
         xs = range(0.0, 2π, length=n); ys = range(0.0, 2π, length=n)
         zs = [sin(x)*cos(y) for x in xs, y in ys]
@@ -237,6 +235,7 @@ end
 
 @testset "2D mixed anchor is zero fast" begin
     for kernel in mixed_kernels
+        println("    - 2D mixed anchor is zero fast")
         xs = range(0.0, 2π, length=20); ys = range(0.0, 2π, length=20)
         zs = [sin(x)*cos(y) for x in xs, y in ys]
         for deriv in [(-1,0), (0,-1), (-1,1), (1,-1)]
@@ -252,6 +251,7 @@ end
 
 @testset "2D mixed anchor is zero direct" begin
     for kernel in mixed_kernels
+        println("    - 2D mixed anchor is zero direct")
         xs = range(0.0, 2π, length=20); ys = range(0.0, 2π, length=20)
         zs = [sin(x)*cos(y) for x in xs, y in ys]
         for deriv in [(-1,0), (0,-1), (-1,1), (1,-1)]

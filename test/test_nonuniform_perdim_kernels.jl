@@ -1,8 +1,11 @@
+println("\n" * "-"^60)
 println("Testing per-dim nonuniform b-kernel combinations...")
+println("-"^60)
+
 @testset "Per-dim nonuniform b-kernel combinations" begin
 
     @testset "2D (:b5, :b7)" begin
-        println("Testing 2D (:b5, :b7) interpolation")
+        println("    - 2D (:b5, :b7) interpolation")
         x = range(0.0, 2π, length=15) .+ 1e-4 * rand(15)
         y = range(0.0, 2π, length=15) .+ 1e-4 * rand(15)
         f(x, y) = sin(x) * cos(y)
@@ -12,7 +15,7 @@ println("Testing per-dim nonuniform b-kernel combinations...")
     end
 
     @testset "2D (:b7, :b5)" begin
-        println("Testing 2D (:b7, :b5) interpolation")
+        println("    - 2D (:b7, :b5) interpolation")
         x = range(0.0, 2π, length=15) .+ 1e-4 * rand(15)
         y = range(0.0, 2π, length=15) .+ 1e-4 * rand(15)
         f(x, y) = sin(x) * cos(y)
@@ -22,7 +25,7 @@ println("Testing per-dim nonuniform b-kernel combinations...")
     end
 
     @testset "3D (:b5, :b7, :b5)" begin
-        println("Testing 3D (:b5, :b7, :b5) interpolation")
+        println("    - 3D (:b5, :b7, :b5) interpolation")
         x = range(0.0, 2π, length=10) .+ 1e-4 * rand(10)
         y = range(0.0, 2π, length=10) .+ 1e-4 * rand(10)
         z = range(0.0, 2π, length=10) .+ 1e-4 * rand(10)
@@ -33,7 +36,7 @@ println("Testing per-dim nonuniform b-kernel combinations...")
     end
 
     @testset "3D (:b7, :b5, :b7)" begin
-        println("Testing 3D (:b7, :b5, :b7) interpolation")
+        println("    - 3D (:b7, :b5, :b7) interpolation")
         x = range(0.0, 2π, length=10) .+ 1e-4 * rand(10)
         y = range(0.0, 2π, length=10) .+ 1e-4 * rand(10)
         z = range(0.0, 2π, length=10) .+ 1e-4 * rand(10)

@@ -104,6 +104,7 @@ end
                     KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG,
                     NB<:Tuple{Vector{Matrix{Float64}}}}
 
+    x = T.(x)
     M_eqs = _nb_M_eqs_perdim(itp.kernel_sym, 1)
     ns = _nb_n_stencil_perdim(itp.kernel_sym, 1)
     i, w, h0 = _nb_dim(itp.knots[1], itp.nb_weight_coeffs[1], M_eqs, x[1], ns)
@@ -126,6 +127,7 @@ end
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG,
                     NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
 
+    x = T.(x)
     M_eqs_x = _nb_M_eqs_perdim(itp.kernel_sym, 1)
     M_eqs_y = _nb_M_eqs_perdim(itp.kernel_sym, 2)
     ns_x    = _nb_n_stencil_perdim(itp.kernel_sym, 1)
@@ -154,6 +156,7 @@ end
                     DO,FD,SD,SG,
                     NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
 
+    x = T.(x)
     M_eqs_x = _nb_M_eqs_perdim(itp.kernel_sym, 1)
     M_eqs_y = _nb_M_eqs_perdim(itp.kernel_sym, 2)
     M_eqs_z = _nb_M_eqs_perdim(itp.kernel_sym, 3)
@@ -187,6 +190,7 @@ end
                     KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG,
                     NB<:Tuple{Vararg{Vector{Matrix{Float64}}}}}
 
+    x = T.(x)
     M_eqs_d = ntuple(d -> _nb_M_eqs_perdim(itp.kernel_sym, d), N)
     ns_d    = ntuple(d -> _nb_n_stencil_perdim(itp.kernel_sym, d), N)
 

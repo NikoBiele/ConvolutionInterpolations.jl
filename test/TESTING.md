@@ -30,6 +30,7 @@ The tests are organized into thematic files, all included from `runtests.jl`:
 | `test_mixed_integral_1D_2D.jl` | Mixed integral/derivative orders in 1D and 2D, fast and direct paths |
 | `test_mixed_integral_3D_4D.jl` | Mixed integral/derivative orders in 3D and 4D, fast path only |
 | `test_allocations.jl` | Non-lazy kernel functors should all be non-allocating |
+| `test_scattered_to_grid.jl` | Covers gridding of scattered data |
 
 ## Kernel Coverage Strategy
 
@@ -42,7 +43,7 @@ Not all kernels are exercised in every test. The constructor test verifies that 
 | `:a3` | Lower-order higher kernel path, C1 continuity, top derivative forces `:linear` subgrid |
 | `:b5` | b-series higher kernel path, C3 continuity, 7th-order accuracy |
 
-This covers all major dispatch paths while keeping the suite fast (under 4 minutes).
+This covers all major dispatch paths while keeping the suite fast.
 
 ## Supported Kernels
 
@@ -126,7 +127,7 @@ Tests `derivative=-1` for kernels `:a3` and `:b5`. Grid sizes `n = 24, 48, 96` (
 - 2D even/odd function correctness (sin×cos, cos×sin, sin×sin, cos×cos)
 - `:a0` delta spike → Heaviside step function
 
-Expected convergence orders: `:a3` → 3rd order, `:b5` → 5th order.
+Expected convergence orders: `:a3` → 3rd order, `:b5` → 7th order.
 
 ### Mixed integral/derivative orders
 
@@ -239,7 +240,7 @@ Non-lazy kernels should all be non-allocating.
 ## Running the Tests
 
 ```bash
-# Full suite (~4 minutes)
+# Full suite
 julia --project -e 'using Pkg; Pkg.test()'
 
 # Single file during development

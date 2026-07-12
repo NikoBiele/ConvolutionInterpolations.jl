@@ -8,6 +8,7 @@
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
                     KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD}
 
+    x = T.(x)
     n_k = length(itp.knots[1])
     n_c = length(itp.coefs)
     ng = (n_k - n_c) ÷ 2
@@ -37,6 +38,7 @@ function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     DO,FD,SD,SG}
 
+    x = T.(x)
     ng = ntuple(d -> (length(itp.knots[d]) - size(itp.coefs,d)) ÷ 2, 2)
 
     if DG === :a0
@@ -73,6 +75,7 @@ function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
                     KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
+    x = T.(x)
     ng = ntuple(d -> (length(itp.knots[d]) - size(itp.coefs,d)) ÷ 2, 3)
 
     if DG === :a0
@@ -111,6 +114,7 @@ function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
                     Axs<:Tuple{Vararg{AbstractVector}},DG,EQ<:Tuple{Vararg{Int}},
                     KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
 
+    x = T.(x)
     ng = ntuple(d -> (length(itp.knots[d]) - size(itp.coefs,d)) ÷ 2, N)
 
     if DG === Val{:a0}

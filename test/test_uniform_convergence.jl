@@ -1,6 +1,6 @@
-#######################################################################
-### TEST UNIFORM CONVERGENCE ##########################################
-#######################################################################
+println("\n" * "-"^60)
+println("Testing uniform grid convergence in 1D for direct and fast kernels for 0th, 1st and 2nd derivatives...")
+println("-"^60)
 
 convergence_kernels = [:a0, :a1, :a3, :b5] # :a4, :a5, :a7, :b7, :b9, :b11 
 convergence_deriv_kernels = [:b5] #, :b7, :b9, :b11]
@@ -14,11 +14,10 @@ expected_order_direct = Dict(
 )
 bc_deriv = :poly # control kernel boundary conditions for derivatives
 
-println("Testing uniform grid convergence in 1D for direct and fast kernels for 0th, 1st and 2nd derivatives...")
 # function value convergence
 @testset "1D uniform convergence d0 fast" begin
     for kernel in convergence_kernels
-        println("Testing 1D uniform convergence d0 fast: ", kernel)
+        println("    - 1D uniform convergence d0 fast: ", kernel)
         errs = Float64[]
         for n in [12, 24, 48]
             r = range(0.0, 1.0, length=n)
@@ -36,7 +35,7 @@ end
 
 @testset "1D uniform convergence d0 direct" begin
     for kernel in convergence_kernels
-        println("Testing 1D uniform convergence d0 direct: ", kernel)
+        println("    - 1D uniform convergence d0 direct: ", kernel)
         errs = Float64[]
         for n in [12, 24, 48]
             r = range(0.0, 1.0, length=n)
@@ -55,7 +54,7 @@ end
 # first derivative convergence
 @testset "1D uniform convergence d1 fast" begin
     for kernel in convergence_deriv_kernels
-        println("Testing 1D uniform convergence d1 fast: ", kernel)
+        println("    - 1D uniform convergence d1 fast: ", kernel)
         errs = Float64[]
         for n in [12, 24, 48]
             r = range(0.0, 2π, length=n)
@@ -73,7 +72,7 @@ end
 
 @testset "1D uniform convergence d1 direct" begin
     for kernel in convergence_deriv_kernels
-        println("Testing 1D uniform convergence d1 direct: ", kernel)
+        println("    - 1D uniform convergence d1 direct: ", kernel)
         errs = Float64[]
         for n in [12, 24, 48]
             r = range(0.0, 2π, length=n)
@@ -92,7 +91,7 @@ end
 # second derivative convergence
 @testset "1D uniform convergence d2 fast" begin
     for kernel in convergence_deriv_kernels
-        println("Testing 1D uniform convergence d2 fast: ", kernel)
+        println("    - 1D uniform convergence d2 fast: ", kernel)
         errs = Float64[]
         for n in [12, 24, 48]
             r = range(0.0, 2π, length=n)
@@ -110,7 +109,7 @@ end
 
 @testset "1D uniform convergence d2 direct" begin
     for kernel in convergence_deriv_kernels
-        println("Testing 1D uniform convergence d2 direct: ", kernel)
+        println("    - 1D uniform convergence d2 direct: ", kernel)
         errs = Float64[]
         for n in [12, 24, 48]
             r = range(0.0, 2π, length=n)

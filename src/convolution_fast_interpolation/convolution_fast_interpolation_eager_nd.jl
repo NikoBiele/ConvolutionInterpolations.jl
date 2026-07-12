@@ -31,6 +31,7 @@ See also: `FastConvolutionInterpolation`.
                     PR<:NTuple{N,<:AbstractVector},KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},
                     DO,FD,SD,SG}
 
+    x = T.(x)
     if DG[1] == :a0
         return _eval_a0_nd(itp, x)
     elseif DG[1] == :a1
@@ -102,6 +103,7 @@ function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{
                     PR<:NTuple{N,<:AbstractVector},KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},
                     DO,FD,SD,SG}
 
+    x = T.(x)
     # specialized dispatch for N-dimensional higher-order kernel
     
     # Compute i_float once per dimension

@@ -5,6 +5,7 @@
                     Axs<:NTuple{N,<:AbstractVector},DG,EQ<:NTuple{N,Int},
                     KBC<:NTuple{N,Tuple{Symbol,Symbol}},FD,SD,NB<:Nothing}
 
+    x = T.(x)
     result = zero(T)
     ns = ntuple(d -> size(itp.coefs, d), N)
     @inbounds for idx in Iterators.product(ntuple(d -> 1:ns[d], N)...)

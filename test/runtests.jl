@@ -25,7 +25,9 @@ using Test
     include("test_subgrid_downgrade.jl")
     include("test_gaussian.jl")
     include("test_bigfloat_precision.jl")
+    include("test_float32.jl")
     include("test_allocations.jl")
+    include("test_scattered_to_grid.jl")
     include("test_resample.jl")
     include("test_show.jl")
 end

@@ -14,6 +14,7 @@
             KA<:Tuple{Vararg{Nothing}},DIM,DG,EQ<:Tuple{Vararg{Int}},PR<:Tuple{Vararg{AbstractVector}},
             KP,KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
 
+    x = T.(x)
     # find the two integral dimensions (compile-time constant)
     int_dim1, int_dim2 = _integral_dims2(Val(DO))
 

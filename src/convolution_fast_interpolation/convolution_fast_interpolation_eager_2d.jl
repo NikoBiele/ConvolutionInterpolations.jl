@@ -33,6 +33,7 @@ See also: `FastConvolutionInterpolation`, `cubic_hermite`, `quintic_hermite`.
                     KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},PR<:Tuple{<:AbstractVector,<:AbstractVector},
                     KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
 
+    x = T.(x)
     # specialized dispatch for 2d nearest neighbor kernel 
     # First dimension (x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
@@ -61,6 +62,7 @@ end
                     KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},PR<:Tuple{<:AbstractVector,<:AbstractVector},
                     KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
 
+    x = T.(x)
     # specialized dispatch for 2d linear kernel
     # First dimension (x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
@@ -86,8 +88,8 @@ function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
             KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},PR<:Tuple{<:AbstractVector,<:AbstractVector},
             KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
             
+    x = T.(x)
     # specialized dispatch for 2d higher-order kernels
-
     if SG == (:linear, :linear)
     
         # First dimension (x)

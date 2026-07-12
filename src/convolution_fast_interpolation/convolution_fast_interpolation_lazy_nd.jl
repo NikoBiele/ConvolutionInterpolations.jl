@@ -4,7 +4,8 @@
                     KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},DG,EQ<:NTuple{N,Int},
                     PR<:NTuple{N,<:AbstractVector},KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},
                     DO,FD,SD,SG}
-    
+
+    x = T.(x)
     # same as eager path
     if DG[1] == :a0
         return _eval_a0_nd(itp, x)

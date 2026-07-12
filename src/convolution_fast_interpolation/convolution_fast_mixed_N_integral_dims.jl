@@ -18,8 +18,8 @@ function (itp::FastConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,HigherDimension
             KA<:NTuple{N,<:Nothing},DG,EQ<:NTuple{N,Int},PR<:NTuple{N,AbstractVector},
             KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
+    x = T.(x)
     result = zero(T)
-
     @inbounds for idx in Iterators.product(ntuple(d -> 1:size(itp.coefs, d), N)...)
         kt_prod = one(T)
         @inbounds for d in 1:N

@@ -42,8 +42,9 @@ z_smooth = convolution_smooth((x,y), z_noisy, 0.02)
 
 See also: [`convolution_gaussian`](@ref), [`convolution_interpolation`](@ref)
 """
-function convolution_smooth(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N}, B::Float64) where {T,N}
-    eqs_d = ceil(Int, sqrt(-log(1e-12/2) / B))
+function convolution_smooth(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N}, B::P) where {T,N,P}
+    B = T(B)
+    eqs_d = ceil(Int, sqrt(-log(T(10_000)*eps(T)/T(2)) / B))
     NT    = eqs_d
 
     # check that stencil fits within domain
@@ -126,8 +127,8 @@ function convolution_smooth(knots::NTuple{N,AbstractVector}, values::AbstractArr
 end
 
 # 1D convenience wrapper
-function convolution_smooth(knots::AbstractVector, values::AbstractArray{T,1}, B::Float64) where {T}
-    return convolution_smooth((knots,), values, B)
+function convolution_smooth(knots::AbstractVector, values::AbstractArray{T,1}, B::P) where {T,P}
+    return convolution_smooth((knots,), values, T(B))
 end
 
 """
@@ -175,27 +176,28 @@ See also: [`convolution_smooth`](@ref), [`convolution_interpolation`](@ref)
 """
 # default 1D call, no extrapolation
 function convolution_gaussian(knots::AbstractVector, values::AbstractArray{T,1},
-                                B::Float64) where {T}
-    itp = convolution_gaussian_itp((knots,), values, B)
+                                B::P) where {T,P}
+    itp = convolution_gaussian_itp((knots,), values, T(B))
     return ConvolutionExtrapolation(itp, Throw())
 end
 
 # extrapolation keyword option
 function convolution_gaussian(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N},
-                                B::Float64; extrap::EXT=Throw()) where {T,N,EXT<:Union{Symbol,AbstractExtrapolation}}
+                                B::P; extrap::EXT=Throw()) where {T,N,P,EXT<:Union{Symbol,AbstractExtrapolation}}
 
-    itp = convolution_gaussian_itp(knots, values, B)
+    itp = convolution_gaussian_itp(knots, values, T(B))
     return ConvolutionExtrapolation(itp, _extrap_type(extrap))
 end
 
 # internal function
 function convolution_gaussian_itp(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N},
-                                B::Float64) where {T,N}
+                                B::P) where {T,N,P}
         uniform_dims = ntuple(d -> is_uniform_grid(knots[d]), N)
     if !all(uniform_dims)
         error("Gaussian kernel not supported for non-uniform grids.")
     end
-    eqs_for_gaussian = ceil(Int, sqrt(-log(1e-12/2) / B))
+    B = T(B)
+    eqs_for_gaussian = ceil(Int, sqrt(-log(T(10_000)*eps(T)/T(2)) / B))
     if eqs_for_gaussian > 50
         @warn "Gaussian kernel stencil-width with B=$B yielded $(2*eqs_for_gaussian) points. Consider using a higher B."
     end

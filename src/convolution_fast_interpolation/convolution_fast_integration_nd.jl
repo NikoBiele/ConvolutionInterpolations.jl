@@ -5,6 +5,7 @@ function (itp::FastConvolutionInterpolation{T,N,N,TCoefs,Axs,KA,HigherDimension{
         KA<:NTuple{N,<:Nothing},DG,EQ<:NTuple{N,Int},PR<:NTuple{N,<:AbstractVector},
         KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},FD,SD,SG}    
 
+    x = T.(x)
     n_pre = ntuple(i -> length(itp.pre_range[i]), N)
     h_pre = ntuple(i -> one(T) / T(n_pre[i] - 1), N)
 

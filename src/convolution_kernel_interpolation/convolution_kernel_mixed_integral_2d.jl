@@ -3,7 +3,8 @@
                     {T<:AbstractFloat,NI,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel},
                     DG,EQ<:Tuple{Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,NB<:Nothing}
- 
+
+    x = T.(x)
     n1 = size(itp.coefs, 1)
     n2 = size(itp.coefs, 2)
  

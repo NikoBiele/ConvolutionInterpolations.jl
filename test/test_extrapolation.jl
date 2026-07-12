@@ -1,6 +1,6 @@
-###############################################################################
-### TEST UNIFORM GRID EXTRAPOLATIONS IN 1D, 2D, 3D, 4D ########################
-###############################################################################
+println("\n" * "-"^60)
+println("Testing uniform grid extrapolations for direct and fast kernels for 1D, 2D, 3D, 4D...")
+println("-"^60)
 
 N = 5 # number of samples in each dimension
 tolerance = 1e-6 # tight tolerance
@@ -8,11 +8,10 @@ tolerance = 1e-6 # tight tolerance
 kernels = [:a1, :a3, :b5] #, :a4, :a5, :a7, :b7, :b9, :b11 :b13] # only test kernels with separate dispatch
 bc = :linear # control kernel boundary conditions
 
-println("Testing uniform grid extrapolations for direct and fast kernels for 1D, 2D, 3D, 4D...")
 ### 1D
 @testset "1D direct kernels" begin
     for kernel in kernels
-        println("Testing 1D direct kernel: ", kernel)
+        println("    - 1D direct kernel: ", kernel)
         range_1d = range(0.0, stop=1.0, length=N)
         vals_1d_linear = range(0.0, stop=1.0, length=N)
         
@@ -27,7 +26,7 @@ println("Testing uniform grid extrapolations for direct and fast kernels for 1D,
 end
 @testset "1D fast kernels" begin
     for kernel in kernels
-        println("Testing 1D fast kernel: ", kernel)
+        println("    - 1D fast kernel: ", kernel)
         range_1d = range(0.0, stop=1.0, length=N)
         vals_1d_linear = range(0.0, stop=1.0, length=N)
 
@@ -44,7 +43,7 @@ end
 ### 2D
 @testset "2D direct kernels" begin
     for kernel in kernels
-        println("Testing 2D direct kernel: ", kernel)
+        println("    - 2D direct kernel: ", kernel)
         range_2d = range(0.0, stop=1.0, length=N)
         f_2d_linear(i,j) = (i-1)/(N-1)+(j-1)/(N-1)
         vals_2d_linear = [f_2d_linear(i,j) for i in 1:N, j in 1:N]
@@ -60,7 +59,7 @@ end
 end
 @testset "2D fast kernels" begin
     for kernel in kernels
-        println("Testing 2D fast kernel: ", kernel)
+        println("    - 2D fast kernel: ", kernel)
         range_2d = range(0.0, stop=1.0, length=N)
         f_2d_linear(i,j) = (i-1)/(N-1)+(j-1)/(N-1)
         vals_2d_linear = [f_2d_linear(i,j) for i in 1:N, j in 1:N]
@@ -78,7 +77,7 @@ end
 ### 3D
 @testset "3D direct kernels" begin
     for kernel in kernels
-        println("Testing 3D direct kernel: ", kernel)
+        println("    - 3D direct kernel: ", kernel)
         range_3d = range(0.0, stop=1.0, length=N)
         f_3d_linear(i,j,k) = (i-1)/(N-1)+(j-1)/(N-1)+(k-1)/(N-1)
         vals_3d_linear = Array{Float64}(undef, N, N, N)
@@ -97,7 +96,7 @@ end
 end
 @testset "3D fast kernels" begin
     for kernel in kernels
-        println("Testing 3D fast kernel: ", kernel)
+        println("    - 3D fast kernel: ", kernel)
         range_3d = range(0.0, stop=1.0, length=N)
         f_3d_linear(i,j,k) = (i-1)/(N-1)+(j-1)/(N-1)+(k-1)/(N-1)
         vals_3d_linear = Array{Float64}(undef, N, N, N)
@@ -118,7 +117,7 @@ end
 ### 4D
 @testset "4D direct kernels" begin
     for kernel in kernels
-        println("Testing 4D direct kernel: ", kernel)
+        println("    - 4D direct kernel: ", kernel)
         range_4d = range(0.0, stop=1.0, length=N)
         f_4d_linear(i,j,k,l) = (i-1)/(N-1)+(j-1)/(N-1)+(k-1)/(N-1)+(l-1)/(N-1)
         vals_4d_linear = Array{Float64}(undef, N, N, N, N)
@@ -137,7 +136,7 @@ end
 end
 @testset "4D fast kernels" begin
     for kernel in kernels
-        println("Testing 4D fast kernel: ", kernel)
+        println("    - 4D fast kernel: ", kernel)
         range_4d = range(0.0, stop=1.0, length=N)
         f_4d_linear(i,j,k,l) = (i-1)/(N-1)+(j-1)/(N-1)+(k-1)/(N-1)+(l-1)/(N-1)
         vals_4d_linear = Array{Float64}(undef, N, N, N, N)

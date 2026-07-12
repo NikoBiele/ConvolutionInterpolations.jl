@@ -8,7 +8,8 @@ function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{
             KA<:NTuple{N,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:NTuple{N,Int},
             PR<:NTuple{N,<:AbstractVector},KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},
             DO,FD,SD,SG}
-            
+
+    x = T.(x)
     pos_ids = ntuple(d -> clamp(floor(Int, (x[d]-itp.knots[d][1])/itp.h[d]+one(T)),
                                 itp.eqs[d], length(itp.knots[d])-itp.eqs[d]), N)
     idx_lower = ntuple(N) do d

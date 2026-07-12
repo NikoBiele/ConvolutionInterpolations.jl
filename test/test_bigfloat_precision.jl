@@ -1,3 +1,7 @@
+println("\n" * "-"^60)
+println("Testing BigFloat precision...")
+println("-"^60)
+
 @testset "BigFloat precision preservation" begin
     setprecision(256) do
         x_test = BigFloat("1.234567890123456789")
@@ -5,7 +9,7 @@
 
         # ── type preservation only (coarse grid, all kernels) ─────────────
         @testset "type preservation kernel $k" for k in [:b5, :b7, :b9, :b11, :b13, :a3, :a4, :a5, :a7]
-            println("Testing 1D BigFloat type preservation for kernel $k")
+            println("    - 1D BigFloat type preservation for kernel $k")
             xs = LinRange(BigFloat("0.0"), BigFloat(2) * BigFloat(π), 50)
             vs = sin.(xs)
 
@@ -27,7 +31,7 @@
 
         # ── machine precision on dense grid (b-kernels only) ─────────────
         @testset "machine precision kernel $k" for k in [:b5, :b7, :b9, :b11, :b13]
-            println("Testing 1D BigFloat machine precision for kernel $k")
+            println("    - 1D BigFloat machine precision for kernel $k")
             xs = LinRange(BigFloat("0.0"), BigFloat(2) * BigFloat(π), 2000)
             vs = sin.(xs)
 
@@ -49,7 +53,7 @@
 
         # ── 2D type preservation ──────────────────────────────────────────
         @testset "2D BigFloat type preservation" begin
-            println("Testing 2D BigFloat type preservation")
+            println("    - 2D BigFloat type preservation")
             xs = LinRange(BigFloat("0.0"), BigFloat(2) * BigFloat(π), 30)
             ys = LinRange(BigFloat("0.0"), BigFloat(2) * BigFloat(π), 30)
             vs2 = [sin(x) * cos(y) for x in xs, y in ys]

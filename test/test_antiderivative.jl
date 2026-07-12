@@ -1,6 +1,6 @@
-#######################################################################
-### TEST ANTIDERIVATIVE (derivative = -1) #############################
-#######################################################################
+println("\n" * "-"^60)
+println("Testing antiderivative (derivative=-1) convergence in 1D, 2D, 3D...")
+println("-"^60)
 
 # Kernels to test for antiderivative
 antideriv_kernels_a = [:a3] #, :a4, :a5, :a7]
@@ -28,11 +28,11 @@ interior_pts_3d(r1, r2, r3) = [(x, y, z) for x in range(r1[6], r1[end-5], length
                                             y in range(r2[6], r2[end-5], length=5),
                                             z in range(r3[6], r3[end-5], length=5)]
 
-println("Testing antiderivative (derivative=-1) convergence in 1D, 2D, 3D...")
-
 # ── :a0 antiderivative ────────────────────────────────────────────────
 
 @testset "1D antiderivative :a0 kernel" begin
+    println("    - 1D antiderivative fast: a0")
+
     n = 1001
     x = range(0.0, 2π, length=n)
     h = x[2] - x[1]
@@ -64,7 +64,7 @@ end
 
 @testset "1D antiderivative convergence fast" begin
     for kernel in antideriv_kernels_all
-        println("Testing 1D antiderivative fast: ", kernel)
+        println("    - 1D antiderivative fast: ", kernel)
         errs = Float64[]
         for n in [24, 48, 96]
             r = range(0.0, 2π, length=n)
@@ -87,7 +87,7 @@ end
 
 @testset "1D antiderivative convergence direct" begin
     for kernel in antideriv_kernels_all
-        println("Testing 1D antiderivative direct: ", kernel)
+        println("    - 1D antiderivative direct: ", kernel)
         errs = Float64[]
         for n in [24, 48, 96]
             r = range(0.0, 2π, length=n)
@@ -110,7 +110,7 @@ end
 
 @testset "1D antiderivative fast vs direct agreement" begin
     for kernel in antideriv_kernels_all
-        println("Testing 1D antiderivative fast vs direct: ", kernel)
+        println("    - 1D antiderivative fast vs direct: ", kernel)
         n = 30
         r = range(0.0, 2π, length=n)
         vals = sin.(collect(r))
@@ -128,6 +128,7 @@ end
 
 @testset "1D antiderivative anchor is zero" begin
     for kernel in antideriv_kernels_all
+        println("    - 1D antiderivative anchor is zero: ", kernel)
         r = range(0.0, 2π, length=20)
         vals = sin.(collect(r))
         for fast in [true, false]
@@ -143,7 +144,7 @@ end
 
 @testset "2D antiderivative convergence fast" begin
     for kernel in antideriv_kernels_all
-        println("Testing 2D antiderivative fast: ", kernel)
+        println("    - 2D antiderivative fast: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
             xs = range(0.0, 2π, length=n)
@@ -167,7 +168,7 @@ end
 
 @testset "2D antiderivative convergence direct" begin
     for kernel in antideriv_kernels_all
-        println("Testing 2D antiderivative direct: ", kernel)
+        println("    - 2D antiderivative direct: ", kernel)
         errs = Float64[]
         for n in [20, 40, 80]
             xs = range(0.0, 2π, length=n)
@@ -191,6 +192,7 @@ end
 
 @testset "2D antiderivative anchor is zero" begin
     for kernel in antideriv_kernels_all
+        println("    - 2D antiderivative anchor is zero: ", kernel)
         xs = range(0.0, 2π, length=20)
         ys = range(0.0, 2π, length=20)
         zs = [sin(x)*cos(y) for x in xs, y in ys]
@@ -212,6 +214,7 @@ end
         ("sinsin", (x,y)->sin(x)*sin(y), (x,y)->(1-cos(x))*(1-cos(y))),
         ("coscos", (x,y)->cos(x)*cos(y), (x,y)->sin(x)*sin(y)),
     ]
+        println("    - 2D antiderivative fast/direct even/odd functions")
         xs = range(0.0, 2π, length=40)
         ys = range(0.0, 2π, length=40)
         vs = [f(x,y) for x in xs, y in ys]
@@ -229,7 +232,7 @@ end
 
 @testset "3D antiderivative convergence fast" begin
     for kernel in antideriv_kernels_all
-        println("Testing 3D antiderivative fast: ", kernel)
+        println("    - 3D antiderivative convergence fast: ", kernel)
         errs = Float64[]
         for n in [12, 24, 48]
             xs = range(0.0, 2π, length=n)
@@ -254,7 +257,7 @@ end
 
 @testset "3D antiderivative convergence direct" begin
     for kernel in antideriv_kernels_all
-        println("Testing 3D antiderivative direct: ", kernel)
+        println("    - 3D antiderivative convergence direct: ", kernel)
         errs = Float64[]
         for n in [12, 24, 48]
             xs = range(0.0, 2π, length=n)

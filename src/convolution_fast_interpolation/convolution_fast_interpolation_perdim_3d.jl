@@ -8,7 +8,8 @@ function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},DG,EQ,PR,
             KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int,Int},
             PR<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},KP,
             KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
-            
+
+    x = T.(x)
     if SG == (:cubic,:cubic,:cubic)
 
         # Grid positions

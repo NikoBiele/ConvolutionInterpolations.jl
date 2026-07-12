@@ -7,6 +7,7 @@
                     KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     FD,SD,SG}
 
+    x = T.(x)
     n_pre_d = ntuple(i -> length(itp.pre_range[i]), 3)
     h_pre_d = ntuple(i -> one(T) / T(n_pre_d[i] - 1), 3)
 

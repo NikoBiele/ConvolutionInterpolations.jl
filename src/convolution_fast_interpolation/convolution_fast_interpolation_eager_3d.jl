@@ -31,6 +31,7 @@ See also: `FastConvolutionInterpolation`.
                     PR<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},KP,
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
 
+    x = T.(x)
     # specialized dispatch for 3d nearest neighbor kernel
     # First dimension (x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + 1
@@ -73,6 +74,7 @@ end
                     PR<:NTuple{3,<:AbstractVector},KP,
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
                     
+    x = T.(x)
     # specialized dispatch for 3d linear kernel
     # First dimension (x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
@@ -111,6 +113,7 @@ function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},HigherOrd
                 KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                 DO,FD,SD,SG}
 
+    x = T.(x)
     # Grid positions
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])

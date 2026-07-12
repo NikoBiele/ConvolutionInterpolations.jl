@@ -1,13 +1,14 @@
-#########################################################################
-### TEST CONSTRUCTORS ###################################################
-#########################################################################
+println("\n" * "-"^60)
+println("Testing low-level constructors...")
+println("-"^60)
+
 @testset "Low-level constructors" begin
-    println("Testing low-level constructors...")
     x = range(0.0, 2π, length=30)
     vs = sin.(x)
 
+    println("    - 1D kernels (fast/direct):")
     for kernel in (:a0, :a1, :a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11, :b13)
-        println("Testing kernel: $kernel")
+        println("        - kernel: $kernel")
 
         # Direct constructor
         itp_direct = ConvolutionInterpolation((x,), vs, kernel=(kernel,))
@@ -54,9 +55,9 @@ ys = range(0.0, 2π, length=30)
 vs = [sin(x)*cos(y) for x in xs, y in ys]
 
 @testset "2D per-dim kernel combinations" begin
-    println("Testing 2D per-dim kernel combinations (fast/direct)...")
+    println("    - 2D per-dim kernel combinations (fast/direct)")
     for k1 in kernels, k2 in kernels
-        println("Testing kernel combination: ", k1, ", ", k2)
+        println("        - kernel combination: ", k1, ", ", k2)
         itp_fast = FastConvolutionInterpolation((xs, ys), vs; kernel=(k1, k2),
                                                    bc=((:detect, :detect), (:detect, :detect)),
                                                    derivative=(0, 0), subgrid=(:cubic, :cubic))
@@ -72,9 +73,9 @@ zs = range(0.0, 2π, length=30)
 vs3 = [sin(x)*cos(y)*sin(z) for x in xs, y in ys, z in zs]
 
 @testset "3D per-dim kernel combinations" begin
-    println("Testing 3D per-dim kernel combinations (fast/direct)...")
+    println("    - 3D per-dim kernel combinations (fast/direct)")
     for k1 in kernels, k2 in kernels, k3 in kernels
-        println("Testing kernel combination: ", k1, ", ", k2, ", ", k3)
+        println("        - kernel combination: ", k1, ", ", k2, ", ", k3)
         itp_fast = FastConvolutionInterpolation((xs, ys, zs), vs3; kernel=(k1, k2, k3),
                                                    bc=((:detect, :detect), (:detect, :detect), (:detect, :detect)),
                                                    derivative=(0, 0, 0), subgrid=(:cubic, :cubic, :cubic))

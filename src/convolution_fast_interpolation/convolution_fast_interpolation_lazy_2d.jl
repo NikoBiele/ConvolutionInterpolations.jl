@@ -5,6 +5,7 @@
                     PR<:Tuple{<:AbstractVector,<:AbstractVector},
                     KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
 
+    x = T.(x)
     # specialized dispatch for 2d nearest neighbor kernel 
     # First dimension (x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
@@ -34,6 +35,7 @@ end
                     PR<:Tuple{<:AbstractVector,<:AbstractVector},
                     KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD}
 
+    x = T.(x)
     # specialized dispatch for 2d linear kernel
     # First dimension (x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
@@ -59,6 +61,7 @@ end
             KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},PR<:Tuple{<:AbstractVector,<:AbstractVector},
             KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
+    x = T.(x)
     # first dimension
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), 1, length(itp.knots[1]) - 1)

@@ -5,7 +5,8 @@
                     KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel,<:ConvolutionKernel},
                     DG,EQ<:Tuple{Int,Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     DO,FD,SD,NB<:Nothing}
- 
+
+    x = T.(x)
     ns = ntuple(d -> size(itp.coefs, d), 3)
  
     ids = ntuple(3) do d

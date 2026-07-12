@@ -19,6 +19,7 @@ See also: FastConvolutionInterpolation, convolution_fast_integration_2d.
                     KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},PR<:Tuple{<:AbstractVector},
                     KP,KBC<:Tuple{<:Tuple{Symbol,Symbol}},FD,SD,SG}
 
+    x = T.(x)
     eqs_int = itp.eqs[1]
     n_pre = length(itp.pre_range[1])
     h_pre = one(T) / T(n_pre - 1)

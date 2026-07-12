@@ -1,12 +1,11 @@
-#########################################################################
-### TEST LAZY MODE — NONUNIFORM GRIDS (n3) ##############################
-#########################################################################
-println("Testing nonuniform lazy mode...")
+println("\n" * "-"^60)
+println("Testing nonuniform lazy mode (n3)...")
+println("-"^60)
 
 @testset "Lazy mode — nonuniform" begin
 
     @testset "1D n3 lazy matches eager" begin
-        println("  1D n3 lazy matches eager...")
+        println("    - 1D n3 lazy matches eager...")
         knots = [0.0, 0.3, 0.7, 1.2, 1.5, 2.0]
         vs = sin.(knots)
         itp_e = convolution_interpolation(knots, vs; kernel=:a3, lazy=false)
@@ -21,7 +20,7 @@ println("Testing nonuniform lazy mode...")
     end
 
     @testset "2D n3 lazy matches eager" begin
-        println("  2D n3 lazy matches eager...")
+        println("    - 2D n3 lazy matches eager...")
         kx = [0.0, 0.4, 0.9, 1.5, 2.0]
         ky = [0.0, 0.3, 0.8, 1.2, 1.7, 2.0]
         vs = Float64[sin(x + y) for x in kx, y in ky]
@@ -37,7 +36,7 @@ println("Testing nonuniform lazy mode...")
     end
 
     @testset "3D n3 lazy matches eager" begin
-        println("  3D n3 lazy matches eager...")
+        println("    - 3D n3 lazy matches eager...")
         kx = [0.0, 0.4, 0.9, 1.5, 2.0]
         ky = [0.0, 0.3, 0.8, 1.2, 1.7, 2.0]
         kz = [0.0, 0.5, 1.0, 1.6, 2.0]
@@ -54,7 +53,7 @@ println("Testing nonuniform lazy mode...")
     end
 
     @testset "1D n3 lazy boundary_fallback" begin
-        println("  1D n3 lazy boundary_fallback...")
+        println("    - 1D n3 lazy boundary_fallback...")
         knots = [0.0, 0.3, 0.7, 1.2, 1.5, 2.0]
         vs = sin.(knots)
         itp_bf = convolution_interpolation(knots, vs; kernel=:a3, lazy=true, boundary_fallback=true)
@@ -72,7 +71,7 @@ println("Testing nonuniform lazy mode...")
     end
 
     @testset "2D n3 lazy boundary_fallback" begin
-        println("  2D n3 lazy boundary_fallback...")
+        println("    - 2D n3 lazy boundary_fallback...")
         kx = [0.0, 0.4, 0.9, 1.5, 2.0]
         ky = [0.0, 0.3, 0.8, 1.2, 1.7, 2.0]
         vs = Float64[sin(x + y) for x in kx, y in ky]
@@ -91,7 +90,7 @@ println("Testing nonuniform lazy mode...")
     end
 
     @testset "3D n3 lazy boundary_fallback" begin
-        println("  3D n3 lazy boundary_fallback...")
+        println("    - 3D n3 lazy boundary_fallback...")
         kx = [0.0, 0.4, 0.9, 1.5, 2.0]
         ky = [0.0, 0.3, 0.8, 1.2, 1.7, 2.0]
         kz = [0.0, 0.5, 1.0, 1.6, 2.0]
@@ -111,7 +110,7 @@ println("Testing nonuniform lazy mode...")
     end
 
     @testset "Nonuniform n3 lazy stores raw values" begin
-        println("  Nonuniform n3 lazy stores raw values...")
+        println("    - Nonuniform n3 lazy stores raw values...")
         xs = [0.0, 0.3, 0.7, 1.2, 1.5, 2.0]
         vs = sin.(xs)
         itp_l = convolution_interpolation(xs, vs; kernel=:a3, lazy=true)
@@ -120,7 +119,7 @@ println("Testing nonuniform lazy mode...")
     end
 
     @testset "Nonuniform b-kernels force eager despite lazy=true" begin
-        println("  Nonuniform b-kernels force eager despite lazy=true...")
+        println("    - Nonuniform b-kernels force eager despite lazy=true...")
         xs = [0.0, 0.3, 0.7, 1.2, 1.5, 2.0]
         vs = sin.(xs)
         itp_b = convolution_interpolation(xs, vs; kernel=:b5, lazy=true)
@@ -128,7 +127,7 @@ println("Testing nonuniform lazy mode...")
     end
 
     @testset "Nonuniform n3 lazy works with :n3 kernel explicitly" begin
-        println("  Nonuniform n3 lazy works with :n3 kernel explicitly...")
+        println("    - Nonuniform n3 lazy works with :n3 kernel explicitly...")
         x_nonuniform = sort([0.0; rand(18) .* 2π; 2π])
         y_nu = sin.(x_nonuniform)
         itp = convolution_interpolation(x_nonuniform, y_nu; kernel=:n3, lazy=true)

@@ -1,8 +1,9 @@
-#########################################################################
-### TEST NONUNIFORM :a0/:a1 INTERPOLATION ###############################
-#########################################################################
+println("\n" * "-"^60)
 println("Testing nonuniform :a0/:a1 interpolation...")
+println("-"^60)
+
 @testset "Nonuniform a0 nearest-neighbor" begin
+    println("    - Nonuniform a0 nearest-neighbor")
     knots = [0.0, 0.3, 0.7, 1.2, 1.5, 2.0]
     vs = sin.(knots)
     itp = convolution_interpolation(knots, vs, kernel=:a0)
@@ -23,6 +24,7 @@ println("Testing nonuniform :a0/:a1 interpolation...")
 end
 
 @testset "Nonuniform a1 linear interpolation" begin
+    println("    - Nonuniform a1 linear interpolation")   
     knots = [0.0, 0.3, 0.7, 1.2, 1.5, 2.0]
     vs = sin.(knots)
     itp = convolution_interpolation(knots, vs, kernel=:a1)
@@ -74,6 +76,7 @@ end
 end
 
 @testset "Nonuniform a0/a1 lazy fields" begin
+    println("    - Nonuniform a0/a1 lazy fields")
     knots = [0.0, 0.3, 0.7, 1.2, 1.5, 2.0]
     vs = sin.(knots)
 

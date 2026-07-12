@@ -30,6 +30,7 @@ See also: [`convolution_gaussian`](@ref), [`convolution_smooth`](@ref)
                     KA<:Tuple{<:GaussianConvolutionKernel},DG,EQ<:Tuple{Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,NB<:Nothing}
 
+    x = T.(x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
 

@@ -1,6 +1,6 @@
-###########################################################################
-### NONUNIFORM DERIVATIVES ################################################
-###########################################################################
+println("\n" * "-"^60)
+println("Testing nonuniform derivative kernel interpolation in 1D, 2D...")
+println("-"^60)
 
 ### Nonuniform b-kernel derivatives
 nu_deriv_kernels = [:b5] #, :b7, :b9, :b11]
@@ -18,10 +18,9 @@ function make_nonuniform_grid_derivatives(n; a=0.0, b=1.0, strength=0.3)
     return x
 end
 
-println("Testing nonuniform derivative kernel interpolation in 1D, 2D...")
 @testset "1D nonuniform derivative d1" begin
     for kernel in nu_deriv_kernels
-        println("Testing 1D nonuniform derivative d1: ", kernel)
+        println("    - 1D nonuniform derivative d1: ", kernel)
         x_nu = make_nonuniform_grid_derivatives(N_nu_deriv; a=0.0, b=2π)
         vals = sin.(x_nu)
         itp_d1 = convolution_interpolation(x_nu, vals; kernel=kernel, derivative=1)
@@ -35,7 +34,7 @@ end
 
 @testset "1D nonuniform derivative d2" begin
     for kernel in nu_deriv_kernels
-        println("Testing 1D nonuniform derivative d2: ", kernel)
+        println("    - 1D nonuniform derivative d2: ", kernel)
         x_nu = make_nonuniform_grid_derivatives(N_nu_deriv*2; a=0.0, b=2π) # double the number of points
         vals = sin.(x_nu)
         itp_d2 = convolution_interpolation(x_nu, vals; kernel=kernel, derivative=2)
@@ -49,7 +48,7 @@ end
 
 @testset "2D nonuniform derivative d1" begin
     for kernel in nu_deriv_kernels
-        println("Testing 2D nonuniform derivative d1: ", kernel)
+        println("    - 2D nonuniform derivative d1: ", kernel)
         x_nu = make_nonuniform_grid_derivatives(N_nu_deriv; a=0.0, b=2π)
         y_nu = make_nonuniform_grid_derivatives(N_nu_deriv; a=0.0, b=2π, strength=0.2)
         vals = [sin(x) * sin(y) for x in x_nu, y in y_nu]

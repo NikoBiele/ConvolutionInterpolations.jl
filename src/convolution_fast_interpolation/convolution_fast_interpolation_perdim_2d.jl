@@ -35,6 +35,7 @@ end
 # ---------------------------------------------------------------
 @inline function _perdim_2d_pos(itp, x::Vararg{Number,2})
     T = eltype(itp.h)
+    x = T.(x)
     eqs_x, eqs_y = itp.eqs
 
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)

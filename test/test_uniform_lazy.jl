@@ -1,12 +1,11 @@
-#########################################################################
-### TEST LAZY MODE — UNIFORM GRIDS ######################################
-#########################################################################
+println("\n" * "-"^60)
 println("Testing uniform lazy mode...")
+println("-"^60)
 
 @testset "Lazy mode — uniform" begin
 
     @testset "1D lazy boundary_fallback=false matches eager" begin
-        println("  1D lazy boundary_fallback=false matches eager...")
+        println("    - 1D lazy boundary_fallback=false matches eager...")
         for kernel in (:a3, :b5)
             xs = range(0.0, 2π, length=50)
             vs = sin.(xs)
@@ -19,7 +18,7 @@ println("Testing uniform lazy mode...")
     end
 
     @testset "2D lazy boundary_fallback=false matches eager" begin
-        println("  2D lazy boundary_fallback=false matches eager...")
+        println("    - 2D lazy boundary_fallback=false matches eager...")
         for kernel in (:a3, :b5)
             xs = range(0.0, 2π, length=40)
             vs = [sin(x)*cos(y) for x in xs, y in xs]
@@ -34,7 +33,7 @@ println("Testing uniform lazy mode...")
     end
 
     @testset "3D lazy boundary_fallback=false matches eager" begin
-        println("  3D lazy boundary_fallback=false matches eager...")
+        println("    - 3D lazy boundary_fallback=false matches eager...")
         for kernel in (:a3, :b5)
             xs = range(0.0, 2π, length=30)
             vs = [sin(x)*cos(y)*sin(z) for x in xs, y in xs, z in xs]
@@ -47,7 +46,7 @@ println("Testing uniform lazy mode...")
     end
 
     @testset "4D lazy boundary_fallback=true interior matches eager" begin
-        println("  4D lazy boundary_fallback=true interior matches eager...")
+        println("    - 4D lazy boundary_fallback=true interior matches eager...")
         for kernel in (:a3, :b5)
             xs = range(0.0, 2π, length=30)
             vs = [sin(x)*cos(y)*sin(z)*cos(t) for x in xs, y in xs, z in xs, t in xs]
@@ -67,7 +66,7 @@ println("Testing uniform lazy mode...")
     end
 
     @testset "Lazy construction is fast" begin
-        println("  Lazy construction is fast...")
+        println("    - Lazy construction is fast...")
         xs_3d = range(0.0, 1.0, length=50)
         vs_3d = rand(50, 50, 50)
         convolution_interpolation((xs_3d, xs_3d, xs_3d), vs_3d; kernel=:b5, lazy=true)
@@ -84,7 +83,7 @@ println("Testing uniform lazy mode...")
     end
 
     @testset "Lazy stores raw values" begin
-        println("  Lazy stores raw values...")
+        println("    - Lazy stores raw values...")
         xs = range(0.0, 2π, length=20)
         vs = sin.(xs)
         itp_l = convolution_interpolation(xs, vs; kernel=:b5, lazy=true)
@@ -93,7 +92,7 @@ println("Testing uniform lazy mode...")
     end
 
     @testset "Lazy with derivatives (boundary_fallback=false)" begin
-        println("  Lazy with derivatives (boundary_fallback=false)...")
+        println("    - Lazy with derivatives (boundary_fallback=false)...")
         xs = range(0.0, 2π, length=50)
         vs = sin.(xs)
         for d in (1, 2)
@@ -106,7 +105,7 @@ println("Testing uniform lazy mode...")
     end
 
     @testset "Slow lazy functor error guard" begin
-        println("  Slow lazy functor error guard...")
+        println("    - Slow lazy functor error guard...")
         x_uniform = range(0.0, 2π, length=20)
         y = sin.(x_uniform)
         @test_throws ErrorException convolution_interpolation(x_uniform, y; lazy=true, fast=false)

@@ -30,6 +30,7 @@ See also: [`convolution_gaussian`](@ref), [`convolution_smooth`](@ref)
                     Axs<:NTuple{N,<:AbstractVector},DG,EQ<:NTuple{N,Int},
                     KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO,FD,SD,NB<:Nothing}
 
+    x = T.(x)
     i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
     pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[d], length(itp.knots[d]) - itp.eqs[d]), N)
 

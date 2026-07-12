@@ -1,6 +1,6 @@
-###############################################################################
-### TEST UNIFORM GRID INTERPOLATIONS IN 1D, 2D, 3D, 4D ########################
-###############################################################################
+println("\n" * "-"^60)
+println("Testing uniform grid interpolations for direct and fast kernels for 1D, 2D, 3D, 4D...")
+println("-"^60)
 
 N = 5 # number of samples in each dimension
 tolerance = 1e-6 # tight tolerance
@@ -8,11 +8,10 @@ tolerance = 1e-6 # tight tolerance
 kernels = [:a0, :a1, :a3, :b5] #, :a4, :a5, :a7, :b7, :b9, :b11 :b13] # only test kernels with separate dispatch
 bc = :linear # control kernel boundary conditions
 
-println("Testing uniform grid interpolations for direct and fast kernels for 1D, 2D, 3D, 4D...")
 ### 1D
 @testset "1D direct kernels" begin
     for kernel in kernels
-        println("Testing 1D direct kernel: ", kernel)
+        println("    - 1D direct kernel: ", kernel)
         # random uniformly spaced 1D data
         range_1d = range(0.0, stop=1.0, length=N)
         vals_1d_rand = rand(N)
@@ -30,7 +29,7 @@ println("Testing uniform grid interpolations for direct and fast kernels for 1D,
 end
 @testset "1D fast kernels" begin
     for kernel in kernels
-        println("Testing 1D fast kernel: ", kernel)
+        println("    - 1D fast kernel: ", kernel)
         # random uniformly spaced 1D data
         range_1d = range(0.0, stop=1.0, length=N)
         vals_1d_rand = rand(N)
@@ -51,7 +50,7 @@ end
 ### 2D
 @testset "2D direct kernels" begin
     for kernel in kernels
-        println("Testing 2D direct kernel: ", kernel)
+        println("    - 2D direct kernel: ", kernel)
         # random uniformly spaced 2D data
         range_2d = range(0.0, stop=1.0, length=N)
         vals_2d_rand = rand(N,N)
@@ -71,7 +70,7 @@ end
 end
 @testset "2D fast kernels" begin
     for kernel in kernels
-        println("Testing 2D fast kernel: ", kernel)
+        println("    - 2D fast kernel: ", kernel)
         # random uniformly spaced 2D data
         range_2d = range(0.0, stop=1.0, length=N)
         vals_2d_rand = rand(N,N)
@@ -93,7 +92,7 @@ end
 ### 3D
 @testset "3D direct kernels" begin
     for kernel in kernels
-        println("Testing 3D direct kernel: ", kernel)
+        println("    - 3D direct kernel: ", kernel)
         # random uniformly spaced 3D data
         range_3d = range(0.0, stop=1.0, length=N)
         vals_3d_rand = rand(N,N,N)
@@ -119,7 +118,7 @@ end
 end
 @testset "3D fast kernels" begin
     for kernel in kernels
-        println("Testing 3D fast kernel: ", kernel)
+        println("    - 3D fast kernel: ", kernel)
         # random uniformly spaced 3D data
         range_3d = range(0.0, stop=1.0, length=N)
         vals_3d_rand = rand(N,N,N)
@@ -147,7 +146,7 @@ end
 ### 4D
 @testset "4D direct kernels" begin
     for kernel in kernels
-        println("Testing 4D direct kernel: ", kernel)
+        println("    - 4D direct kernel: ", kernel)
         # random uniformly spaced 4D data
         range_4d = range(0.0, stop=1.0, length=N)
         vals_4d_rand = rand(N,N,N,N)
@@ -193,7 +192,7 @@ end
 end
 @testset "4D fast kernels" begin
     for kernel in kernels
-        println("Testing 4D fast kernel: ", kernel)
+        println("    - 4D fast kernel: ", kernel)
         # random uniformly spaced 4D data
         range_4d = range(0.0, stop=1.0, length=N)
         vals_4d_rand = rand(N,N,N,N)

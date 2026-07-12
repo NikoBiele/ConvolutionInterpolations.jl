@@ -27,6 +27,7 @@ See also: FastConvolutionInterpolation, cubic_hermite, quintic_hermite.
                     KA<:Tuple{<:Nothing},EQ<:Tuple{Int},PR<:Tuple{<:AbstractVector},
                     KP,KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
+    x = T.(x)
     # specialized dispatch for 1d nearest neighbor kernel
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T) # +1 for 1-based indexing
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
@@ -44,6 +45,7 @@ end
                     KA<:Tuple{<:Nothing},EQ<:Tuple{Int},PR<:Tuple{<:AbstractVector},
                     KP,KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
+    x = T.(x)
     # specialized dispatch for 1d linear kernel
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)  # +1 for 1-based indexing
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
@@ -56,7 +58,8 @@ end
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
                     KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},PR<:Tuple{<:AbstractVector},
                     KP,KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
- 
+
+    x = T.(x)
     # Direct index calculation
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])

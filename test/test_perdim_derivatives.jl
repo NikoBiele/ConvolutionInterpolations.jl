@@ -1,7 +1,7 @@
-#######################################################################
-### TEST PER-DIMENSION DERIVATIVE ORDERS ############################
-#######################################################################
-#
+println("\n" * "-"^60)
+println("Testing uniform per-dimension derivative orders in 2D and 3D...")
+println("-"^60)
+
 # Tests DerivativeOrder{(d1,d2,...)} dispatch — separate from the scalar
 # derivative=1/2 path. Covers 2D and 3D, fast and slow, for all
 # combinations of per-dim derivative orders supported by b-series kernels.
@@ -26,8 +26,6 @@ perdim_deriv_kernels = [:b5] #, :b7, :b9, :b11]
 N_pd = 50
 tolerance_pd = 1e-4
 
-println("Testing per-dimension derivative orders in 2D and 3D...")
-
 # ── 2D helpers ────────────────────────────────────────────────────────
 
 const perdim_2d_cases = [
@@ -42,7 +40,7 @@ const perdim_2d_cases = [
 
 @testset "2D per-dim derivative direct" begin
     for kernel in perdim_deriv_kernels
-        println("Testing 2D per-dim derivative direct: ", kernel)
+        println("    - 2D per-dim derivative direct: ", kernel)
         r = range(0.0, 2π, length=N_pd)
         vals = [sin(x)*sin(y) for x in r, y in r]
         test_pts = [(r[i] + r[i+1]) / 2 for i in 1:N_pd-1]
@@ -60,7 +58,7 @@ end
 
 @testset "2D per-dim derivative fast" begin
     for kernel in perdim_deriv_kernels
-        println("Testing 2D per-dim derivative fast: ", kernel)
+        println("    - 2D per-dim derivative fast: ", kernel)
         r = range(0.0, 2π, length=N_pd)
         vals = [sin(x)*sin(y) for x in r, y in r]
         test_pts = [(r[i] + r[i+1]) / 2 for i in 1:N_pd-1]
@@ -78,7 +76,7 @@ end
 
 @testset "2D per-dim derivative fast vs direct" begin
     for kernel in perdim_deriv_kernels
-        println("Testing 2D per-dim derivative fast vs direct: ", kernel)
+        println("    - 2D per-dim derivative fast vs direct: ", kernel)
         r = range(0.0, 2π, length=N_pd)
         vals = [sin(x)*sin(y) for x in r, y in r]
         test_pts = [(r[i] + r[i+1]) / 2 for i in 1:N_pd-1]
@@ -109,7 +107,7 @@ const perdim_3d_cases = [
 
 @testset "3D per-dim derivative direct" begin
     for kernel in perdim_deriv_kernels
-        println("Testing 3D per-dim derivative direct: ", kernel)
+        println("    - 3D per-dim derivative direct: ", kernel)
         r = range(0.0, 2π, length=N_pd)
         vals = [sin(x)*sin(y)*sin(z) for x in r, y in r, z in r]
         test_pts = [(r[i] + r[i+1]) / 2 for i in 1:N_pd-1]
@@ -127,7 +125,7 @@ end
 
 @testset "3D per-dim derivative fast" begin
     for kernel in perdim_deriv_kernels
-        println("Testing 3D per-dim derivative fast: ", kernel)
+        println("    - 3D per-dim derivative fast: ", kernel)
         r = range(0.0, 2π, length=N_pd)
         vals = [sin(x)*sin(y)*sin(z) for x in r, y in r, z in r]
         test_pts = [(r[i] + r[i+1]) / 2 for i in 1:N_pd-1]

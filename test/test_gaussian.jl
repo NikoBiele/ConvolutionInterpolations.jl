@@ -1,4 +1,8 @@
-println("Testing Gaussian smoothing kernel...")
+println("\n" * "-"^60)
+println("Testing smoothing kernels...")
+println("-"^60)
+
+println("    - Gaussian smoothing kernel")
 @testset "Gaussian kernel" begin
     xs = range(0.0, 2π, length=50)
     vs = sin.(xs)
@@ -18,7 +22,7 @@ println("Testing Gaussian smoothing kernel...")
     @test maximum(abs.(itp2.(xs2, ys2') - vs2)) < 0.1
 end
 
-println("Testing convolution_smooth...")
+println("    - Convolution_smooth")
 @testset "convolution_smooth" begin
 
     @testset "1D smooth recovers signal" begin

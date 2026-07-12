@@ -1,6 +1,6 @@
-###########################################################################
-### TEST NONUNIFORM INTERPOLATION #########################################
-###########################################################################    
+println("\n" * "-"^60)
+println("Testing nonuniform kernel interpolation in 1D, 2D, 3D, 4D...")
+println("-"^60)
 
 ### Nonuniform b-kernel interpolation
 nu_kernels = [:n3, :b5] #, :b7, :b9, :b11] # :a3 kernel triggers nonuniform lower order kernel
@@ -20,10 +20,9 @@ function make_nonuniform_grid_interpolation(n; a=0.0, b=1.0, strength=0.3)
     return x
 end
 
-println("Testing nonuniform kernel interpolation in 1D, 2D, 3D, 4D...")
 @testset "1D nonuniform kernels" begin
     for kernel in nu_kernels
-        println("Testing 1D nonuniform kernel: ", kernel)
+        println("    - 1D nonuniform kernel: ", kernel)
         # grid point reproduction with random data
         x_nu = make_nonuniform_grid_interpolation(N_nu)
         vals_rand = rand(N_nu)
@@ -40,7 +39,7 @@ end
 
 @testset "2D nonuniform kernels" begin
     for kernel in nu_kernels
-        println("Testing 2D nonuniform kernel: ", kernel)
+        println("    - 2D nonuniform kernel: ", kernel)
         x_nu = make_nonuniform_grid_interpolation(N_nu)
         y_nu = make_nonuniform_grid_interpolation(N_nu; strength=0.2)
 
@@ -63,7 +62,7 @@ end
 
 @testset "3D nonuniform kernels" begin
     for kernel in nu_kernels
-        println("Testing 3D nonuniform kernel: ", kernel)
+        println("    - 3D nonuniform kernel: ", kernel)
         x_nu = make_nonuniform_grid_interpolation(N_nu_3d)
         y_nu = make_nonuniform_grid_interpolation(N_nu_3d; strength=0.2)
         z_nu = make_nonuniform_grid_interpolation(N_nu_3d; strength=0.25)
@@ -79,7 +78,7 @@ end
 
 @testset "4D nonuniform kernels" begin
     for kernel in nu_kernels[1:2] # to save time, test only :n3 and :b5
-        println("Testing 4D nonuniform kernel: ", kernel)
+        println("    - 4D nonuniform kernel: ", kernel)
         x_nu = make_nonuniform_grid_interpolation(N_nu_4d)
         y_nu = make_nonuniform_grid_interpolation(N_nu_4d; strength=0.2)
         z_nu = make_nonuniform_grid_interpolation(N_nu_4d; strength=0.25)

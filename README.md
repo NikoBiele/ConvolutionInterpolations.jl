@@ -1,6 +1,6 @@
 # ConvolutionInterpolations.jl
 
-High-order interpolation, differentiation, integration and smoothing on discrete grids in arbitrary dimensions.
+High-order interpolation, differentiation, integration and smoothing on discrete samples in arbitrary dimensions.
 
 [![Performance Comparison](fig/convolution_interpolation_kernels.png)](fig/convolution_interpolation_kernels.png)
 
@@ -16,6 +16,7 @@ ConvolutionInterpolations.jl uses a new family of high-order convolution kernels
 - **Simple API**: A single interface covers nearest-neighbor through 13th-degree polynomial kernels
 - **Derivatives up to 6th order**: Analytically differentiated kernels, stable and allocation-free
 - **Antiderivative support (uniform)**: Compute 7th order accurate smooth indefinite integrals
+- **Scattered data gridding**: Nearest-neighbor gridding of unstructured data with `scattered_to_grid`
 - **Gaussian smoothing**: Recover clean signals from noisy data with `convolution_smooth`
 - **Grid resampling**: High-order separable resampling with `convolution_resample`
 
@@ -33,15 +34,15 @@ Pkg.add("ConvolutionInterpolations")
 ```julia
 using ConvolutionInterpolations, Plots
 
-# Sparse sampling: 4 samples sine wave
-x = range(0, 2π, length=4)
+# Sparse sampling: 6 samples sine wave
+x = range(0, 2π, length=6)
 y = sin.(x)
-itp = convolution_interpolation(x, y);  # default :b5 kernel
+itp = convolution_interpolation(x, y) # default :b5 kernel
 
 x_fine = range(0, 2π, length=200)
 p1 = plot(x_fine, sin.(x_fine), label="True function: sin(x)")
-scatter!(p1, x, y, label="4 samples")
-plot!(p1, x_fine, itp.(x_fine), label="Interpolated (4 samples)")
+scatter!(p1, x, y, label="6 samples")
+plot!(p1, x_fine, itp.(x_fine), label="Interpolated (6 samples)")
 ```
 
 [![1D sine wave interpolation](fig/simple_sine_wave_1D_demonstration.png)](fig/simple_sine_wave_1D_demonstration.png)
@@ -74,7 +75,9 @@ The kernel is normalized to sum to unity, so the mean signal level is preserved.
 Works in any number of dimensions and is allocation-free in the inner loop.
 The parameter `B` controls the Gaussian width: larger `B` means a narrower kernel (less smoothing),
 smaller `B` means a wider kernel (more smoothing).
-For effective smoothing `B ≤ 0.1` is recommended, as visible in the figure below.
+`B ≈ 0.1` is a good default: the optimum is shallow, so precise tuning rarely pays.
+Smaller `B` (wider kernel) over-smooths and attenuates extrema; larger `B` leaves
+noise behind, as visible in the figure below.
 
 ```julia
 using ConvolutionInterpolations, Plots
@@ -157,37 +160,41 @@ Antiderivatives (`derivative=-1`) are not supported with resampling, use `convol
 
 ### Scattered Data Pipeline
 
-For truly scattered (unstructured) data, resample onto a uniform grid first using a radial basis functions (RBF) package such as [ScatteredInterpolation.jl](https://github.com/eljungsk/ScatteredInterpolation.jl), then apply ConvolutionInterpolations.jl for Gaussian smoothing, and high-order convolution interpolation:
+For truly scattered (unstructured) data, grid it first with `scattered_to_grid`,
+which assigns each grid node the value of its nearest scattered point (or the mean of
+its `k` nearest). This deliberately simple gridding introduces no structure of its own —
+its error is spatially uncorrelated, which is exactly what `convolution_smooth` removes
+best. Smoother gridding methods (e.g. global RBF or inverse distance weighting) can
+introduce structural artifacts that smoothing cannot undo.
 
 ```julia
-using ScatteredInterpolation, ConvolutionInterpolations, Plots
+using ConvolutionInterpolations, Plots
 
 # true signal
 xs = ys = range(0.0, 2π, length=100)
-true_signal = [sin(x)*cos(y) for x in xs, y in ys]
+true_signal = [sin(x)*sin(y) for x in xs, y in ys]
 
 # scattered noisy measurements
 n_points = 1000
 points = rand(2, n_points) .* 2π
-values = sin.(points[1,:]) .* cos.(points[2,:]) .+ 0.1.*randn(n_points)
+values = sin.(points[1,:]) .* sin.(points[2,:]) .+ 0.1.*randn(n_points)
 
-# Step 1: RBF onto uniform grid
-itp_rbf = interpolate(NearestNeighbor(), points, values)
-grid_rbf = [evaluate(itp_rbf, [x, y])[1] for x in xs, y in ys]
+# Step 1: nearest-neighbor gridding
+grid_nn = scattered_to_grid(points, values, (xs, ys); k=1) # default k=1
 
 # Step 2: smooth
-grid_smooth = convolution_smooth((xs, ys), grid_rbf, 0.02)
+grid_smooth = convolution_smooth((xs, ys), grid_nn, 0.1) # B=0.1 is the recommended setting
 
 # Step 3: plot and verify
-limits = extrema(grid_rbf)
-p1 = scatter(points[1,:], points[2,:], zcolor=values,
+limits = extrema(grid_nn)
+p1 = scatter(points[1,:], points[2,:], zcolor=values, legend=false,
              title="Scattered noisy data (n=$n_points)",
              ms=3, markerstrokewidth=0, aspect_ratio=1, clims=limits)
-p2 = contourf(xs, ys, grid_rbf', title="After RBF gridding", clims=limits)
-p3 = contourf(xs, ys, grid_smooth', title="After smoothing (B=0.02)", clims=limits)
+p2 = contourf(xs, ys, grid_nn', title="After nearest-neighbor gridding", clims=limits)
+p3 = contourf(xs, ys, grid_smooth', title="After smoothing (B=0.1)", clims=limits)
 p4 = contourf(xs, ys, true_signal', title="True signal", clims=limits)
 
-plot(p1, p2, p3, p4, layout=(2,2), size=(900,800), colorbar=false)
+plot(p1, p2, p3, p4, layout=(2,2), size=(900,800), colorbar=false, dpi=300)
 
 # Step 4: High-order interpolant — evaluate, differentiate, integrate
 itp = convolution_interpolation((xs, ys), grid_smooth)           # f(x,y)
@@ -198,9 +205,15 @@ itp_int = convolution_interpolation((xs, ys), grid_smooth; derivative=-1)    # �
 [![Scattered Data Pipeline](fig/scattered_data_pipeline.png)](fig/scattered_data_pipeline.png)
 
 This pipeline enables high-order evaluation, differentiation, and integration of noisy
-scattered data in arbitrary dimensions. The three steps are independent and composable:
-use RBF alone if data is clean, add smoothing if it is noisy, and choose any combination
-of interpolation, derivatives, and antiderivatives for downstream analysis.
+scattered data in arbitrary dimensions. The steps are
+independent and composable: use gridding and smoothing if the data is scattered,
+use smoothing alone if the data is already on a grid but noisy,
+and choose any combination of interpolation, derivatives, and antiderivatives
+for downstream analysis.
+
+Practical guidance from 1D–4D testing: `k=1` is a good default, while large `k` blurs
+the signal and is counterproductive. The target grid should be finer than both
+the signal's features and the mean spacing between scattered points.
 
 ### Non-uniform Grid Interpolation
 
@@ -582,8 +595,9 @@ Benchmarks in the [Speed](#speed) section use the default `:cubic` subgrid.
 - **Use `:a0`, `:a1` or `:a3` in high dimensions**: Evaluation time of narrower kernels scale better with dimensions
 - **Pre-shipped kernel tables**: The default `precompute=101` with `:cubic` or `:quintic` subgrid loads precomputed constants
 - **Orthogonal grids assumption**: The separable kernel design requires mutually orthogonal grid axes.
+- **Use `scattered_to_grid` for unstructured data**: Nearest-neighbor gridding, ideal for subsequent smoothing
+- **Use `convolution_smooth` before interpolating noisy data**: Separable Gaussian smoothing with B ≈ 0.1 recommended
 - **Use `convolution_resample` for grid-to-grid operations**: Faster than construct+eval, exploits separability
-- **Use `convolution_smooth` before interpolating noisy data**: Separable Gaussian smoothing with B ≤ 0.1 recommended
 
 ## Technical Background
 
@@ -622,8 +636,9 @@ Key differences from existing interpolation packages:
 - Persistent kernel caching for near-instant subsequent initialization
 - Hermite multilevel interpolation for combined speed and stability
 - Single interface from nearest-neighbor to 13th-degree kernels
-- Minimal dependencies (LinearAlgebra, Serialization, Scratch.jl)
+- Minimal dependencies (LinearAlgebra, Serialization, Scratch.jl, NearestNeighbors.jl)
 - Separable Gaussian smoothing for noisy data in any number of dimensions
+- Complete scattered-data-to-interpolant pipeline via nearest-neighbor gridding
 - Grid-to-grid resampling faster than construct+eval, with alloc count independent of grid size
 - Mixed interpolation, differentiation, and integration in a single operator across arbitrary dimensions
 

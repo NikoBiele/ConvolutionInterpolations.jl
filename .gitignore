@@ -4,3 +4,5 @@
 /generate_kernel_tables.jl
 /generate_conv_itp_methods.jl
 /new_tester.jl
+/test_IDW_gridding.jl
+/test_Float32_compliance.jl

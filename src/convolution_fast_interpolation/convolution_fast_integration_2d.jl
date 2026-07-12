@@ -22,6 +22,7 @@ See also: FastConvolutionInterpolation, convolution_fast_integration_1d.
                     KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     FD,SD,SG}
 
+    x = T.(x)
     eqs_1 = itp.eqs[1]
     eqs_2 = itp.eqs[2]
     n_pre = ntuple(i -> length(itp.pre_range[i]), 2)

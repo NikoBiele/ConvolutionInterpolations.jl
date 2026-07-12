@@ -12,7 +12,8 @@ Cubic Hermite interpolation using values and first derivatives at endpoints.
 # Returns
 Interpolated value with O(h⁴) error for C⁴ functions.
 """
-@inline function cubic_hermite(t::T, f0::T, f1::T, d0::T, d1::T, h::T) where T
+@inline function cubic_hermite(t::G, f0::T, f1::T, d0::T, d1::T, h::T) where {G,T}
+    t = T(t)
     t2 = t * t
     t3 = t2 * t
     

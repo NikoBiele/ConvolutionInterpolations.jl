@@ -1,7 +1,11 @@
+println("\n" * "-"^60)
 println("Testing convolution_resample...")
+println("-"^60)
+
 @testset "convolution_resample" begin
 
     @testset "1D resample preserves signal" begin
+        println("    - 1D resample preserves signal")
         xs_in  = range(0.0, 2π, length=50)
         xs_out = range(0.0, 2π, length=100)
         signal = sin.(xs_in)
@@ -13,6 +17,7 @@ println("Testing convolution_resample...")
     end
 
     @testset "1D resample kernel accuracy ordering" begin
+        println("    - 1D resample kernel accuracy ordering")
         xs_in  = range(0.0, 2π, length=50)
         xs_out = range(0.0, 2π, length=100)
         signal = sin.(xs_in)
@@ -27,6 +32,7 @@ println("Testing convolution_resample...")
     end
 
     @testset "2D resample preserves signal" begin
+        println("    - 2D resample preserves signal")
         xs_in  = range(0.0, 2π, length=50)
         xs_out = range(0.0, 2π, length=60)
         signal = [sin(x)*cos(y) for x in xs_in, y in xs_in]
@@ -38,6 +44,7 @@ println("Testing convolution_resample...")
     end
 
     @testset "3D resample preserves signal" begin
+        println("    - 3D resample preserves signal")
         xs_in  = range(0.0, 2π, length=40)
         xs_out = range(0.0, 2π, length=60)
         signal = [sin(x)*cos(y)*sin(z) for x in xs_in, y in xs_in, z in xs_in]
@@ -49,6 +56,7 @@ println("Testing convolution_resample...")
     end
 
     @testset "resample output size" begin
+        println("    - Resample output size")
         for N in (1, 2, 3)
             n_in  = 20
             n_out = 35
@@ -62,6 +70,7 @@ println("Testing convolution_resample...")
     end
 
     @testset "resample derivative" begin
+        println("    - Resample derivative")
         xs_in  = range(0.0, 2π, length=50)
         xs_out = range(0.0, 2π, length=100)
         signal = sin.(xs_in)
@@ -71,6 +80,7 @@ println("Testing convolution_resample...")
     end
 
     @testset "invalid subgrid/kernel combination" begin
+        println("    - Invalid subgrid/kernel combination")
         xs_in  = range(0.0, 2π, length=50)
         xs_out = range(0.0, 2π, length=100)
         signal = sin.(xs_in)

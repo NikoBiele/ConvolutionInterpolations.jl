@@ -27,6 +27,7 @@ See also: FastConvolutionInterpolation, cubic_hermite, quintic_hermite.
                     KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},PR<:Tuple{<:AbstractVector},
                     KP,KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
+    x = T.(x)
     if DG[1] == :a1
         # specialized dispatch for 1d linear kernel
         i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)  # +1 for 1-based indexing
@@ -54,6 +55,7 @@ end
                     EQ<:Tuple{Int},PR<:Tuple{<:AbstractVector},KP,
                     KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
     
+    x = T.(x)
     # Direct index calculation
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), 1, length(itp.knots[1]) - 1)

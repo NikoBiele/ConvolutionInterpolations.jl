@@ -4,6 +4,7 @@
                     KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel},DG,EQ<:Tuple{Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},FD,SD,NB<:Nothing}
 
+    x = T.(x)
     result = zero(T)
     n1 = size(itp.coefs, 1)
     n2 = size(itp.coefs, 2)

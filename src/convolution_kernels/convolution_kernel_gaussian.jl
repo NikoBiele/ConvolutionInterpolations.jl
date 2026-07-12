@@ -22,7 +22,7 @@ end
 
 @inline function θ(B::G, terms::Int) where G
     q = exp(-B)
-    sum = 1.0
+    sum = G(1.0)
     for n in 1:terms
         term = 2 * q^(n^2)
         sum += term
@@ -31,5 +31,5 @@ end
 end
 
 @inline function f(x::T, B::G, terms::Int) where {G,T}
-    return 1 / θ(B, terms) * exp(-B * x^2) # 
+    return G(1.0) / θ(B, terms) * exp(-B * x^2) # 
 end

@@ -1,7 +1,9 @@
-
+println("\n" * "-"^60)
 println("Testing boundary condition downgrading for 1D, 2D, 3D...")
+println("-"^60)
+
 @testset "BC downgrade with insufficient points" begin
-    println("Testing BC downgrade in 1D")
+    println("    - BC downgrade in 1D")
     xs_short = range(0.0, 2π, length=5)
     vs_short = sin.(xs_short)
     
@@ -11,7 +13,7 @@ println("Testing boundary condition downgrading for 1D, 2D, 3D...")
 end
 
 @testset "2D BC downgrade with insufficient points" begin
-    println("Testing BC downgrade in 2D")
+    println("    - BC downgrade in 2D")
     xs_short = range(0.0, 2π, length=5)
     ys_short = range(0.0, 2π, length=5)
     vs_short = [sin(x)*cos(y) for x in xs_short, y in ys_short]
@@ -21,7 +23,7 @@ end
 end
 
 @testset "3D BC downgrade with insufficient points" begin
-    println("Testing BC downgrade in 3D")
+    println("    - BC downgrade in 3D")
     xs_short = range(0.0, 2π, length=5)
     ys_short = range(0.0, 2π, length=5)
     zs_short = range(0.0, 2π, length=5)

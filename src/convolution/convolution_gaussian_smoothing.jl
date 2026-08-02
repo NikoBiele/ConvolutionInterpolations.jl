@@ -76,7 +76,7 @@ function convolution_smooth(knots::NTuple{N,AbstractVector}, values::AbstractArr
 
         coef_buf  = zeros(T, n_coef)
         out_buf   = zeros(T, n)
-        workspace = BoundaryWorkspace(T, Val(1), eqs_d, n)
+        workspace = BoundaryWorkspace(T, Val(1), eqs_d + 1, n)
         vs_1d     = view(coef_buf, (eqs_d+1):(eqs_d + n))
 
         next         = zeros(T, size(current))
@@ -101,10 +101,10 @@ function convolution_smooth(knots::NTuple{N,AbstractVector}, values::AbstractArr
             end
 
             # apply BCs in-place
-            apply_boundary_conditions_for_dim!(coef_buf, vs_1d, 1, (h_d,), eqs_d,
+            apply_boundary_conditions_for_dim!(coef_buf, vs_1d, 1, (h_d,), eqs_d + 1,
                                                ((:detect,:detect),), :gauss,
                                                workspace, (n,), Val(true))
-
+                                               
             # evaluate — kernel weights precomputed, just multiply-accumulate
             @inbounds for k in 1:n
                 result = zero(T)
@@ -197,6 +197,20 @@ function convolution_gaussian_itp(knots::NTuple{N,AbstractVector}, values::Abstr
         error("Gaussian kernel not supported for non-uniform grids.")
     end
     B = T(B)
+    # Between nodes a sampled Gaussian is not a partition of unity. Poisson
+    # summation gives, at fractional offset x,
+    #     sum_n K(n+x) = [1 + 2q*cos(2*pi*x) + O(q^4)] / (1 + 2q),  q = exp(-pi^2/B)
+    # so the worst-case relative ripple is 4q, at the midpoint between nodes.
+    # Requiring 4q <= 1e-12 gives B <= pi^2 / log(4e12) = 0.340.
+    if B > T(0.340)
+        ripple = 4 * exp(-pi^2 / B)
+        error("B = $B is too large for convolution_gaussian: the kernel is a " *
+              "partition of unity only at integer offsets, so evaluation " *
+              "between nodes carries a relative ripple of about " *
+              "$(round(ripple, sigdigits=3)). Use B <= 0.34 (B ~ 0.1 is the " *
+              "usual choice). If you only need values ON the grid nodes, " *
+              "convolution_smooth is exact at any B.")
+    end
     eqs_for_gaussian = ceil(Int, sqrt(-log(T(10_000)*eps(T)/T(2)) / B))
     if eqs_for_gaussian > 50
         @warn "Gaussian kernel stencil-width with B=$B yielded $(2*eqs_for_gaussian) points. Consider using a higher B."
@@ -204,7 +218,7 @@ function convolution_gaussian_itp(knots::NTuple{N,AbstractVector}, values::Abstr
 
     h = ntuple(d -> knots[d][2] - knots[d][1], N)
     domain_size = ntuple(d -> size(values, d), N)
-    eqs = ntuple(_ -> eqs_for_gaussian, N)
+    eqs = ntuple(_ -> eqs_for_gaussian + 1, N)
     bc = ntuple(_ -> (:linear, :linear), N)
     DV = ntuple(_ -> 0, N)
     KS = ntuple(_ -> :gauss, N)

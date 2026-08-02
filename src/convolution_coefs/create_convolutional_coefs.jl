@@ -164,207 +164,275 @@ function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs:
                                ntuple(_ -> kernel_type, N), Val(UG))
 end
 
+
+## ===========================================================================
+## Boundary-condition guard for the :detect path
+##
+## Rejects the polynomial ghost extension when the Delta^ns residual exceeds
+## kappa times the local data range, where ns = size(G, 2) is the interior
+## stencil width (4 for a-kernels, 6 for :b5, 8 for :b7/:b9/:b11/:b13).
+##
+## Delta^ns annihilates exactly the space the extension reproduces
+## (degree <= ns-1), so it is the leading residual of the extension itself
+## rather than a proxy for smoothness. This replaces a d1/d2/d3 sign-change
+## heuristic.
+##
+## Ghost matrix convention: size(G) == (ng, ns); G[r, d] weights interior
+## point d into ghost g_{-r}. Only the first eqs-1 rows are ever applied.
+## The right boundary is traversed base = n_dim, step = -1, matching
+## fill_ghost_points_polynomial!, which feeds y_centered[end - k + 1].
+## ===========================================================================
+
+const BC_GUARD_K = Ref(1.0) # carefully measured, 20k random signals, flat optimum
+
 """
-    apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractArray, dim::Int,
-        h::NTuple{N,T}, eqs::Int,
-        kernel_bc::Union{Symbol,Vector{Tuple{Symbol,Symbol}}},
-        kernel_type::Symbol,
-        workspace::BoundaryWorkspace{T,N}) where {T,N}
+Stencil traversal helper. Points are read as
 
-Apply boundary conditions along a single dimension of the coefficient array. Fills ghost
-points on both left and right boundaries.
+    y[base], y[base+step], ..., y[base+step*(ns-1)]
 
-# Arguments
-- `c`: Coefficient array to modify (expanded with ghost point slots)
-- `vs`: Original interior data values
-- `dim`: Dimension to process (1 to N)
-- `h`: Grid spacing tuple
-- `eqs`: Number of equations (kernel support size)
-- `kernel_bc`: Boundary condition specification (Symbol or per-dimension tuple vector)
-- `kernel_type`: Kernel degree (`:a3`, `:b5`, etc.)
-- `workspace`: Preallocated `BoundaryWorkspace` for temporary arrays
+Left boundary:  base = 1,     step = +1
+Right boundary: base = n_dim, step = -1
 
-# Algorithm
-1. Fetches the polynomial ghost coefficient matrix once (shared across all boundary points)
-2. Determines polynomial vs recursive path per side based on grid size vs matrix requirements
-3. Precomputes `CartesianIndex` offsets using `ntuple(Val(N))` (zero allocations)
-4. For each boundary point: extracts a 1D slice into the workspace, computes mean-centering
-   in-place, then fills ghost points via polynomial (`mul!`) or recursive fallback
-
-The polynomial path (default for grids with sufficient points) is fully allocation-free.
-The recursive fallback path may allocate for signal analysis.
-
-See also: `fill_ghost_points_polynomial!`, `fill_ghost_points_recursive!`, `get_recursive_coefs`.
+Returns (lo, hi, hi-lo, max|y|) over the stencil.
 """
+@inline function bc_stencil_range(y, base::Int, step::Int, ns::Int, ::Type{T}) where {T}
+    lo = typemax(T); hi = typemin(T); amax = zero(T)
+    @inbounds for d in 0:ns-1
+        v = y[base + step*d]
+        lo = min(lo, v); hi = max(hi, v); amax = max(amax, abs(v))
+    end
+    return lo, hi, hi - lo, amax
+end
 
-function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractArray, dim::Int, 
-                                           h::NTuple{N,T}, eqs::Int,
-                                           kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}, 
-                                           kernel_type::Symbol,
-                                           workspace::BoundaryWorkspace{T,N},
-                                           vs_size::NTuple{N,Int}, ::Val{UG}) where {T,N,UG}
-    
+
+"""
+Single entry point for the :detect decision.
+
+    G          ghost matrix, (ng, ns) -- only size(G, 2) is used
+    y          mean-centered slice
+    base, step side selector: left is (1, +1), right is (n_dim, -1)
+    n_avail    points available in the slice (= n_dim)
+    num_ghost  ghost points actually filled (= eqs-1); unused by :diff
+    hd         grid spacing in this dimension; :legacy only
+
+Window width is k+3, giving three overlapping Delta^k windows: one on the
+stencil the extension uses, two just inside it. Widening makes the test
+stricter, since the verdict is a max over windows.
+"""
+@inline function bc_accept_polynomial(::Type{T}, G, y, base::Int, step::Int,
+                                      n_avail::Int, num_ghost::Int,
+                                      hd::T, workspace) where {T}
+    k = size(G, 2)
+    n_avail < k + 1 && return false
+    return bc_guard_diff(T, y, base, step, min(n_avail, k + 3), k,
+                         T(BC_GUARD_K[]))
+end
+
+const BC_W4 = (1.0, -4.0, 6.0, -4.0, 1.0)
+const BC_W6 = (1.0, -6.0, 15.0, -20.0, 15.0, -6.0, 1.0)
+const BC_W8 = (1.0, -8.0, 28.0, -56.0, 70.0, -56.0, 28.0, -8.0, 1.0)
+
+@inline function _bc_diff_scan(::Type{T}, y, base::Int, step::Int, nwin::Int,
+                               W::NTuple{M,Float64}, tol) where {T,M}
+    k = M - 1
+    Tacc = promote_type(T, Float64)
+    @inbounds for start in 0:(nwin - k - 1)
+        s = zero(Tacc)
+        for d in 0:k
+            s = muladd(Tacc(W[d+1]), Tacc(y[base + step*(start + k - d)]), s)
+        end
+        abs(s) > tol && return false
+    end
+    return true
+end
+
+@inline function _bc_diff_generic(::Type{T}, y, base::Int, step::Int,
+                                  nwin::Int, k::Int, tol) where {T}
+    Tacc = promote_type(T, Float64)
+    @inbounds for start in 0:(nwin - k - 1)
+        s = zero(Tacc); c = 1; sgn = 1
+        for j in 0:k
+            s += Tacc(sgn * c) * Tacc(y[base + step*(start + k - j)])
+            c = div(c * (k - j), j + 1)
+            sgn = -sgn
+        end
+        abs(s) > tol && return false
+    end
+    return true
+end
+
+"""
+Difference test. Delta^k annihilates exactly the space the ghost extension
+reproduces (degree < k), so |Delta^k y| is its leading residual. Accepted
+when that residual stays below `kappa` times the local data range, over
+every window of k+1 consecutive points in the stencil.
+
+Weights for k = 4, 6, 8 are compile-time constants; other k falls back to a
+binomial recurrence. Allocation-free on every path. Accumulation is in
+>= Float64 so the test does not degrade at Float32 for wide stencils.
+"""
+@inline function bc_guard_diff(::Type{T}, y, base::Int, step::Int,
+                               nwin::Int, k::Int, kappa::T) where {T}
+    nwin < k + 1 && return false
+    Tacc = promote_type(T, Float64)
+    lo, hi, rng, amax = bc_stencil_range(y, base, step, nwin, T)
+    tol = Tacc(kappa) * Tacc(rng) +
+          Tacc(eps(T)) * Tacc(amax) * Tacc(1 << min(k, 30))
+    k == 8 && return _bc_diff_scan(T, y, base, step, nwin, BC_W8, tol)
+    k == 6 && return _bc_diff_scan(T, y, base, step, nwin, BC_W6, tol)
+    k == 4 && return _bc_diff_scan(T, y, base, step, nwin, BC_W4, tol)
+    return _bc_diff_generic(T, y, base, step, nwin, k, tol)
+end
+
+
+"""
+    apply_boundary_conditions_for_dim!(...)
+
+Apply boundary conditions along one dimension. Fills ghost points on both
+ends.
+
+Only the first (or last) `m = min(n_dim, max(ns+3, eqs))` samples along the
+line are touched: `ns+3` is the widest window the guard reads, `eqs` covers
+the Gaussian-fallback fit. The slice buffer holds those `m` values in
+increasing index order on both sides, so the right-hand path indexes from
+`end` exactly as before.
+
+Mean-centering uses the mean of that window rather than of the whole line.
+Ghost matrix rows sum to 1, so the choice of offset is mathematically
+irrelevant and affects only roundoff; a local mean also removes the local
+trend, which is marginally better conditioned.
+"""
+function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractArray, dim::Int,
+                                            h::NTuple{N,T}, eqs::Int,
+                                            kernel_bc::NTuple{N,Tuple{Symbol,Symbol}},
+                                            kernel_type::Symbol,
+                                            workspace::BoundaryWorkspace{T,N},
+                                            vs_size::NTuple{N,Int}, ::Val{UG}) where {T,N,UG}
+
     if eqs == 1
         return  # :a0 and :a1 need no ghost points
     end
-    
+
     kernel_boundary_condition = kernel_bc[dim]
     left_indices, right_indices = get_boundary_indices(size(c), dim, eqs)
-    
-    # Precompute slice_offset and c_offset once (reuse workspace arrays)
-    for j in 0:size(vs, dim)-1
-        workspace.slice_offset[j+1] = CartesianIndex(ntuple(d -> d == dim ? j : 0, Val(N)))
+
+    ghost_matrix = UG ? nothing : get_polynomial_ghost_coeffs(:not_used, kernel_type)
+    n_dim        = size(vs, dim)
+    n_interior   = UG ? eqs : size(ghost_matrix, 2)
+    few_points   = n_dim < n_interior
+    num_ghost    = eqs - 1
+    hd           = h[dim]
+
+    # Window actually read: guard needs n_interior+3, the Gaussian fit needs
+    # up to eqs, the linear/quadratic matrices need <= 3.
+    m = min(n_dim, max(n_interior + 3, eqs))
+
+    # slice_offset[j] is a step of (j-1) along dim; only m are needed now.
+    for j in 1:m
+        workspace.slice_offset[j] = CartesianIndex(ntuple(d -> d == dim ? j-1 : 0, Val(N)))
     end
-    
     for j in 1:(eqs-1)
         workspace.c_offset[j] = CartesianIndex(ntuple(d -> d == dim ? j : 0, Val(N)))
     end
 
-    # Fetch ghost matrix once (same for all boundary points)
-    ghost_matrix = UG ? nothing : get_polynomial_ghost_coeffs(:not_used, kernel_type)
-    n_dim = size(vs, dim)
-    n_interior = UG ? eqs : size(ghost_matrix, 2)
-    few_points = n_dim < n_interior
-    
     c_offset_view = view(workspace.c_offset, 1:(eqs-1))
-    
-    # Process left boundary
+    slice_view    = view(workspace.slice, 1:m)
+
+    # ---- left boundary ----------------------------------------------------
     for idx in left_indices
         if N == 1
-            workspace.slice[1:length(vs)] .= vs
+            @inbounds for j in 1:m
+                workspace.slice[j] = vs[j]
+            end
         else
-            for j in 1:n_dim
+            @inbounds for j in 1:m
                 workspace.slice[j] = c[idx + workspace.slice_offset[j]]
             end
         end
-        
-        slice_view = view(workspace.slice, 1:n_dim)
-        y_mean = sum(slice_view) / n_dim
-        for k in 1:n_dim
-            workspace.slice[k] -= y_mean
+
+        y_mean = zero(T)
+        @inbounds for j in 1:m
+            y_mean += workspace.slice[j]
         end
-    
-        if few_points || UG || !(kernel_boundary_condition[1] in (:detect, :poly))
-            use_polynomial_left = false
+        y_mean /= m
+        @inbounds for j in 1:m
+            workspace.slice[j] -= y_mean
+        end
+
+        bcL = kernel_boundary_condition[1]
+        use_polynomial_left = if few_points || UG
+            false
+        elseif bcL === :poly
+            true
+        elseif bcL === :detect
+            bc_accept_polynomial(T, ghost_matrix, slice_view, 1, 1,
+                                 m, num_ghost, hd, workspace)
         else
-            ns_left = n_interior
-            # d1
-            mn1, mx1 = typemax(T), typemin(T)
-            for d in 1:(ns_left-1)
-                v = slice_view[d+1] - slice_view[d]
-                workspace.y_temp[d] = v
-                mn1 = min(mn1, v)
-                mx1 = max(mx1, v)
-            end
-            periodic_boundary_left = (mn1 * mx1) / h[dim]^2 < -1/10
-            # d2
-            mn2, mx2 = typemax(T), typemin(T)
-            for d in 1:(ns_left-2)
-                v = workspace.y_temp[d+1] - workspace.y_temp[d]
-                workspace.y_extended[d] = v
-                mn2 = min(mn2, v)
-                mx2 = max(mx2, v)
-            end
-            high_curvature_left = abs(mx2 - mn2) / h[dim] > 1/2
-            # d3 - only meaningful for ns_left > 4 (b-kernels)
-            high_d3_left = if ns_left > 4
-                mn3, mx3 = typemax(T), typemin(T)
-                for d in 1:(ns_left-3)
-                    v = workspace.y_extended[d+1] - workspace.y_extended[d]
-                    mn3 = min(mn3, v)
-                    mx3 = max(mx3, v)
-                end
-                abs(mx3 - mn3) / h[dim] > 1/2
-            else
-                false
-            end            
-            use_polynomial_left = (kernel_boundary_condition[1] == :poly ||
-                    (kernel_boundary_condition[1] == :detect && 
-                    !periodic_boundary_left && !high_curvature_left && !high_d3_left))
+            false
         end
 
         if use_polynomial_left
             fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :left, eqs, workspace)
         elseif UG
             fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mean, eqs, workspace, :left)
-        elseif kernel_boundary_condition[1] == :linear || kernel_boundary_condition[1] == :quadratic
-            bc_matrix = get_polynomial_ghost_coeffs(kernel_boundary_condition[1], kernel_type)
+        elseif bcL === :linear || bcL === :quadratic
+            bc_matrix = get_polynomial_ghost_coeffs(bcL, kernel_type)
             fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :left, eqs, workspace)
-        elseif few_points || kernel_boundary_condition[1] == :poly || kernel_boundary_condition[1] == :detect
+        elseif few_points || bcL === :poly || bcL === :detect
             bc_matrix = get_polynomial_ghost_coeffs(:linear, kernel_type)
             fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :left, eqs, workspace)
         else
-            error("Unsupported boundary condition: $(kernel_boundary_condition[1])")
+            error("Unsupported boundary condition: $(bcL)")
         end
     end
-    
-    # Process right boundary
+
+    # ---- right boundary ---------------------------------------------------
+    # slice[j] holds interior sample (n_dim - m + j), i.e. the last m values
+    # in increasing order, so slice_view[end] is the final sample.
     for idx in right_indices
         if N == 1
-            workspace.slice[1:length(vs)] .= vs
+            @inbounds for j in 1:m
+                workspace.slice[j] = vs[n_dim - m + j]
+            end
         else
-            for j in 1:n_dim
-                workspace.slice[j] = c[idx - workspace.slice_offset[n_dim - j + 1]]
+            @inbounds for j in 1:m
+                workspace.slice[j] = c[idx - workspace.slice_offset[m - j + 1]]
             end
         end
 
-        slice_view = view(workspace.slice, 1:n_dim)
-        y_mean = sum(slice_view) / n_dim
-        for k in 1:n_dim
-            workspace.slice[k] -= y_mean
+        y_mean = zero(T)
+        @inbounds for j in 1:m
+            y_mean += workspace.slice[j]
+        end
+        y_mean /= m
+        @inbounds for j in 1:m
+            workspace.slice[j] -= y_mean
         end
 
-        if few_points || UG || !(kernel_boundary_condition[2] in (:detect, :poly))
-            use_polynomial_right = false
+        bcR = kernel_boundary_condition[2]
+        use_polynomial_right = if few_points || UG
+            false
+        elseif bcR === :poly
+            true
+        elseif bcR === :detect
+            bc_accept_polynomial(T, ghost_matrix, slice_view, m, -1,
+                                 m, num_ghost, hd, workspace)
         else
-            ns_right = n_interior
-            # d1 - note: right boundary uses the last ns_right points
-            mn1, mx1 = typemax(T), typemin(T)
-            for d in 1:(ns_right-1)
-                v = slice_view[end-(ns_right-1)+d] - slice_view[end-(ns_right-1)+d-1]
-                workspace.y_temp[d] = v
-                mn1 = min(mn1, v)
-                mx1 = max(mx1, v)
-            end
-            periodic_boundary_right = (mn1 * mx1) / h[dim]^2 < -1/10
-            # d2
-            mn2, mx2 = typemax(T), typemin(T)
-            for d in 1:(ns_right-2)
-                v = workspace.y_temp[d+1] - workspace.y_temp[d]
-                workspace.y_extended[d] = v
-                mn2 = min(mn2, v)
-                mx2 = max(mx2, v)
-            end
-            high_curvature_right = abs(mx2 - mn2) / h[dim] > 1/2
-            # d3 - only meaningful for ns_right > 4 (b-kernels)
-            high_d3_right = if ns_right > 4
-                mn3, mx3 = typemax(T), typemin(T)
-                for d in 1:(ns_right-3)
-                    v = workspace.y_extended[d+1] - workspace.y_extended[d]
-                    mn3 = min(mn3, v)
-                    mx3 = max(mx3, v)
-                end
-                abs(mx3 - mn3) / h[dim] > 1/2
-            else
-                false
-            end
-            use_polynomial_right = (kernel_boundary_condition[2] == :poly ||
-                                    (kernel_boundary_condition[2] == :detect && 
-                                    !periodic_boundary_right && !high_curvature_right && !high_d3_right))
+            false
         end
 
         if use_polynomial_right
             fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :right, eqs, workspace)
         elseif UG
             fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mean, eqs, workspace, :right)
-        elseif kernel_boundary_condition[2] == :linear || kernel_boundary_condition[2] == :quadratic
-            bc_matrix = get_polynomial_ghost_coeffs(kernel_boundary_condition[2], kernel_type)
+        elseif bcR === :linear || bcR === :quadratic
+            bc_matrix = get_polynomial_ghost_coeffs(bcR, kernel_type)
             fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :right, eqs, workspace)
-        elseif few_points || kernel_boundary_condition[2] == :poly || kernel_boundary_condition[2] == :detect
+        elseif few_points || bcR === :poly || bcR === :detect
             bc_matrix = get_polynomial_ghost_coeffs(:linear, kernel_type)
             fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :right, eqs, workspace)
         else
-            error("Unsupported boundary condition: $(kernel_boundary_condition[2])")
+            error("Unsupported boundary condition: $(bcR)")
         end
     end
 end
@@ -461,7 +529,7 @@ function fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mea
         # evaluate at ghost point positions (0, -1, -2, ...)
         # and store mean-centered values in workspace
         for k in 1:(eqs-1)
-            workspace.y_temp[k] = a + b * T(1 - k) - y_mean  # x = 0, -1, -2, ...
+            workspace.y_temp[k] = a + b * T(1 - k) # x = 0, -1, -2, ...
         end
 
         # now fill ghost points directly without bc_matrix
@@ -484,7 +552,7 @@ function fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mea
         a = (sy - b * sx) / n_fit
 
         for k in 1:(eqs-1)
-            workspace.y_temp[k] = a + b * T(1 - k) - y_mean
+            workspace.y_temp[k] = a + b * T(1 - k)
         end
 
         for j in 1:(eqs-1)

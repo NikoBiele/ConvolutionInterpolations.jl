@@ -114,6 +114,16 @@ use `convolution_gaussian` directly (works in higher dimensions too):
 ```julia
 itp = convolution_gaussian(x, y_noisy, 0.1)  # returns an interpolant
 itp(1.5)                                       # evaluate anywhere
+For point-wise Gaussian smoothing that also supports evaluation at arbitrary locations, use `convolution_gaussian` directly (works in higher dimensions too):
+
+```julia
+itp = convolution_gaussian(x, y_noisy, 0.1)  # returns an interpolant
+itp(1.5)                                     # evaluate anywhere
+```
+
+Requires `B ≤ 0.34`, since the kernel does not sum to unity between nodes.
+Above `0.34` the relative error between nodes exceeds `10⁻¹²`, so larger `B` errors.
+`convolution_smooth` evaluates on nodes only and is exact at any `B`.
 ```
 
 ### Grid Resampling
@@ -337,11 +347,7 @@ itp = convolution_interpolation(x, y; bc=:linear);
 itp = convolution_interpolation(x, y; bc=:quadratic);
 ```
 
-The default `:detect` prioritizes `:poly`, which preserves each kernel's polynomial reproduction properties at domain edges.
-It falls back to `:linear` when:
-
-- There are insufficient grid points or
-- if sign-changes or strong curvature near boundaries are detected.
+It falls back to `:linear` when there are too few grid points, or when the boundary data carries more high-order content than the polynomial extension can reproduce.
 
 Per-dimension and per-direction boundary conditions are supported:
 

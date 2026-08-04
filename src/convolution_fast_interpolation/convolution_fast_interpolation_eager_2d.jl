@@ -36,14 +36,14 @@ See also: `FastConvolutionInterpolation`, `cubic_hermite`, `quintic_hermite`.
     x = T.(x)
     # specialized dispatch for 2d nearest neighbor kernel 
     # First dimension (x)
-    i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
+    i_float = (x[1] - itp.x0[1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
-    x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]  # Recompute from actual knot
+    x_diff_left = i_float - T(i)
 
     # Second dimension (y)
-    j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + one(T)
+    j_float = (x[2] - itp.x0[2]) / itp.h[2] + one(T)
     j = clamp(floor(Int, j_float), itp.eqs[2], length(itp.knots[2]) - itp.eqs[2])
-    y_diff_left = (x[2] - itp.knots[2][j]) / itp.h[2]  # Recompute from actual knot
+    y_diff_left = j_float - T(j)
 
     if x_diff_left < 0.5 && y_diff_left < 0.5
         return itp.coefs[i, j]
@@ -65,14 +65,14 @@ end
     x = T.(x)
     # specialized dispatch for 2d linear kernel
     # First dimension (x)
-    i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
+    i_float = (x[1] - itp.x0[1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
-    x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]  # Recompute from actual knot
+    x_diff_left = i_float - T(i)
 
     # Second dimension (y)
-    j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + one(T)
+    j_float = (x[2] - itp.x0[2]) / itp.h[2] + one(T)
     j = clamp(floor(Int, j_float), itp.eqs[2], length(itp.knots[2]) - itp.eqs[2])
-    y_diff_left = (x[2] - itp.knots[2][j]) / itp.h[2]  # Recompute from actual knot
+    y_diff_left = j_float - T(j)
 
     # Bilinear interpolation
     return @inbounds @fastmath ((1-x_diff_left)*(1-y_diff_left)*itp.coefs[i, j] + 
@@ -93,17 +93,17 @@ function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
     if SG == (:linear, :linear)
     
         # First dimension (x)
-        i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
+        i_float = (x[1] - itp.x0[1]) / itp.h[1] + one(T)
         i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
-        x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]
+        x_diff_left = i_float - T(i)
         x_diff_right = one(T) - x_diff_left
         idx_x = clamp(floor(Int, x_diff_right * (length(itp.pre_range[1]) - one(Int64))) + one(Int64), one(Int64), length(itp.pre_range[1]) - one(Int64))
         t_x = (x_diff_right - itp.pre_range[1][idx_x]) / (itp.pre_range[1][idx_x+1] - itp.pre_range[1][idx_x])
 
         # Second dimension (y)
-        j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + one(T)
+        j_float = (x[2] - itp.x0[2]) / itp.h[2] + one(T)
         j = clamp(floor(Int, j_float), itp.eqs[2], length(itp.knots[2]) - itp.eqs[2])
-        y_diff_left = (x[2] - itp.knots[2][j]) / itp.h[2]
+        y_diff_left = j_float - T(j)
         y_diff_right = one(T) - y_diff_left 
         idx_y = clamp(floor(Int, y_diff_right * (length(itp.pre_range[2]) - one(T))) + one(Int64), one(Int64), length(itp.pre_range[2]) - one(Int64))
         t_y = (y_diff_right - itp.pre_range[2][idx_y]) / (itp.pre_range[2][idx_y+1] - itp.pre_range[2][idx_y])
@@ -138,9 +138,9 @@ function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
     elseif SG == (:cubic, :cubic)
 
         # First dimension (x)
-        i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
+        i_float = (x[1] - itp.x0[1]) / itp.h[1] + one(T)
         i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
-        x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]
+        x_diff_left = i_float - T(i)
         x_diff_right = one(T) - x_diff_left
         n_pre_x = length(itp.pre_range[1])
         continuous_idx_x = x_diff_right * T(n_pre_x - 1) + one(T)
@@ -148,9 +148,9 @@ function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
         t_x = continuous_idx_x - T(idx_x)
 
         # Second dimension (y)
-        j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + one(T)
+        j_float = (x[2] - itp.x0[2]) / itp.h[2] + one(T)
         j = clamp(floor(Int, j_float), itp.eqs[2], length(itp.knots[2]) - itp.eqs[2])
-        y_diff_left = (x[2] - itp.knots[2][j]) / itp.h[2]
+        y_diff_left = j_float - T(j)
         y_diff_right = one(T) - y_diff_left
         n_pre_y = length(itp.pre_range[2])
         continuous_idx_y = y_diff_right * T(n_pre_y - 1) + one(T)
@@ -216,9 +216,9 @@ function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
     elseif SG == (:quintic, :quintic)
 
         # First dimension (x)
-        i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
+        i_float = (x[1] - itp.x0[1]) / itp.h[1] + one(T)
         i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
-        x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]
+        x_diff_left = i_float - T(i)
         x_diff_right = one(T) - x_diff_left
         n_pre_x = length(itp.pre_range[1])
         continuous_idx_x = x_diff_right * T(n_pre_x - 1) + one(T)
@@ -226,9 +226,9 @@ function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
         t_x = continuous_idx_x - T(idx_x)
 
         # Second dimension (y)
-        j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + one(T)
+        j_float = (x[2] - itp.x0[2]) / itp.h[2] + one(T)
         j = clamp(floor(Int, j_float), itp.eqs[2], length(itp.knots[2]) - itp.eqs[2])
-        y_diff_left = (x[2] - itp.knots[2][j]) / itp.h[2]
+        y_diff_left = j_float - T(j)
         y_diff_right = one(T) - y_diff_left
         n_pre_y = length(itp.pre_range[2])
         continuous_idx_y = y_diff_right * T(n_pre_y - 1) + one(T)
@@ -306,7 +306,7 @@ function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
         d1_y1    = quintic_hermite(t_x, s_fd_01, s_fd_11, s_dd_01, s_dd_11, s_ed_01, s_ed_11, h_pre_x)
         d2_y1    = quintic_hermite(t_x, s_fe_01, s_fe_11, s_de_01, s_de_11, s_ee_01, s_ee_11, h_pre_x)
 
-        result = quintic_hermite(t_y, val_y0, val_y1, d1_y0, d1_y1, d2_y0, d2_y1, h_pre_x)
+        result = quintic_hermite(t_y, val_y0, val_y1, d1_y0, d1_y1, d2_y0, d2_y1, h_pre_y)
 
         return result * (-one(T)/itp.h[1])^DO[1] * (-one(T)/itp.h[2])^DO[2]
     end

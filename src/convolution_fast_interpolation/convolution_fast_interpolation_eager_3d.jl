@@ -34,19 +34,19 @@ See also: `FastConvolutionInterpolation`.
     x = T.(x)
     # specialized dispatch for 3d nearest neighbor kernel
     # First dimension (x)
-    i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + 1
+    i_float = (x[1] - itp.x0[1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
-    x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]  # Recompute from actual knot
+    x_diff_left = i_float - T(i)
 
     # Second dimension (y)
-    j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + 1
+    j_float = (x[2] - itp.x0[2]) / itp.h[2] + one(T)
     j = clamp(floor(Int, j_float), itp.eqs[2], length(itp.knots[2]) - itp.eqs[2])
-    y_diff_left = (x[2] - itp.knots[2][j]) / itp.h[2]  # Recompute from actual knot
+    y_diff_left = j_float - T(j)
 
     # Third dimension (z)
-    k_float = (x[3] - itp.knots[3][1]) / itp.h[3] + 1
+    k_float = (x[3] - itp.x0[3]) / itp.h[3] + one(T)
     k = clamp(floor(Int, k_float), itp.eqs[3], length(itp.knots[3]) - itp.eqs[3])
-    z_diff_left = (x[3] - itp.knots[3][k]) / itp.h[3]  # Recompute from actual knot
+    z_diff_left = k_float - T(k)
 
     if x_diff_left < 0.5 && y_diff_left < 0.5 && z_diff_left < 0.5
         return itp.coefs[i, j, k]
@@ -77,19 +77,19 @@ end
     x = T.(x)
     # specialized dispatch for 3d linear kernel
     # First dimension (x)
-    i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
+    i_float = (x[1] - itp.x0[1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
-    x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]  # Recompute from actual knot
+    x_diff_left = i_float - T(i)
 
     # Second dimension (y)
-    j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + one(T)
+    j_float = (x[2] - itp.x0[2]) / itp.h[2] + one(T)
     j = clamp(floor(Int, j_float), itp.eqs[2], length(itp.knots[2]) - itp.eqs[2])
-    y_diff_left = (x[2] - itp.knots[2][j]) / itp.h[2]  # Recompute from actual knot
+    y_diff_left = j_float - T(j)
 
     # Third dimension (z)
-    k_float = (x[3] - itp.knots[3][1]) / itp.h[3] + one(T)
+    k_float = (x[3] - itp.x0[3]) / itp.h[3] + one(T)
     k = clamp(floor(Int, k_float), itp.eqs[3], length(itp.knots[3]) - itp.eqs[3])
-    z_diff_left = (x[3] - itp.knots[3][k]) / itp.h[3]  # Recompute from actual knot
+    z_diff_left = k_float - T(k)
 
     # Trilinear interpolation formula
     return @inbounds @fastmath ((1-x_diff_left)*(1-y_diff_left)*(1-z_diff_left)*itp.coefs[i, j, k] + 
@@ -115,25 +115,25 @@ function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},HigherOrd
 
     x = T.(x)
     # Grid positions
-    i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
+    i_float = (x[1] - itp.x0[1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
-    x_diff_right = one(T) - (x[1] - itp.knots[1][i]) / itp.h[1]
+    x_diff_right = one(T) + T(i) - i_float
     n_pre_x = length(itp.pre_range[1])
     cidx_x = x_diff_right * T(n_pre_x - 1) + one(T)
     idx_x = clamp(floor(Int, cidx_x), 1, n_pre_x - 1)
     t_x = cidx_x - T(idx_x)
 
-    j_float = (x[2] - itp.knots[2][1]) / itp.h[2] + one(T)
+    j_float = (x[2] - itp.x0[2]) / itp.h[2] + one(T)
     j = clamp(floor(Int, j_float), itp.eqs[2], length(itp.knots[2]) - itp.eqs[2])
-    y_diff_right = one(T) - (x[2] - itp.knots[2][j]) / itp.h[2]
+    y_diff_right = one(T) + T(j) - j_float
     n_pre_y = length(itp.pre_range[2])
     cidx_y = y_diff_right * T(n_pre_y - 1) + one(T)
     idx_y = clamp(floor(Int, cidx_y), 1, n_pre_y - 1)
     t_y = cidx_y - T(idx_y)
 
-    k_float = (x[3] - itp.knots[3][1]) / itp.h[3] + one(T)
+    k_float = (x[3] - itp.x0[3]) / itp.h[3] + one(T)
     k = clamp(floor(Int, k_float), itp.eqs[3], length(itp.knots[3]) - itp.eqs[3])
-    z_diff_right = one(T) - (x[3] - itp.knots[3][k]) / itp.h[3]
+    z_diff_right = one(T) + T(k) - k_float
     n_pre_z = length(itp.pre_range[3])
     cidx_z = z_diff_right * T(n_pre_z - 1) + one(T)
     idx_z = clamp(floor(Int, cidx_z), 1, n_pre_z - 1)

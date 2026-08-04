@@ -56,8 +56,10 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                                       lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
 
     # check and normalize inputs
-    knots_tuple = knots isa AbstractVector ? (T.(knots),) : 
-                  knots isa NTuple{N,AbstractVector} ? ntuple(d -> T.(knots[d]), N) :
+    knots_tuple = knots isa AbstractVector ?
+                    (eltype(knots) === T ? knots : T.(knots),) :
+                    knots isa NTuple{N,AbstractVector} ?
+                    ntuple(d -> eltype(knots[d]) === T ? knots[d] : T.(knots[d]), N) :
                     error("Invalid knots specification: $knots.")
     kernels_tuple = kernel isa NTuple{N,Symbol} ? kernel :
                     kernel isa Symbol ? ntuple(_ -> kernel, N) :
@@ -118,14 +120,15 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
                                 max(precompute[d], 10_000) : precompute[d]), N)
 
     h = ntuple(d -> knots[d][2] - knots[d][1], N)
-
+    
     all_kernels_low_order = all(d -> kernel[d] == :a0 || kernel[d] == :a1, 1:N)
     coefs, knots_new = if LZ || all_kernels_low_order
         _build_lazy_coefs(knots, vs)
     else
         _build_eager_coefs(knots, vs, eqs, bc, kernel, h, Val(false))
     end
-
+    x0 = ntuple(d -> T(first(knots_new[d])), N)
+    
     tables       = ntuple(d -> get_precomputed_kernel_and_range(kernel[d],
                                         precompute_actual[d], T,
                                         derivative[d], subgrids[d]), N)
@@ -161,7 +164,7 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
                                         typeof(bc),typeof(do_type),
                                         typeof(kd1_pre_d),typeof(kd2_pre_d),typeof(Val(subgrids)),
                                         typeof(Val{LZ}()),typeof(integral_dimension),typeof(domain_size)}(
-        coefs, domain_size, knots_new, h, kernel_type, dimension, kernels, eqs,
+        coefs, domain_size, knots_new, h, x0, kernel_type, dimension, kernels, eqs,
         pre_range_d, kernel_pre_d, bc, do_type,
         kd1_pre_d, kd2_pre_d, Val(subgrids),
         Val{LZ}(), boundary_fallback, left_values, anchor, integral_dimension, lazy_workspace,

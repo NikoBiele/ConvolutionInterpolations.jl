@@ -60,6 +60,7 @@ struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
     domain_size::SZ
     knots::Axs
     h::NTuple{N,T}
+    x0::NTuple{N,T}
     kernel::KA
     dimension::DT
     kernel_sym::DG

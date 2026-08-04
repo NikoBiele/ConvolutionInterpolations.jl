@@ -85,8 +85,10 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
         lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
 
     # check and normalize inputs
-    knots_tuple = knots isa AbstractVector ? (T.(knots),) : 
-                  knots isa NTuple{N,AbstractVector} ? ntuple(d -> T.(knots[d]), N) :
+    knots_tuple = knots isa AbstractVector ?
+                    (eltype(knots) === T ? knots : T.(knots),) :
+                    knots isa NTuple{N,AbstractVector} ?
+                    ntuple(d -> eltype(knots[d]) === T ? knots[d] : T.(knots[d]), N) :
                     error("Invalid knots specification: $knots.")
     kernels_tuple = kernel isa NTuple{N,Symbol} ? kernel :
                     kernel isa Symbol ? ntuple(_ -> kernel, N) :

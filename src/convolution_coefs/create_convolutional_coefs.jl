@@ -9,7 +9,6 @@ Preallocated workspace for efficient boundary condition computation in N-dimensi
 - `slice::Vector{T}`: Storage for extracted 1D slices from N-D arrays
 - `slice_offset::Vector{CartesianIndex{N}}`: Precomputed offsets for slice extraction
 - `c_offset::Vector{CartesianIndex{N}}`: Precomputed offsets for ghost point placement
-- `y_extended::Vector{T}`: Extended signal array for recursive boundary computation
 
 # Details
 This workspace structure eliminates allocations during boundary condition application by
@@ -20,19 +19,11 @@ See also: `BoundaryWorkspace(T, N, max_eqs, max_dim_size)`.
 """
 # Workspace for boundary condition computation
 struct BoundaryWorkspace{T,N}
-    # For polynomial method
     ghost_vals::Vector{T}
     y_temp::Vector{T}
-    
-    # For slice extraction
     slice::Vector{T}
     slice_offset::Vector{CartesianIndex{N}}
-    
-    # For ghost point offsets
     c_offset::Vector{CartesianIndex{N}}
-    
-    # For recursive method
-    y_extended::Vector{T}
 end
 
 """
@@ -56,12 +47,11 @@ enabling allocation-free boundary computation throughout the interpolation setup
 
 function BoundaryWorkspace(T::Type, ::Val{N}, max_eqs::Int, max_dim_size::Int) where N
     BoundaryWorkspace{T,N}(
-        zeros(T, max_eqs - 1),                # ghost_vals - always eqs-1
-        zeros(T, max_dim_size),               # y_temp
-        zeros(T, max_dim_size),               # slice
-        Vector{CartesianIndex{N}}(undef, max_dim_size), # slice_offset
-        Vector{CartesianIndex{N}}(undef, max_eqs - 1),  # c_offset - always eqs-1
-        zeros(T, max_dim_size + 2*(max_eqs-1))  # y_extended
+        zeros(T, max_eqs - 1),
+        zeros(T, max_dim_size),
+        zeros(T, max_dim_size),
+        Vector{CartesianIndex{N}}(undef, max_dim_size),
+        Vector{CartesianIndex{N}}(undef, max_eqs - 1),
     )
 end
 

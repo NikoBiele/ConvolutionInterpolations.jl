@@ -29,9 +29,9 @@ See also: FastConvolutionInterpolation, cubic_hermite, quintic_hermite.
 
     x = T.(x)
     # specialized dispatch for 1d nearest neighbor kernel
-    i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T) # +1 for 1-based indexing
+    i_float = (x[1] - itp.x0[1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
-    x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]  # Guaranteed in [0,1]
+    x_diff_left = i_float - T(i)
     if x_diff_left < 0.5
         return itp.coefs[i]
     else
@@ -47,9 +47,9 @@ end
 
     x = T.(x)
     # specialized dispatch for 1d linear kernel
-    i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)  # +1 for 1-based indexing
+    i_float = (x[1] - itp.x0[1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
-    x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]  # Guaranteed in [0,1]
+    x_diff_left = i_float - T(i)
     return @inbounds ((1-x_diff_left) * itp.coefs[i] + x_diff_left * itp.coefs[i+1])
 end
 
@@ -61,9 +61,9 @@ end
 
     x = T.(x)
     # Direct index calculation
-    i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)
+    i_float = (x[1] - itp.x0[1]) / itp.h[1] + one(T)
     i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
-    x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]
+    x_diff_left = i_float - T(i)
     x_diff_right = one(T) - x_diff_left
 
     # Index into precomputed table

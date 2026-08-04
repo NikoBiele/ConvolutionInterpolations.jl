@@ -44,13 +44,13 @@ end
     # specialized dispatch for N-dimensional nearest neighbor kernel
 
     # Compute i_float once per dimension
-    i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
+    i_floats = ntuple(d -> (x[d] - itp.x0[d]) / itp.h[d] + one(T), N)
     
     # Find knot indices for each dimension
-    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[1], length(itp.knots[d]) - itp.eqs[1]), N) # same kernel in all directions
+    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[1], length(itp.knots[d]) - itp.eqs[1]), N)
     
     # Compute normalized left distances - recompute from actual knot positions
-    diff_left = ntuple(d -> (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
+    diff_left = ntuple(d -> i_floats[d] - T(pos_ids[d]), N)
 
     # Nearest neighbor: return coefficient at nearest grid point
     nearest_ids = ntuple(d -> diff_left[d] < 0.5 ? pos_ids[d] : pos_ids[d]+1, N)
@@ -62,13 +62,13 @@ end
     # specialized dispatch for N-dimensional linear kernel
     
     # Compute i_float once per dimension
-    i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
+    i_floats = ntuple(d -> (x[d] - itp.x0[d]) / itp.h[d] + one(T), N)
     
     # Find knot indices for each dimension
-    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[1], length(itp.knots[d]) - itp.eqs[1]), N) # same kernel in all directions
+    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[1], length(itp.knots[d]) - itp.eqs[1]), N)
     
     # Compute normalized left distances - recompute from actual knot positions
-    weights = ntuple(d -> (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
+    weights = ntuple(d -> i_floats[d] - T(pos_ids[d]), N)
     
     # Build up: for each "slice" in remaining dimensions, 
     # accumulate the interpolated result
@@ -107,13 +107,13 @@ function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{
     # specialized dispatch for N-dimensional higher-order kernel
     
     # Compute i_float once per dimension
-    i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
+    i_floats = ntuple(d -> (x[d] - itp.x0[d]) / itp.h[d] + one(T), N)
     
     # Find knot indices for each dimension
-    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[1], length(itp.knots[d]) - itp.eqs[1]), N) # same kernel in all directions
+    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[1], length(itp.knots[d]) - itp.eqs[1]), N)
     
     # Compute normalized left distances - recompute from actual knot positions
-    diff_left = ntuple(d -> (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
+    diff_left = ntuple(d -> i_floats[d] - T(pos_ids[d]), N)
     diff_right = ntuple(d -> one(T) - diff_left[d], N)
 
     idx_lower = ntuple(d -> clamp(floor(Int, diff_right[d] * (length(itp.pre_range[d]) - one(Int64))) + one(Int64),

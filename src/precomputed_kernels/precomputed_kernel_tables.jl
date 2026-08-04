@@ -15,7 +15,8 @@ include("kernel_b9.jl")
 include("kernel_b11.jl")
 include("kernel_b13.jl")
 
-function get_shipped_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) where T
+# function get_shipped_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) where T
+function _build_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) where T
     pre_range = T.(PRE_RANGE_101)
     if degree == :a0
         if derivative == -1
@@ -32,7 +33,7 @@ function get_shipped_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) w
     elseif degree == :a1
         if derivative == -1
             kp = T.(KERNEL_PRE_a1_i1)
-            kd1 = KERNEL_D1_PRE_a1_i1
+            kd1 = T.(KERNEL_D1_PRE_a1_i1)
             kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         elseif derivative == 0
@@ -246,4 +247,15 @@ function get_shipped_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) w
         end
     end
     error("No shipped kernel table for kernel=$degree, derivative=$derivative")
+end
+
+const _KERNEL_TABLE_CACHE = Dict{Tuple{Symbol,Int,DataType},Any}()
+const _KERNEL_TABLE_LOCK = ReentrantLock()
+
+function get_shipped_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) where T
+    key = (degree, derivative, T)
+    tbl = lock(_KERNEL_TABLE_LOCK) do
+        get!(() -> _build_kernel_tables(degree, derivative, T), _KERNEL_TABLE_CACHE, key)
+    end
+    return tbl::Tuple{Vector{T}, Matrix{T}, Matrix{T}, Matrix{T}}
 end

@@ -17,3 +17,8 @@ function extend_vector(x::AbstractVector{T}, n_extra::Integer) where T
     
     return vcat(start_extension, x, end_extension)
 end
+
+function extend_vector(x::AbstractRange, n_extra::Integer)
+    return range(start = first(x) - n_extra * step(x), step = step(x),
+                 length = length(x) + 2 * n_extra)
+end

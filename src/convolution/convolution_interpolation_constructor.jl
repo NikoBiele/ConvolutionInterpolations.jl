@@ -53,8 +53,10 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
                                   lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
 
     # check and normalize inputs
-    knots_tuple = knots isa AbstractVector ? (T.(knots),) : 
-                  knots isa NTuple{N,AbstractVector} ? ntuple(d -> T.(knots[d]), N) :
+    knots_tuple = knots isa AbstractVector ?
+                    (eltype(knots) === T ? knots : T.(knots),) :
+                    knots isa NTuple{N,AbstractVector} ?
+                    ntuple(d -> eltype(knots[d]) === T ? knots[d] : T.(knots[d]), N) :
                     error("Invalid knots specification: $knots.")
     kernels_tuple = kernel isa NTuple{N,Symbol} ? kernel :
                     kernel isa Symbol ? ntuple(_ -> kernel, N) :
@@ -184,7 +186,7 @@ function _build_nonuniform_b_convolution(knots::Tuple{Vararg{AbstractVector}},
     nu_params = ntuple(d -> nonuniform_b_params(kernel[d]), N)
     M_eqs = ntuple(d -> nu_params[d][1], N)
     h = ntuple(d -> one(T), N)
-    knots_new = ntuple(d -> collect(T, knots[d]), N)
+    knots_new = ntuple(d -> eltype(knots[d]) === T ? knots[d] : collect(T, knots[d]), N)
 
     nb_data = ntuple(N) do d
         if uniform_dims[d]
@@ -231,7 +233,7 @@ function _build_nonuniform_n3_convolution(knots::Tuple{Vararg{AbstractVector}},
     kernel = KS[1] == :a3 ? ntuple(d -> :n3, N) : KS
     eqs = (A0 || A1) ? ntuple(d -> 1, N) : ntuple(d -> 2, N)
     h = ntuple(d -> one(T), N)
-    knots_new = ntuple(d -> collect(T, knots[d]), N)
+    knots_new = ntuple(d -> eltype(knots[d]) === T ? knots[d] : collect(T, knots[d]), N)
 
     coefs, knots_expanded = if LZ || A0 || A1
         vs, ntuple(N) do d

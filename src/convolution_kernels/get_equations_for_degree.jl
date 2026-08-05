@@ -45,3 +45,15 @@ function get_equations_for_degree(degree::Symbol)
     haskey(DEGREE_TO_EQUATIONS, degree) || throw(ArgumentError("Degree $degree not supported. Supported degrees: $(sort(collect(keys(DEGREE_TO_EQUATIONS))))"))
     return DEGREE_TO_EQUATIONS[degree]
 end
+
+function _default_kernel(N::Int)
+    if N <= 2
+        return :b7
+    elseif N == 3
+        return :b5
+    elseif N <= 5
+        return :a4
+    else
+        return :a3
+    end
+end

@@ -12,7 +12,7 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
 - `vs`: Array of values at the grid points.
 
 # Keyword Arguments
-- `kernel::Symbol=:b5`: Convolution kernel to use.
+- `kernel::Symbol=:auto`: Convolution kernel to use (default is N-dependent to reflect tensor product cost).
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a4` (quartic), `:a5` (quintic), `:a7` (septic)
   - `b`-series: `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
 - `precompute::Int=101`: Resolution of the precomputed kernel table. The default uses
@@ -48,7 +48,7 @@ See also: [`convolution_interpolation`](@ref), [`ConvolutionInterpolation`](@ref
 
 function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}},
                                       vs::AbstractArray{T,N};
-                                      kernel::Union{Symbol,NTuple{N,Symbol}}=:b5,
+                                      kernel::Union{Symbol,NTuple{N,Symbol}}=:auto,
                                       precompute::Union{Int,NTuple{N,Int}}=101,
                                       bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect,
                                       derivative::Union{Int,NTuple{N,Int}}=0,
@@ -61,6 +61,7 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                     knots isa NTuple{N,AbstractVector} ?
                     ntuple(d -> eltype(knots[d]) === T ? knots[d] : T.(knots[d]), N) :
                     error("Invalid knots specification: $knots.")
+    kernel = kernel === :auto ? _default_kernel(N) : kernel
     kernels_tuple = kernel isa NTuple{N,Symbol} ? kernel :
                     kernel isa Symbol ? ntuple(_ -> kernel, N) :
                     kernel isa NTuple{1,Symbol} ? ntuple(_ -> kernel[1], N) :

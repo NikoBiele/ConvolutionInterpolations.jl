@@ -8,7 +8,7 @@ Create a convolution-based interpolation object with automatic optimization and 
 - `values`: Array of values at the grid points.
 
 # Keyword Arguments
-- `kernel::Symbol=:b5`: Convolution kernel to use.
+- `kernel::Symbol=:auto`: Convolution kernel to use (default is N-dependent to reflect tensor product cost).
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a4` (quartic), `:a5` (quintic), `:a7` (septic)
   - `b`-series: `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
   - Nonuniform-only: `:n3` (cubic)
@@ -78,7 +78,7 @@ See also: [`FastConvolutionInterpolation`](@ref), [`ConvolutionInterpolation`](@
 
 function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}},
         values::AbstractArray{T,N};
-        kernel::Union{Symbol,NTuple{N,Symbol}}=:b5, fast::Bool=true, precompute::Int=101,
+        kernel::Union{Symbol,NTuple{N,Symbol}}=:auto, fast::Bool=true, precompute::Int=101,
         extrap::Union{Symbol,AbstractExtrapolation}=Throw(),
         bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect,
         derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic,
@@ -90,6 +90,7 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
                     knots isa NTuple{N,AbstractVector} ?
                     ntuple(d -> eltype(knots[d]) === T ? knots[d] : T.(knots[d]), N) :
                     error("Invalid knots specification: $knots.")
+    kernel = kernel === :auto ? _default_kernel(N) : kernel
     kernels_tuple = kernel isa NTuple{N,Symbol} ? kernel :
                     kernel isa Symbol ? ntuple(_ -> kernel, N) :
                     kernel isa NTuple{1,Symbol} ? ntuple(_ -> kernel[1], N) :

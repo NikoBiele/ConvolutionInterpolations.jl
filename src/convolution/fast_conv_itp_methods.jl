@@ -5,7 +5,7 @@ function convolution_interpolation(knots::AbstractVector, values::Array{T,1}) wh
    return ConvolutionExtrapolation(
        _build_fast_uniform_convolution(knots_t, values,
            ((:detect, :detect),), (101,), false,
-           Val((:b5,)), Val(false), Val((0,)), Val((:cubic,))),
+           Val((:b7,)), Val(false), Val((0,)), Val((:cubic,))),
        Throw())
 end
 
@@ -14,7 +14,7 @@ function convolution_interpolation(knots::NTuple{1,AbstractVector}, values::Arra
     return ConvolutionExtrapolation(
         _build_fast_uniform_convolution(knots_t, values,
             ((:detect, :detect),), (101,), false,
-            Val((:b5,)), Val(false), Val((0,)), Val((:cubic,))),
+            Val((:b7,)), Val(false), Val((0,)), Val((:cubic,))),
         Throw())
 end
 
@@ -23,7 +23,7 @@ function convolution_interpolation(knots::NTuple{2,AbstractVector}, values::Arra
     return ConvolutionExtrapolation(
         _build_fast_uniform_convolution(knots_t, values,
             ((:detect, :detect), (:detect, :detect)), (101,101), false,
-            Val((:b5, :b5)), Val(false), Val((0, 0)), Val((:cubic, :cubic))),
+            Val((:b7, :b7)), Val(false), Val((0, 0)), Val((:cubic, :cubic))),
         Throw())
 end
 

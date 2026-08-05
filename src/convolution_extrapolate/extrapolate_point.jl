@@ -47,7 +47,7 @@ This creates a constant extension beyond the boundaries.
     clamped_x = zero(T)
     needs_extrapolation = false
     
-    lo, hi = _domain_bounds(itp, 1)
+    lo = etp.lo[1]; hi = etp.hi[1]
     if x < lo
         clamped_x = lo
         needs_extrapolation = true
@@ -104,7 +104,7 @@ end
     needs_extrapolation = false
     
     clamped_x = ntuple(N) do d
-        lo, hi = _domain_bounds(itp, d)
+        lo = etp.lo[d]; hi = etp.hi[d]
         if x[d] < lo
             lo
         elseif x[d] > hi

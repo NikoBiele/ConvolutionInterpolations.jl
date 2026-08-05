@@ -39,18 +39,15 @@ See also: [`convolution_interpolation`](@ref), [`extrapolate_point`](@ref), [`_d
         y = x  # x is already a tuple of scalars
         within_bounds = true
         for d in 1:N
-            lo, hi, tol = _domain_bounds_tol(itp, d)
-            if y[d] > hi + tol || y[d] < lo - tol
+            if y[d] > etp.hi[d] + etp.tol[d] || y[d] < etp.lo[d] - etp.tol[d]
                 within_bounds = false
                 break
             end
         end
 
         if within_bounds
-            yc = ntuple(N) do d
-                lo, hi, _ = _domain_bounds_tol(itp, d)
-                clamp(T(y[d]), lo, hi)
-            end
+            lo = etp.lo; hi = etp.hi
+            yc = ntuple(d -> clamp(T(y[d]), lo[d], hi[d]), Val(N))
             if N == 1
                 return itp(yc[1])
             else
@@ -78,18 +75,15 @@ end
     for (i, y) in zip(eachindex(ret), Iterators.product(x...))
         within_bounds = true
         for d in 1:N
-            lo, hi, tol = _domain_bounds_tol(itp, d)
-            if y[d] > hi + tol || y[d] < lo - tol
+            if y[d] > etp.hi[d] + etp.tol[d] || y[d] < etp.lo[d] - etp.tol[d]
                 within_bounds = false
                 break
             end
         end
 
         if within_bounds
-            yc = ntuple(N) do d
-                lo, hi, _ = _domain_bounds_tol(itp, d)
-                clamp(T(y[d]), lo, hi)
-            end
+            lo = etp.lo; hi = etp.hi
+            yc = ntuple(d -> clamp(T(y[d]), lo[d], hi[d]), Val(N))
             if N == 1
                 ret[i] = itp(yc[1])
             else
@@ -133,9 +127,3 @@ shape(v::AbstractVector, rest...) = (axes(v, 1), shape(rest...)...)
 shape(v::LinearAlgebra.Adjoint, rest...) = (axes(v, 1), shape(rest...)...)
 shape(v::StepRangeLen, rest...) = (axes(v, 1), shape(rest...)...)
 shape() = ()
-
-@inline function _domain_bounds_tol(itp::AbstractConvolutionInterpolation{T}, d) where T
-    lo, hi = _domain_bounds(itp, d)
-    tol = 8 * eps(T) * max(abs(lo), abs(hi), one(T))
-    return lo, hi, tol
-end

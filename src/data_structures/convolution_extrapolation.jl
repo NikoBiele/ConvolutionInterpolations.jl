@@ -28,4 +28,7 @@ the specified boundary condition to handle the extrapolation.
 struct ConvolutionExtrapolation{T,N,ITPT<:AbstractConvolutionInterpolation,ET<:AbstractExtrapolation}
     itp::ITPT
     et::ET
+    lo::NTuple{N,T}
+    hi::NTuple{N,T}
+    tol::NTuple{N,T}
 end

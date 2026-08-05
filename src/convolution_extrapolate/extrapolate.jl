@@ -19,6 +19,12 @@ parameters to ensure compatibility with both standard and fast interpolation imp
 # Recommendation
 These constructors are not simple to use manually, so it is recommended to use the `convolution_interpolation` function.
 """
+# function ConvolutionExtrapolation(itp::AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG}, et::ET) where {T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,ET}
+#     ConvolutionExtrapolation{T,N,typeof(itp),ET}(itp, et)
+# end
 function ConvolutionExtrapolation(itp::AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG}, et::ET) where {T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,ET}
-    ConvolutionExtrapolation{T,N,typeof(itp),ET}(itp, et)
+    lo = ntuple(d -> T(_domain_bounds(itp, d)[1]), N)
+    hi = ntuple(d -> T(_domain_bounds(itp, d)[2]), N)
+    tol = ntuple(d -> 8 * eps(T) * max(abs(lo[d]), abs(hi[d]), one(T)), N)
+    ConvolutionExtrapolation{T,N,typeof(itp),ET}(itp, et, lo, hi, tol)
 end

@@ -401,20 +401,6 @@ end
     return T
 end
 
-const max_smooth_derivative = Dict(
-  :a0 => -1,
-  :a1 => 0,
-  :a3 => 1,
-  :a4 => 1,
-  :a5 => 1,
-  :a7 => 1,
-  :b5 => 3,
-  :b7 => 4,
-  :b9 => 5,
-  :b11 => 6,
-  :b13 => 6
-)
-
 function _compute_left_values(T, eqs, n_coefs_d, kernel_pre, kernel_d1_pre, kernel_d2_pre, sg)
     n_pre_loc = size(kernel_pre, 1)
     h_pre_loc = one(T) / T(n_pre_loc - 1)
@@ -484,9 +470,9 @@ end
             end
         # derivative direction
         else # if dv >= 1
-            max_deriv = get(ConvolutionInterpolations.max_smooth_derivative, k, 0)
+            max_deriv = get(ConvolutionInterpolations._max_shipped_derivative, k, 0)
             available = max_deriv - dv
-            if available <= 0 || (N == 3 && !all_cubic_subgrid) || 
+            if available < 0 || (N == 3 && !all_cubic_subgrid) || 
                         N >= 4 || a0_a1_kernel_present || has_integral_dim
                 :linear
             else

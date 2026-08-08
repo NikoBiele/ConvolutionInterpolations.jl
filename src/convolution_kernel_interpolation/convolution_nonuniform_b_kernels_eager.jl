@@ -54,7 +54,7 @@ in `weight_coeffs[k]`, where `k` is the interval index in the original (unexpand
 # NS is the stencil size, known at compile time via Val{NS}
 
 @inline function _nb_dim(knots_expanded::AbstractVector{T},
-                          weight_coeffs::Vector{Matrix{Float64}},
+                          weight_coeffs::Vector{<:AbstractMatrix{<:AbstractFloat}},
                           M_eqs::Int, x_val::Number, 
                           ::Val{NS}) where {T, NS}
     n_exp = length(knots_expanded)
@@ -102,7 +102,7 @@ end
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
                     KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG,
-                    NB<:Tuple{Vector{Matrix{Float64}}}}
+                    NB<:Tuple{Vector{<:AbstractMatrix{<:AbstractFloat}}}}
 
     x = T.(x)
     M_eqs = _nb_M_eqs_perdim(itp.kernel_sym, 1)
@@ -125,7 +125,7 @@ end
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG,
-                    NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
+                    NB<:NTuple{2,Vector{<:AbstractMatrix{<:AbstractFloat}}}}
 
     x = T.(x)
     M_eqs_x = _nb_M_eqs_perdim(itp.kernel_sym, 1)
@@ -154,7 +154,7 @@ end
                     KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     DO,FD,SD,SG,
-                    NB<:Tuple{Vector{Matrix{Float64}},Vector{Matrix{Float64}},Vector{Matrix{Float64}}}}
+                    NB<:NTuple{3,Vector{<:AbstractMatrix{<:AbstractFloat}}}}
 
     x = T.(x)
     M_eqs_x = _nb_M_eqs_perdim(itp.kernel_sym, 1)
@@ -188,7 +188,7 @@ end
                     Axs<:Tuple{Vararg{AbstractVector}},
                     KA<:Tuple{Vararg{Nothing}},DG,EQ<:Tuple{Vararg{Int}},
                     KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG,
-                    NB<:Tuple{Vararg{Vector{Matrix{Float64}}}}}
+                    NB<:Tuple{Vararg{Vector{<:AbstractMatrix{<:AbstractFloat}}}}} # Float64
 
     x = T.(x)
     M_eqs_d = ntuple(d -> _nb_M_eqs_perdim(itp.kernel_sym, d), N)

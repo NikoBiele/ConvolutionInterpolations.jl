@@ -15,7 +15,6 @@ include("kernel_b9.jl")
 include("kernel_b11.jl")
 include("kernel_b13.jl")
 
-# function get_shipped_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) where T
 function _build_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) where T
     pre_range = T.(PRE_RANGE_101)
     if degree == :a0
@@ -136,6 +135,11 @@ function _build_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) where 
         elseif derivative == 3
             kp = T.(KERNEL_PRE_b7_d3)
             kd1 = T.(KERNEL_D1_PRE_b7_d3)
+            kd2 = T.(KERNEL_D2_PRE_b7_d3)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 4
+            kp = T.(KERNEL_PRE_b7_d4)
+            kd1 = T.(KERNEL_D1_PRE_b7_d4)
             kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
@@ -168,6 +172,11 @@ function _build_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) where 
         elseif derivative == 4
             kp = T.(KERNEL_PRE_b9_d4)
             kd1 = T.(KERNEL_D1_PRE_b9_d4)
+            kd2 = T.(KERNEL_D2_PRE_b9_d4)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 5
+            kp = T.(KERNEL_PRE_b9_d5)
+            kd1 = T.(KERNEL_D1_PRE_b9_d5)
             kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
@@ -205,6 +214,11 @@ function _build_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) where 
         elseif derivative == 5
             kp = T.(KERNEL_PRE_b11_d5)
             kd1 = T.(KERNEL_D1_PRE_b11_d5)
+            kd2 = T.(KERNEL_D2_PRE_b11_d5)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 6
+            kp = T.(KERNEL_PRE_b11_d6)
+            kd1 = T.(KERNEL_D1_PRE_b11_d6)
             kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end
@@ -242,6 +256,11 @@ function _build_kernel_tables(degree::Symbol, derivative::Int, ::Type{T}) where 
         elseif derivative == 5
             kp = T.(KERNEL_PRE_b13_d5)
             kd1 = T.(KERNEL_D1_PRE_b13_d5)
+            kd2 = T.(KERNEL_D2_PRE_b13_d5)
+            return pre_range, kp, kd1, kd2
+        elseif derivative == 6
+            kp = T.(KERNEL_PRE_b13_d6)
+            kd1 = T.(KERNEL_D1_PRE_b13_d6)
             kd2 = Matrix{T}(undef, 0, 0)
             return pre_range, kp, kd1, kd2
         end

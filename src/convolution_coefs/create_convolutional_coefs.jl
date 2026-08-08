@@ -223,7 +223,7 @@ const BC_W6 = (1.0, -6.0, 15.0, -20.0, 15.0, -6.0, 1.0)
 const BC_W8 = (1.0, -8.0, 28.0, -56.0, 70.0, -56.0, 28.0, -8.0, 1.0)
 
 @inline function _bc_diff_scan(::Type{T}, y, base::Int, step::Int, nwin::Int,
-                               W::NTuple{M,Float64}, tol) where {T,M}
+                               W::NTuple{M,AbstractFloat}, tol) where {T,M}
     k = M - 1
     Tacc = promote_type(T, Float64)
     @inbounds for start in 0:(nwin - k - 1)

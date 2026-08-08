@@ -6,15 +6,15 @@ High-order interpolation, differentiation, integration and smoothing on discrete
 
 ## Why ConvolutionInterpolations.jl?
 
-ConvolutionInterpolations.jl uses a new family of high-order convolution kernels to provide a single unified interface for interpolation, differentiation, integration and smoothing - from nearest-neighbor to C⁶ smooth 13th-degree polynomial kernels, on uniform and non-uniform grids, in any number of dimensions.
+ConvolutionInterpolations.jl uses a new family of high-order convolution kernels to provide a single unified interface for interpolation, differentiation, integration and smoothing - from nearest-neighbor to C¹¹ smooth 13th-degree polynomial kernels, on uniform and non-uniform grids, in any number of dimensions.
 
-- **High accuracy by default**: The default `:b5` kernel gives 7th-order convergence
+- **High accuracy kernels**: 7th order convergence for uniform, up to 14th order for non-uniform
 - **Uniform grids**: Uniform grids use optimized precomputed kernels
 - **Non-uniform grids**: Non-uniform grids are detected automatically
 - **O(1) evaluation (uniform)**: Query time is independent of grid size with allocation-free evaluation
 - **N-dimensional**: Separable kernel design scales naturally from 1D to arbitrary dimensions
 - **Simple API**: A single interface covers nearest-neighbor through 13th-degree polynomial kernels
-- **Derivatives up to 6th order**: Analytically differentiated kernels, stable and allocation-free
+- **Derivatives up to 7th order**: Analytically differentiated kernels, stable and allocation-free
 - **Antiderivative support (uniform)**: Compute 7th order accurate smooth indefinite integrals
 - **Scattered data gridding**: Nearest-neighbor gridding of unstructured data with `scattered_to_grid`
 - **Gaussian smoothing**: Recover clean signals from noisy data with `convolution_smooth`
@@ -37,7 +37,7 @@ using ConvolutionInterpolations, Plots
 # Sparse sampling: 6 samples sine wave
 x = range(0, 2π, length=6)
 y = sin.(x)
-itp = convolution_interpolation(x, y) # default :b5 kernel
+itp = convolution_interpolation(x, y) # default :b7 kernel
 
 x_fine = range(0, 2π, length=200)
 p1 = plot(x_fine, sin.(x_fine), label="True function: sin(x)")
@@ -113,11 +113,6 @@ use `convolution_gaussian` directly (works in higher dimensions too):
 
 ```julia
 itp = convolution_gaussian(x, y_noisy, 0.1)  # returns an interpolant
-itp(1.5)                                       # evaluate anywhere
-For point-wise Gaussian smoothing that also supports evaluation at arbitrary locations, use `convolution_gaussian` directly (works in higher dimensions too):
-
-```julia
-itp = convolution_gaussian(x, y_noisy, 0.1)  # returns an interpolant
 itp(1.5)                                     # evaluate anywhere
 ```
 
@@ -154,9 +149,9 @@ Resampling is separable and allocation-free in the inner loop, with alloc count 
 
 | Grid | Time |
 |------|------|
-| 1D 50→100 | 3.1 μs |
-| 2D 30²→60² | 192 μs |
-| 3D 20³→40³ | 4.1 ms |
+| 1D 50→100 | 3 μs |
+| 2D 30²→60² | 189 μs |
+| 3D 20³→40³ | 4.2 ms |
 
 Derivatives can be resampled simultaneously:
 
@@ -228,7 +223,8 @@ the signal's features and the mean spacing between scattered points.
 ### Non-uniform Grid Interpolation
 
 Non-uniform grids are detected automatically if an irregular vector of knots is passed.
-All `:b` kernels support non-uniform grids with full 7th-order accuracy and derivatives up to 6th order.
+All :b kernels support non-uniform grids, with convergence order degree+1,
+from 6th order (:b5) up to 14th order (:b13), and derivatives up to 7th order.
 
 ```julia
 x = [0.0, 0.15, 0.4, 0.7, 1.5, 2.5, 3.8, 4.2, 4.6, 4.8, 5.0,
@@ -289,14 +285,14 @@ Evaluation cost scales as (stencil)ᴺ across dimensions due to tensor product s
 
 `convolution_resample` is faster than constructing a full interpolant and evaluating
 at each output point, with the advantage growing with dimension. Note that the default
-kernel for `convolution_resample` is `:b13` while `convolution_interpolation` defaults
-to `:b5`, so resampling also provides higher accuracy by default:
+kernel for `convolution_resample` is `:b13` while `convolution_interpolation` uses the
+dimension-dependent default kernel, so resampling also provides higher accuracy by default:
 
-| Grid | `convolution_resample` (:b13) | construct + eval (:b5) | Speedup |
-|------|----------------------|------------------|---------|
-| 1D 500→1000 | 24 μs | 29 μs | 1.2× |
-| 2D 100²→200² | 2.0 ms | 7.0 ms | 3.5× |
-| 3D 30³→60³ | 14 ms | 2,302 ms | 164× |
+| Grid | `convolution_resample` (:b13) | construct + eval (default kernel) | Speedup |
+|------|------------------------------|-----------------------------------|---------|
+| 1D 500→1000 | 25 μs | 31 μs | 1.2× |
+| 2D 100²→200² | 2.0 ms | 8.0 ms | 4.0× |
+| 3D 30³→60³ | 14 ms | 2.27 s | 160× |
 
 ## Kernel Reference
 
@@ -313,10 +309,10 @@ Uniform grid kernels
 | `:a5`  | 5      | C¹         | -1..1            | ~3rd order  | 6ᴺ   |
 | `:a7`  | 7      | C¹         | -1..1            | ~3rd order  | 8ᴺ   |
 | `:b5`  | 5      | C³         | -1..3            | 7th order   | 10ᴺ   |
-| `:b7`  | 7      | C⁴         | -1..4            | 7th order   | 12ᴺ   |
-| `:b9`  | 9      | C⁵         | -1..5            | 7th order   | 14ᴺ   |
-| `:b11` | 11     | C⁶         | -1..6            | 7th order   | 16ᴺ   |
-| `:b13` | 13     | C⁶         | -1..6            | 7th order   | 18ᴺ   |
+| `:b7`  | 7      | C⁵         | -1..5            | 7th order   | 12ᴺ   |
+| `:b9`  | 9      | C⁷         | -1..6            | 7th order   | 14ᴺ   |
+| `:b11` | 11     | C⁹         | -1..7            | 7th order   | 16ᴺ   |
+| `:b13` | 13     | C¹¹        | -1..7            | 7th order   | 18ᴺ   |
 
 Non-uniform grid kernels
 
@@ -325,16 +321,21 @@ Non-uniform grid kernels
 | `:a0`  | 0      | —          | —                | 1st order   | 2ᴺ  |
 | `:a1`  | 1      | C⁰         | 0..0             | 2nd order   | 2ᴺ  |
 | `:n3`  | 3      | C¹         | 0..0             | ~3rd order  | 4ᴺ  |
-| `:b5`  | 5      | C³         | 0..3             | 7th order   | 10ᴺ |
-| `:b7`  | 7      | C⁴         | 0..4             | 7th order   | 12ᴺ |
-| `:b9`  | 9      | C⁵         | 0..5             | 7th order   | 14ᴺ |
-| `:b11` | 11     | C⁶         | 0..6             | 7th order   | 16ᴺ |
-| `:b13` | 13     | C⁶         | 0..6             | 7th order   | 18ᴺ |
+| `:b5`  | 5      | C³         | 0..3             | ~6th order   | 10ᴺ |
+| `:b7`  | 7      | C⁵         | 0..5             | ~8th order   | 12ᴺ |
+| `:b9`  | 9      | C⁷         | 0..6             | ~10th order   | 14ᴺ |
+| `:b11` | 11     | C⁹         | 0..7             | ~12th order   | 16ᴺ |
+| `:b13` | 13     | C¹¹        | 0..7             | ~14th order   | 18ᴺ |
 
-The default kernel is `:b5`, which provides 7th-order accuracy and C³ continuity.
+The default kernel is `:b7`, which provides at least 7th-order accuracy and C⁵ continuity.
 It works across all modes: uniform, non-uniform, derivatives, antiderivative, lazy, and
 arbitrary dimensions. The non-uniform `:n3` kernel uses cubic weights equivalent to
 non-uniform Catmull-Rom splines with ~3rd order convergence.
+
+The non-uniform b-kernels converge at order degree+1 rather than the uniform design order of 7: 
+the per-interval construction enforces polynomial reproduction up to each kernel's full degree, 
+so convergence order tracks degree directly. For :b7 and above this exceeds the uniform rate; 
+:b5 is the one kernel that converges slightly slower non-uniformly (6th vs 7th order).
 
 ### Boundary Conditions
 
@@ -371,7 +372,9 @@ itp_d1 = convolution_interpolation(x, y; derivative=1);  # cos(x)
 itp_d2 = convolution_interpolation(x, y; derivative=2);  # -sin(x)
 ```
 
-The maximum supported derivative order is determined by the kernel's continuity class (see [Kernel Reference](#available-kernels)).
+The kernels are C^(degree−2) smooth, but the shipped fast-path derivative range stops
+at the highest order that remains accurate in Float64: beyond it, the chain-rule 
+factor (1/h)ⁿ amplifies roundoff past the signal (see [Kernel Reference](#available-kernels)).
 
 In multiple dimensions, `derivative=1` applies the derivative kernel along all dimensions simultaneously, producing the mixed partial derivative:
 
@@ -596,7 +599,7 @@ Benchmarks in the [Speed](#speed) section use the default `:cubic` subgrid.
 
 ## Performance Guidelines
 
-- **Default `:b5` works everywhere**: 7th-order accuracy on uniform grids, non-uniform grids, high-order derivatives
+- **Default `:b7` works everywhere**: 7th-order accuracy on uniform grids, non-uniform grids, high-order derivatives
 - **Use `lazy=true` in high dimensions**: Skips ghost point expansion, reducing construction time and memory
 - **Use `:a0`, `:a1` or `:a3` in high dimensions**: Evaluation time of narrower kernels scale better with dimensions
 - **Pre-shipped kernel tables**: The default `precompute=101` with `:cubic` or `:quintic` subgrid loads precomputed constants

@@ -31,9 +31,9 @@ end
 
 # Top derivative: only :linear subgrid is possible, not shipped
 const _max_shipped_derivative = Dict(
-    :a0 => 0, :a1 => 0,
+    :a0 => -1, :a1 => 0,
     :a3 => 0, :a4 => 0, :a5 => 0, :a7 => 0,
-    :b5 => 2, :b7 => 3, :b9 => 4, :b11 => 5, :b13 => 5,
+    :b5 => 2, :b7 => 4, :b9 => 5, :b11 => 6, :b13 => 6,
 )
 
 _is_top_derivative(degree::Symbol, derivative::Int) =

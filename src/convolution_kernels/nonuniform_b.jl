@@ -55,7 +55,8 @@ function _get_kernel_rational_coefs(degree::Symbol, derivative::Int=0)
         derivative == 2 ? b7_coefs_d2 :
         derivative == 3 ? b7_coefs_d3 :
         derivative == 4 ? b7_coefs_d4 :
-        error("b7: derivative order $derivative not available (max 4)")
+        derivative == 5 ? b7_coefs_d5 :
+        error("b7: derivative order $derivative not available (max 5)")
     elseif degree == :b9
         derivative == 0 ? b9_coefs :
         derivative == 1 ? b9_coefs_d1 :
@@ -63,7 +64,8 @@ function _get_kernel_rational_coefs(degree::Symbol, derivative::Int=0)
         derivative == 3 ? b9_coefs_d3 :
         derivative == 4 ? b9_coefs_d4 :
         derivative == 5 ? b9_coefs_d5 :
-        error("b9: derivative order $derivative not available (max 5)")
+        derivative == 6 ? b9_coefs_d6 :
+        error("b9: derivative order $derivative not available (max 7)")
     elseif degree == :b11
         derivative == 0 ? b11_coefs :
         derivative == 1 ? b11_coefs_d1 :
@@ -72,7 +74,8 @@ function _get_kernel_rational_coefs(degree::Symbol, derivative::Int=0)
         derivative == 4 ? b11_coefs_d4 :
         derivative == 5 ? b11_coefs_d5 :
         derivative == 6 ? b11_coefs_d6 :
-        error("b11: derivative order $derivative not available (max 6)")
+        derivative == 7 ? b11_coefs_d7 :
+        error("b11: derivative order $derivative not available (max 9)")
     elseif degree == :b13
         derivative == 0 ? b13_coefs :
         derivative == 1 ? b13_coefs_d1 :
@@ -81,7 +84,8 @@ function _get_kernel_rational_coefs(degree::Symbol, derivative::Int=0)
         derivative == 4 ? b13_coefs_d4 :
         derivative == 5 ? b13_coefs_d5 :
         derivative == 6 ? b13_coefs_d6 :
-        error("b13: derivative order $derivative not available (max 6)")
+        derivative == 7 ? b13_coefs_d7 :
+        error("b13: derivative order $derivative not available (max 11)")
     else
         error("_get_kernel_rational_coefs: unsupported kernel $degree")
     end
@@ -118,107 +122,112 @@ The three key operations for derivative support:
 """
 function precompute_nonuniform_b_interval(knots_r::Vector{Rational{BigInt}}, i::Int,
                                            kernel_coefs::Dict{Int,Vector{Rational{BigInt}}},
-                                           M_eqs::Int, p_deg::Int, derivative::Int)
-    R = Rational{BigInt}
-    n_stencil = 2 * M_eqs
-    n_poly = p_deg + 1
-    h0 = knots_r[i+1] - knots_r[i]
+                                           M_eqs::Int, p_deg::Int, derivative::Int;
+                                           precision_bits=256)
+    setprecision(BigFloat, precision_bits) do
+        T = BigFloat # Rational{BigInt}
+        n_stencil = 2 * M_eqs
+        n_poly = p_deg + 1
+        h0 = knots_r[i+1] - knots_r[i]
 
-    # Node positions relative to knots[i]
-    nodes = [knots_r[i - M_eqs + j] - knots_r[i] for j in 1:n_stencil]
+        # Node positions relative to knots[i]
+        nodes = [knots_r[i - M_eqs + j] - knots_r[i] for j in 1:n_stencil]
 
-    # ── Step 1: Target weights as exact polynomials in s ──
-    target = zeros(R, n_stencil, n_poly)
+        # ── Step 1: Target weights as exact polynomials in s ──
+        target = zeros(T, n_stencil, n_poly)
 
-    for j in 1:n_stencil
-        d_j = nodes[j] // h0
+        for j in 1:n_stencil
+            d_j = nodes[j] // h0
 
-        if d_j >= 1
-            offset = d_j; sgn = R(-1)
-        else
-            offset = -d_j; sgn = R(1)
-        end
+            if d_j >= 1
+                offset = d_j; sgn = T(-1)
+            else
+                offset = -d_j; sgn = T(1)
+            end
 
-        t_at_0, t_at_1 = offset, offset + sgn
-        t_min, t_max = minmax(t_at_0, t_at_1)
+            t_at_0, t_at_1 = offset, offset + sgn
+            t_min, t_max = minmax(t_at_0, t_at_1)
 
-        # Find kernel piece containing [t_min, t_max]
-        piece = 0
-        for p in 1:M_eqs
-            if t_min >= p - 1 && t_max <= p
-                piece = p
-                break
+            # Find kernel piece containing [t_min, t_max]
+            piece = 0
+            for p in 1:M_eqs
+                if t_min >= p - 1 && t_max <= p
+                    piece = p
+                    break
+                end
+            end
+
+            piece == 0 && continue  # outside support → zero weight
+
+            # Binomial expansion of K^(n)(offset + sgn·s)
+            # The stored d_n coefficients c[k] represent t^(k-derivative):
+            #   K^(n)(t) = Σ_{k≥derivative} c[k] · t^(k-derivative)
+            # Substituting t = offset + sgn·s and expanding via binomial theorem:
+            c = kernel_coefs[piece]
+            for k in derivative:(length(c)-1)   # 0-based coefficient index
+                c_k = c[k+1]                    # 1-based Julia indexing
+                c_k == 0 && continue
+                actual_power = k - derivative    # true power of t in K^(n)
+                for m in 0:actual_power
+                    binom = T(binomial(BigInt(actual_power), BigInt(m)))
+                    target[j, m+1] += c_k * binom * offset^(actual_power - m) * sgn^m
+                end
+            end
+
+            # Sign correction for odd derivatives:
+            # K^(n)(|t|) · sign(t)^n where sign(t) = sign(s - d_j) = sgn
+            if isodd(derivative)
+                for m in 1:n_poly
+                    target[j, m] *= sgn
+                end
             end
         end
 
-        piece == 0 && continue  # outside support → zero weight
-
-        # Binomial expansion of K^(n)(offset + sgn·s)
-        # The stored d_n coefficients c[k] represent t^(k-derivative):
-        #   K^(n)(t) = Σ_{k≥derivative} c[k] · t^(k-derivative)
-        # Substituting t = offset + sgn·s and expanding via binomial theorem:
-        c = kernel_coefs[piece]
-        for k in derivative:(length(c)-1)   # 0-based coefficient index
-            c_k = c[k+1]                    # 1-based Julia indexing
-            c_k == 0 && continue
-            actual_power = k - derivative    # true power of t in K^(n)
-            for m in 0:actual_power
-                binom = R(binomial(BigInt(actual_power), BigInt(m)))
-                target[j, m+1] += c_k * binom * offset^(actual_power - m) * sgn^m
+        # ── Step 2: Reproduction projection (exact) ──
+        # Normalized nodes ξ_j = node_j / h0 — O(M_eqs) magnitudes regardless of mesh size
+        ξ = [nodes[j] // h0 for j in 1:n_stencil]
+        V = zeros(T, n_stencil, n_poly)
+        for j in 1:n_stencil
+            V[j,1] = T(1)
+            for m in 2:n_poly
+                V[j,m] = V[j,m-1] * ξ[j]
             end
         end
 
-        # Sign correction for odd derivatives:
-        # K^(n)(|t|) · sign(t)^n where sign(t) = sign(s - d_j) = sgn
-        if isodd(derivative)
-            for m in 1:n_poly
-                target[j, m] *= sgn
+        # Build E: reproduction target
+        # E[moment_row, s_power_col]: what Σ w_j · node_j^m should equal as polynomial in s
+        #
+        # For derivative=0: E[m, m] = h₀^m  (diagonal)
+        #   → Σ w_j · node_j^m = (h₀·s)^m
+        #
+        # For derivative=n: E[m, m-n] = falling(m,n) · h₀^m  (for m ≥ n)
+        #   → (1/h₀)^n · Σ w_j · node_j^m = falling(m,n) · (h₀·s)^(m-n)
+        #   → Σ w_j · node_j^m = falling(m,n) · h₀^m · s^(m-n)
+        E = zeros(T, n_poly, n_poly)
+
+        for m_row in 1:n_poly   # m_row = moment + 1 (1-based, 0-based power = m_row-1)
+            power = m_row - 1   # 0-based exponent
+            if power < derivative
+                continue         # falling factorial is zero for power < derivative
             end
+            # falling(power, derivative) = power · (power-1) · ... · (power-derivative+1)
+            falling = T(1)
+            for k in 0:derivative-1
+                falling *= (power - k)
+            end
+            s_power = power - derivative   # 0-based power of s
+            s_col = s_power + 1            # 1-based column in E
+            E[m_row, s_col] = falling #* h0^power
         end
+
+        # Projection: coeffs = target - V · Λ where Λ = (V'V)⁻¹ (V'·target - E)
+        F = qr(V)
+        Λ = (F.R' * F.R) \ (V' * target - E)
+        coeffs_rational = target - V * Λ
+
+        # Convert to Float64 for fast evaluation
+        return Float64.(coeffs_rational)
     end
-
-    # ── Step 2: Reproduction projection (exact) ──
-    V = zeros(R, n_stencil, n_poly)
-    for j in 1:n_stencil
-        V[j,1] = R(1)
-        for m in 2:n_poly
-            V[j,m] = V[j,m-1] * nodes[j]
-        end
-    end
-
-    # Build E: reproduction target
-    # E[moment_row, s_power_col]: what Σ w_j · node_j^m should equal as polynomial in s
-    #
-    # For derivative=0: E[m, m] = h₀^m  (diagonal)
-    #   → Σ w_j · node_j^m = (h₀·s)^m
-    #
-    # For derivative=n: E[m, m-n] = falling(m,n) · h₀^m  (for m ≥ n)
-    #   → (1/h₀)^n · Σ w_j · node_j^m = falling(m,n) · (h₀·s)^(m-n)
-    #   → Σ w_j · node_j^m = falling(m,n) · h₀^m · s^(m-n)
-    E = zeros(R, n_poly, n_poly)
-
-    for m_row in 1:n_poly   # m_row = moment + 1 (1-based, 0-based power = m_row-1)
-        power = m_row - 1   # 0-based exponent
-        if power < derivative
-            continue         # falling factorial is zero for power < derivative
-        end
-        # falling(power, derivative) = power · (power-1) · ... · (power-derivative+1)
-        falling = R(1)
-        for k in 0:derivative-1
-            falling *= (power - k)
-        end
-        s_power = power - derivative   # 0-based power of s
-        s_col = s_power + 1            # 1-based column in E
-        E[m_row, s_col] = falling * h0^power
-    end
-
-    # Projection: coeffs = target - V · Λ where Λ = (V'V)⁻¹ (V'·target - E)
-    VtV = V' * V
-    Λ = VtV \ (V' * target - E)
-    coeffs_rational = target - V * Λ
-
-    # Convert to Float64 for fast evaluation
-    return Float64.(coeffs_rational)
 end
 
 
@@ -258,8 +267,9 @@ function precompute_nonuniform_b_all(knots::AbstractVector{T}, degree::Symbol,
     kernel_coefs = _get_kernel_rational_coefs(degree, derivative)
 
     # Precompute for each interval
+    # weight_coeffs = Vector{Matrix{Float64}}(undef, n_intervals)
     weight_coeffs = Vector{Matrix{Float64}}(undef, n_intervals)
-    for k in 1:n_intervals
+    Threads.@threads for k in 1:n_intervals
         i = k + M_eqs  # index in expanded knots (1-based)
         weight_coeffs[k] = precompute_nonuniform_b_interval(
             knots_exp_r, i, kernel_coefs, M_eqs, p_deg, derivative)

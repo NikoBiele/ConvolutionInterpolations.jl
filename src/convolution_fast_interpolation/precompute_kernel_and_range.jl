@@ -86,21 +86,6 @@ function precompute_kernel_and_range(degree::Symbol;
       end
     elseif degree == :b7
       # b7 kernel
-      if derivative in [0, 1, 2]
-        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
-        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range_exact)
-        kernel_d2_pre = precompute_kernel(F, degree, derivative+2, eqs, precompute, pre_range_exact)
-        return pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre
-      elseif derivative == 3
-        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
-        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range_exact)
-        return pre_range, kernel_pre, kernel_d1_pre, Matrix{T}(undef, 0, 0)
-      else # derivative == 4
-        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
-        return pre_range, kernel_pre, Matrix{T}(undef, 0, 0), Matrix{T}(undef, 0, 0)
-      end
-    elseif degree == :b9
-      # b9 kernel
       if derivative in [0, 1, 2, 3]
         kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
         kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range_exact)
@@ -110,37 +95,52 @@ function precompute_kernel_and_range(degree::Symbol;
         kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
         kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range_exact)
         return pre_range, kernel_pre, kernel_d1_pre, Matrix{T}(undef, 0, 0)
-      else # derivative == 5 && degree == :b9
+      else # derivative == 5
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
+        return pre_range, kernel_pre, Matrix{T}(undef, 0, 0), Matrix{T}(undef, 0, 0)
+      end
+    elseif degree == :b9
+      # b9 kernel
+      if derivative in [0, 1, 2, 3, 4]
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
+        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range_exact)
+        kernel_d2_pre = precompute_kernel(F, degree, derivative+2, eqs, precompute, pre_range_exact)
+        return pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre
+      elseif derivative == 5
+        kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
+        kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range_exact)
+        return pre_range, kernel_pre, kernel_d1_pre, Matrix{T}(undef, 0, 0)
+      else # derivative == 6
         kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
         return pre_range, kernel_pre, Matrix{T}(undef, 0, 0), Matrix{T}(undef, 0, 0)
       end
     elseif degree == :b11
       # b11 kernel
-      if derivative in [0, 1, 2, 3, 4]
+      if derivative in [0, 1, 2, 3, 4, 5]
         kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
         kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range_exact)
         kernel_d2_pre = precompute_kernel(F, degree, derivative+2, eqs, precompute, pre_range_exact)
         return pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre
-      elseif derivative == 5
+      elseif derivative == 6
         kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)        
         kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range_exact)
         return pre_range, kernel_pre, kernel_d1_pre, Matrix{T}(undef, 0, 0)
-      else # derivative == 6 && degree == :b11
+      else # derivative == 7
         kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
         return pre_range, kernel_pre, Matrix{T}(undef, 0, 0), Matrix{T}(undef, 0, 0)
       end
     elseif degree == :b13
       # b13 kernel
-      if derivative in [0, 1, 2, 3, 4]
+      if derivative in [0, 1, 2, 3, 4, 5]
         kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
         kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range_exact)
         kernel_d2_pre = precompute_kernel(F, degree, derivative+2, eqs, precompute, pre_range_exact)
         return pre_range, kernel_pre, kernel_d1_pre, kernel_d2_pre
-      elseif derivative == 5
+      elseif derivative == 6
         kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)        
         kernel_d1_pre = precompute_kernel(F, degree, derivative+1, eqs, precompute, pre_range_exact)
         return pre_range, kernel_pre, kernel_d1_pre, Matrix{T}(undef, 0, 0) 
-      else # derivative == 6 && degree == :b13
+      else # derivative == 7
         kernel_pre = precompute_kernel(F, degree, derivative, eqs, precompute, pre_range_exact)
         return pre_range, kernel_pre, Matrix{T}(undef, 0, 0), Matrix{T}(undef, 0, 0)
       end

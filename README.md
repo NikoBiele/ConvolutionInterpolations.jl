@@ -16,6 +16,7 @@ ConvolutionInterpolations.jl uses a new family of high-order convolution kernels
 - **Simple API**: A single interface covers nearest-neighbor through 13th-degree polynomial kernels
 - **Derivatives up to 7th order**: Analytically differentiated kernels, stable and allocation-free
 - **Antiderivative support (uniform)**: Compute 7th order accurate smooth indefinite integrals
+- **Scattered data interpolation**: Exact 7th-order interpolation of fully scattered data via `convolution_interpolation(points, values)`, with derivatives and near machine-precision box integrals
 - **Scattered data gridding**: Nearest-neighbor gridding of unstructured data with `scattered_to_grid`
 - **Gaussian smoothing**: Recover clean signals from noisy data with `convolution_smooth`
 - **Grid resampling**: High-order separable resampling with `convolution_resample`
@@ -163,9 +164,38 @@ z_dx = convolution_resample((x_coarse, y_coarse), (x_fine, y_fine), z_coarse;
 
 Antiderivatives (`derivative=-1`) are not supported with resampling, use `convolution_interpolation` with `derivative=-1` instead.
 
-### Scattered Data Pipeline
+### Scattered Data Interpolation (trusted data)
 
-For truly scattered (unstructured) data, grid it first with `scattered_to_grid`,
+If the scattered data is trusted, measurements the interpolant should pass
+through **exactly**, fit it directly. Pass a `D x N` matrix (each column one
+point) and a value vector; the result behaves like any gridded interpolant:
+
+```julia
+n = 800
+points = rand(2, n)
+values = [sin(3p[1]) * cos(2p[2]) for p in eachcol(points)]
+
+itp = convolution_interpolation(points, values)   # exact at every data point
+itp_dx = convolution_interpolation(points, values; derivative=(1, 0))
+
+# box integrals via the mixed antiderivative (inclusion-exclusion):
+I = convolution_interpolation(points, values; derivative=(-1, -1))
+box = I(0.9, 0.8) - I(0.1, 0.8) - I(0.9, 0.2) + I(0.1, 0.2)  # ~1e-13 accurate
+```
+
+Internally the kernel basis lives on a uniform grid over the data's bounding
+box; the data enter as exact constraints on the grid coefficients, so the
+full gridded machinery applies unchanged. Exact to ~1e-12 at the data,
+~7th-order convergence for quasi-uniform point sets; 1D–3D recommended.
+Options: `mode=:lsq` with a coarser `gridsize` for a least-squares fit of
+mildly noisy data; `solver=:cholesky` (default) / `:qr` (lowest floor);
+`fit_scattered(points, values)` returns the underlying `(knots, values)`.
+Strongly clustered data warns and degrades gracefully to least squares —
+for genuinely noisy or irregular data, use the pipeline below.
+
+### Scattered Data Pipeline (noisy data)
+
+For noisy scattered (unstructured) data, grid it first with `scattered_to_grid`,
 which assigns each grid node the value of its nearest scattered point (or the mean of
 its `k` nearest). This deliberately simple gridding introduces no structure of its own —
 its error is spatially uncorrelated, which is exactly what `convolution_smooth` removes
@@ -604,7 +634,8 @@ Benchmarks in the [Speed](#speed) section use the default `:cubic` subgrid.
 - **Use `:a0`, `:a1` or `:a3` in high dimensions**: Evaluation time of narrower kernels scale better with dimensions
 - **Pre-shipped kernel tables**: The default `precompute=101` with `:cubic` or `:quintic` subgrid loads precomputed constants
 - **Orthogonal grids assumption**: The separable kernel design requires mutually orthogonal grid axes.
-- **Use `scattered_to_grid` for unstructured data**: Nearest-neighbor gridding, ideal for subsequent smoothing
+- **Use `convolution_interpolation(points, values)` for trusted scattered data**: Exact 7th-order fit with derivatives and box integrals
+- **Use `scattered_to_grid` for noisy unstructured data**: Nearest-neighbor gridding, ideal for subsequent smoothing
 - **Use `convolution_smooth` before interpolating noisy data**: Separable Gaussian smoothing with B ≈ 0.1 recommended
 - **Use `convolution_resample` for grid-to-grid operations**: Faster than construct+eval, exploits separability
 

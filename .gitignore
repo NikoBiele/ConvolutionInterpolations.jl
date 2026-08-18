@@ -6,3 +6,5 @@
 /new_tester.jl
 /test_IDW_gridding.jl
 /test_Float32_compliance.jl
+/test_new_scatter_approach.jl
+/fit_scattered_check.jl

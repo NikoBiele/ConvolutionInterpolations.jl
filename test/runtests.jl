@@ -1,5 +1,5 @@
 using ConvolutionInterpolations
-using Test
+using Test, Random, StatsBase
 
 @testset "ConvolutionInterpolations.jl" begin
     include("test_constructors.jl")
@@ -29,5 +29,6 @@ using Test
     include("test_allocations.jl")
     include("test_scattered_to_grid.jl")
     include("test_resample.jl")
+    include("test_fit_scattered.jl")
     include("test_show.jl")
 end

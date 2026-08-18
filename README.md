@@ -120,7 +120,6 @@ itp(1.5)                                     # evaluate anywhere
 Requires `B ≤ 0.34`, since the kernel does not sum to unity between nodes.
 Above `0.34` the relative error between nodes exceeds `10⁻¹²`, so larger `B` errors.
 `convolution_smooth` evaluates on nodes only and is exact at any `B`.
-```
 
 ### Grid Resampling
 

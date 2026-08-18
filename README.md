@@ -17,7 +17,7 @@ ConvolutionInterpolations.jl uses a new family of high-order convolution kernels
 - **Derivatives up to 7th order**: Analytically differentiated kernels, stable and allocation-free
 - **Antiderivative support (uniform)**: Compute 7th order accurate smooth indefinite integrals
 - **Scattered data interpolation**: Exact 7th-order interpolation of fully scattered data via `convolution_interpolation(points, values)`, with derivatives and near machine-precision box integrals
-- **Scattered data gridding**: Nearest-neighbor gridding of unstructured data with `scattered_to_grid`
+- **Scattered data gridding**: Nearest-neighbor gridding of noisy unstructured data with `scattered_to_grid`
 - **Gaussian smoothing**: Recover clean signals from noisy data with `convolution_smooth`
 - **Grid resampling**: High-order separable resampling with `convolution_resample`
 

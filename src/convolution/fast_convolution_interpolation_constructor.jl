@@ -87,6 +87,16 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
     if any(==(:n3), kernels_tuple)
         error("The :n3 kernel is not supported by FastConvolutionInterpolation.")
     end
+    if !all(d -> is_uniform_grid(knots_tuple[d]), 1:N)
+        error("FastConvolutionInterpolation requires a uniform grid in every dimension.\n" *
+              "The fast kernels are precomputed on a uniform subgrid and cannot adapt " *
+              "their weights to nonuniform spacing.\n" *
+              "For nonuniform knots use either:\n" *
+              "       - convolution_interpolation(knots, values; ...), which selects the " *
+              "correct path automatically, or\n" *
+              "       - ConvolutionInterpolation(knots, values; ...), the slow constructor, " *
+              "whose kernels adjust their weights to nonuniform spacing.")
+    end
     if lazy && N >= 4 && !boundary_fallback
         error("Lazy mode requires 'boundary_fallback=true' for dimensions >= 4.")
     end

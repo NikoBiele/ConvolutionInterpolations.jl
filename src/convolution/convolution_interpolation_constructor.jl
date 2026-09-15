@@ -13,9 +13,12 @@ wraps this with extrapolation handling.
 - `kernel::Symbol=:auto`: Convolution kernel to use (default is N-dependent to reflect tensor product cost).
   - `a`-series (uniform): `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a4` (quartic), `:a5` (quintic), `:a7` (septic)
   - `b`-series (uniform and nonuniform): `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
-  - Nonuniform-only: `:n3` (cubic)
+  - `:n3` (cubic): the nonuniform implementation of `:a3`. `:a3` and `:n3` are interchangeable —
+    a uniform grid always evaluates with the fast `:a3` kernel, a nonuniform grid with the
+    `:n3` weights, whichever name is given.
   `:a0`, `:a1`, and all `b`-series kernels work on both uniform and nonuniform grids.
-  Higher `a`-series kernels (`:a3`, `:a4`, `:a5`, `:a7`) fall back to `:n3` on nonuniform grids.
+  `:a3` falls back to `:n3` on nonuniform grids (same order, nonuniform weights).
+  `:a4`, `:a5` and `:a7` are uniform-only and raise an error on nonuniform grids.
 - `bc=:detect`: Boundary condition for kernel evaluation at domain edges.
   Options: `:detect`, `:poly`, `:linear`, `:quadratic`.
 - `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
@@ -34,7 +37,7 @@ wraps this with extrapolation handling.
 # Grid handling
 Uniform and nonuniform grids are detected automatically per dimension. On nonuniform grids:
 - `:a0` and `:a1` work natively (no ghost points needed).
-- `:a3`, `:a4`, `:a5`, `:a7` silently fall back to `:n3`.
+- `:a3` falls back to `:n3` (same order, nonuniform weights); `:a4`, `:a5`, `:a7` raise an error.
 - `b`-series kernels use precomputed polynomial weights with full ghost point expansion.
 
 # Returns
@@ -63,6 +66,7 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
                     kernel isa Symbol ? ntuple(_ -> kernel, N) :
                     kernel isa NTuple{1,Symbol} ? ntuple(_ -> kernel[1], N) :
                     error("Invalid kernel specification: $kernel.")
+    kernels_tuple = n3_to_a3_on_uniform(kernels_tuple, knots_tuple)
     derivatives_tuple = derivative isa NTuple{N,Int} ? derivative :
                     derivative isa Int ? ntuple(_ -> derivative, N) :
                     derivative isa NTuple{1,Int} ? ntuple(_ -> derivative[1], N) : 
@@ -85,7 +89,7 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
 
     if all(uniform_dims)
         return _build_uniform_convolution(knots_tuple, vs, bcs_tuple,
-                            false, Val(kernel), Val(false), Val(derivatives_tuple))
+                            false, Val(kernels_tuple), Val(false), Val(derivatives_tuple))
     else
         all_b_kernels = all(d -> kernels_tuple[d] in (:b5, :b7, :b9, :b11, :b13), 1:N)
         all_n3_kernels = allequal(kernels_tuple) && (kernels_tuple[1] == :n3 || kernels_tuple[1] == :a3)

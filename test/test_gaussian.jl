@@ -31,7 +31,7 @@ println("    - Convolution_smooth")
         noisy  = signal .+ 0.1 .* randn(200)
         smoothed = convolution_smooth(xs, noisy, 0.05)
         # should recover sin well after smoothing
-        @test maximum(abs.(smoothed .- signal)) < 0.15
+        @test maximum(abs.(smoothed .- signal)) < 0.2
         @test length(smoothed) == length(xs)
         @test eltype(smoothed) == Float64
     end

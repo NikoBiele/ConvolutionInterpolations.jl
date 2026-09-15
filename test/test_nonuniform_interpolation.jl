@@ -92,3 +92,43 @@ end
         @test interpolated ≈ true_vals atol=tolerance_nu
     end
 end
+
+@testset ":n3 on a uniform grid routes to :a3" begin
+    x = range(0.0, 1.0, length = 41)
+    f = sin.(2π .* x)
+    itp_n3 = convolution_interpolation(x, f, kernel = :n3)
+    itp_a3 = convolution_interpolation(x, f, kernel = :a3)
+    for xq in range(0.05, 0.95, length = 19)
+        @test itp_n3(xq) == itp_a3(xq)
+    end
+    itp_ctor = ConvolutionInterpolation(x, f, kernel = :n3)
+    @test isapprox(itp_ctor(0.3), itp_a3(0.3), rtol = 1e-12)
+    xnu = collect(x); xnu[21] += 1e-6
+    @test_throws ErrorException FastConvolutionInterpolation(xnu, f, kernel = :n3)
+end
+
+
+@testset "FastConvolutionInterpolation rejects nonuniform grids" begin
+    x = collect(range(0.0, 1.0, length = 41))
+    x[21] += 1e-6
+    f = sin.(2π .* x)
+    @test_throws ErrorException FastConvolutionInterpolation(x, f, kernel = :b7)
+    # 2D: one nonuniform dimension is enough to reject
+    y = range(0.0, 1.0, length = 21)
+    g = [sin(2π * xi) * cos(2π * yi) for xi in x, yi in y]
+    @test_throws ErrorException FastConvolutionInterpolation((x, y), g, kernel = :b7)
+    # the same knots through the default constructor must still work
+    itp = convolution_interpolation(x, f, kernel = :b7)
+    @test isapprox(itp(0.3), sin(2π * 0.3), atol = 1e-6)
+end
+
+@testset "higher a-series kernels reject nonuniform grids" begin
+    x = collect(range(0.0, 1.0, length = 41))
+    x[21] += 1e-6
+    f = sin.(2π .* x)
+    for k in (:a4, :a5, :a7)
+        @test_throws ErrorException convolution_interpolation(x, f, kernel = k)
+    end
+    itp = convolution_interpolation(x, f, kernel = :a3)   # falls back to :n3
+    @test isapprox(itp(0.3), sin(2π * 0.3), atol = 5e-3)
+end

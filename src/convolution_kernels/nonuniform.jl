@@ -24,6 +24,21 @@ function is_uniform_grid(knots::AbstractVector{T}) where T
     return true
 end
 
+"""
+    n3_to_a3_on_uniform(kernels, knots)
+
+On a fully uniform grid the nonuniform cubic `:n3` reduces exactly to the
+uniform cubic `:a3`, which has a faster evaluator and a fast-path
+implementation. Remap `:n3` → `:a3` in every dimension when all grids are
+uniform; leave the kernels untouched otherwise (the nonuniform path handles
+mixed uniform/nonuniform dimensions).
+"""
+function n3_to_a3_on_uniform(kernels::NTuple{N,Symbol}, knots::NTuple{N,AbstractVector}) where N
+    any(==(:n3), kernels) || return kernels
+    all(d -> is_uniform_grid(knots[d]), 1:N) || return kernels
+    return ntuple(d -> kernels[d] == :n3 ? :a3 : kernels[d], N)
+end
+
 # ============================================================
 # Nonuniform cubic weights (Keys-like, Catmull-Rom equivalent)
 # ============================================================

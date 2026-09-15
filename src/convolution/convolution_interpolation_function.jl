@@ -11,9 +11,12 @@ Create a convolution-based interpolation object with automatic optimization and 
 - `kernel::Symbol=:auto`: Convolution kernel to use (default is N-dependent to reflect tensor product cost).
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a4` (quartic), `:a5` (quintic), `:a7` (septic)
   - `b`-series: `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
-  - Nonuniform-only: `:n3` (cubic)
+  - `:n3` (cubic): the nonuniform implementation of `:a3`. `:a3` and `:n3` are interchangeable —
+    a uniform grid always evaluates with the fast `:a3` kernel, a nonuniform grid with the
+    `:n3` weights, whichever name is given.
   `:a0`, `:a1`, and all `b`-series kernels work on both uniform and nonuniform grids.
-  Higher `a`-series kernels (`:a3`, `:a4`, `:a5`, `:a7`) fall back to `:n3` on nonuniform grids.
+  `:a3` falls back to `:n3` on nonuniform grids (same order, nonuniform weights).
+  `:a4`, `:a5` and `:a7` are uniform-only and raise an error on nonuniform grids.
 - `fast::Bool=true`: Use precomputed kernel tables for O(1) evaluation. Automatically
   disabled for nonuniform grids.
 - `precompute::Int=101`: Resolution of the precomputed kernel table. The default uses
@@ -95,6 +98,7 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
                     kernel isa Symbol ? ntuple(_ -> kernel, N) :
                     kernel isa NTuple{1,Symbol} ? ntuple(_ -> kernel[1], N) :
                     error("Invalid kernel specification: $kernel.")
+    kernels_tuple = n3_to_a3_on_uniform(kernels_tuple, knots_tuple)
     derivatives_tuple = derivative isa NTuple{N,Int} ? derivative :
                     derivative isa Int ? ntuple(_ -> derivative, N) :
                     derivative isa NTuple{1,Int} ? ntuple(_ -> derivative[1], N) : 

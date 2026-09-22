@@ -1,5 +1,6 @@
 module ConvolutionInterpolations
 
+using Artifacts
 using Scratch
 using Serialization
 using LinearAlgebra

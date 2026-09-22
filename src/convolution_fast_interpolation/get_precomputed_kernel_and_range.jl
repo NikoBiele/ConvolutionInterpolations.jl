@@ -4,8 +4,9 @@
 
 Retrieve precomputed kernel values for fast convolution interpolation.
 
-For `:cubic` and `:quintic` subgrid modes (default), uses pre-shipped kernel tables
-computed at exact rational precision. No disk I/O or caching required.
+For `:cubic` and `:quintic` subgrid modes (default), uses the kernel tables shipped
+as the `kernel_tables` artifact, computed at exact rational precision. Each table is
+read from the artifact once per session and then held in memory.
 
 For `:linear` subgrid, the top derivative of each kernel, or BigFloat
 precision, computes high-resolution tables on demand and caches them to disk.

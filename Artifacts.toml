@@ -1,0 +1,6 @@
+[kernel_tables]
+git-tree-sha1 = "fc84a3795342e2ba8a07e91b501c1203aad6a387"
+
+    [[kernel_tables.download]]
+    sha256 = "b0c8af1192fc118b91cb2b19cea5b3dcabfa7b188fc413705b7db65e13c48179"
+    url = "https://github.com/NikoBiele/ConvolutionInterpolations.jl/releases/download/kernel-tables-v1/kernel_tables-v1.tar.gz"

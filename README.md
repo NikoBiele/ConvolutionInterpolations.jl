@@ -616,7 +616,7 @@ itp = convolution_interpolation(x, y; subgrid=:linear, precompute=10_000); # Fas
 | `:cubic`   | Cubic Hermite        | 1                      | Middle  | High     |
 | `:quintic` | Quintic Hermite      | 2                      | Slowest | Highest  |
 
-Cubic and quintic subgrids use analytically predifferentiated kernels for Hermite interpolation, achieving high accuracy with far fewer precomputed points than linear subgrid requires. The default `:cubic` with `precompute=101` uses pre-shipped kernel tables requiring zero computation at startup. For linear subgrid, increase `precompute` to at least 10,000.
+Cubic and quintic subgrids use analytically predifferentiated kernels for Hermite interpolation, achieving high accuracy with far fewer precomputed points than linear subgrid requires. The default `:cubic` with `precompute=101` uses kernel tables shipped with the package as a Julia artifact, requiring no kernel computation at startup. For linear subgrid, increase `precompute` to at least 10,000.
 
 The available subgrid order depends on remaining smooth derivatives: `max_derivative[kernel] - derivative`. For example, b5 with `derivative=3` has no remaining derivatives, so only `:linear` is available.
 
@@ -631,7 +631,7 @@ Benchmarks in the [Speed](#speed) section use the default `:cubic` subgrid.
 - **Default `:b7` works everywhere**: 7th-order accuracy on uniform grids, non-uniform grids, high-order derivatives
 - **Use `lazy=true` in high dimensions**: Skips ghost point expansion, reducing construction time and memory
 - **Use `:a0`, `:a1` or `:a3` in high dimensions**: Evaluation time of narrower kernels scale better with dimensions
-- **Pre-shipped kernel tables**: The default `precompute=101` with `:cubic` or `:quintic` subgrid loads precomputed constants
+- **Pre-shipped kernel tables**: The default `precompute=101` with `:cubic` or `:quintic` subgrid loads precomputed tables shipped as a Julia artifact
 - **Orthogonal grids assumption**: The separable kernel design requires mutually orthogonal grid axes.
 - **Use `convolution_interpolation(points, values)` for trusted scattered data**: Exact 7th-order fit with derivatives and box integrals
 - **Use `scattered_to_grid` for noisy unstructured data**: Nearest-neighbor gridding, ideal for subsequent smoothing
@@ -644,7 +644,7 @@ This package introduces five main contributions:
 
 **b-series kernel family.** A new family of high-order convolution kernels (b5, b7, b9, b11, b13) discovered through systematic analytical search using symbolic computation (SymPy), generalizing the approach of R. G. Keys (1981). All b-series kernels achieve 7th order convergence. Kernel coefficients are stored as exact rational numbers, enabling extended precision arithmetic with BigFloat.
 
-**Hermite multilevel interpolation.** Rather than evaluating kernel polynomials directly, kernels are discretized at a small number of points (default 101) and shipped as package constants. Higher resolutions or non-standard precisions are computed on demand and cached to disk via Scratch.jl. During evaluation, data is convolved with these precomputed values, and the results are interpolated using cubic or quintic Hermite subgrid interpolation. This approach is both faster (`O(1)`) and more numerically stable than direct polynomial evaluation.
+**Hermite multilevel interpolation.** Rather than evaluating kernel polynomials directly, kernels are discretized at a small number of points (default 101) and shipped with the package as a Julia artifact. Higher resolutions or non-standard precisions are computed on demand and cached to disk via Scratch.jl. During evaluation, data is convolved with these precomputed values, and the results are interpolated using cubic or quintic Hermite subgrid interpolation. This approach is both faster (`O(1)`) and more numerically stable than direct polynomial evaluation.
 
 **Polynomial boundary conditions.** A boundary handling method that computes optimal ghost point values that preserve each kernel's polynomial reproduction properties. This maintains convergence order across the entire domain rather than degrading near boundaries.
 
@@ -675,7 +675,7 @@ Key differences from existing interpolation packages:
 - Persistent kernel caching for near-instant subsequent initialization
 - Hermite multilevel interpolation for combined speed and stability
 - Single interface from nearest-neighbor to 13th-degree kernels
-- Minimal dependencies (LinearAlgebra, Serialization, Scratch.jl, NearestNeighbors.jl)
+- Minimal dependencies (LinearAlgebra, Serialization, Artifacts, Scratch.jl, NearestNeighbors.jl)
 - Separable Gaussian smoothing for noisy data in any number of dimensions
 - Complete scattered-data-to-interpolant pipeline via nearest-neighbor gridding
 - Grid-to-grid resampling faster than construct+eval, with alloc count independent of grid size

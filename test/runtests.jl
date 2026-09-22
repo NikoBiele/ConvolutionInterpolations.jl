@@ -2,6 +2,7 @@ using ConvolutionInterpolations
 using Test, Random, StatsBase
 
 @testset "ConvolutionInterpolations.jl" begin
+    include("test_kernel_artifact.jl")
     include("test_constructors.jl")
     include("test_uniform_interpolation.jl")
     include("test_uniform_derivatives.jl")

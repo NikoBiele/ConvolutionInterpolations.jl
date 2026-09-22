@@ -7,7 +7,9 @@ Generate precomputed kernel values on a uniform grid for fast interpolation.
 This is the computation backend called by `_get_cached_kernel` when pre-shipped tables
 are not available (e.g. for `:linear` subgrid with high resolution, BigFloat precision,
 or top-derivative orders). For the default path (`precompute=101`, cubic/quintic subgrid,
-Float64), pre-shipped constant tables are used instead and this function is not called.
+Float64), the tables shipped as the `kernel_tables` artifact are used instead and this
+function is not called. The artifact itself is built from this function by
+`gen/build_kernel_artifact.jl`.
 
 # Arguments
 - `degree::Symbol`: Kernel type (`:a0`, `:a1`, `:a3`, `:b5`, etc.)

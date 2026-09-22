@@ -44,7 +44,10 @@ function _get_cached_kernel(degree::Symbol,
             precompute::Int, float_type::Type{T},
             derivative::Int, subgrid::Symbol) where {T}
 
-    cache_dir = @get_scratch!("precomputed_kernels")
+    # A scratch space is shared by every Julia version using the same depot, and
+    # Serialization's format can change between Julia minor versions, so each minor
+    # version gets its own cache directory.
+    cache_dir = @get_scratch!("precomputed_kernels_julia$(VERSION.major).$(VERSION.minor)")
     degree_str = string(degree)
 
     # Build cache file paths
@@ -60,27 +63,38 @@ function _get_cached_kernel(degree::Symbol,
     cache_file_d1 = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_$(type_tag)_derivative_$(derivative+1)_kernel.jls")
     cache_file_d2 = joinpath(cache_dir, "$(degree_str)_$(Int64(precompute))_$(type_tag)_derivative_$(derivative+2)_kernel.jls")
 
-    if degree == :a0 && isfile(cache_file_range) && isfile(cache_file_d0)
-        return deserialize(cache_file_range), deserialize(cache_file_d0), Matrix{T}(undef,0,0), Matrix{T}(undef,0,0)
-    elseif subgrid == :linear && isfile(cache_file_range) && isfile(cache_file_d0)
-        return deserialize(cache_file_range), deserialize(cache_file_d0), Matrix{T}(undef,0,0), Matrix{T}(undef,0,0)
-    elseif subgrid == :cubic && isfile(cache_file_range) && isfile(cache_file_d0) && isfile(cache_file_d1)
-        return deserialize(cache_file_range), deserialize(cache_file_d0), deserialize(cache_file_d1), Matrix{T}(undef,0,0)
-    elseif subgrid == :quintic && isfile(cache_file_range) && isfile(cache_file_d0) && isfile(cache_file_d1) && isfile(cache_file_d2)
-        return deserialize(cache_file_range), deserialize(cache_file_d0), deserialize(cache_file_d1), deserialize(cache_file_d2)
-    else
-        @info "Generating precomputed kernel" degree float_type precompute derivative subgrid
-        range_data, kernel_data_d0, kernel_data_d1, kernel_data_d2 =
-                    precompute_kernel_and_range(degree; precompute=precompute,
-                    F=float_type, derivative=derivative)
-        serialize(cache_file_range, range_data)
-        serialize(cache_file_d0, kernel_data_d0)
-        if kernel_data_d1 isa AbstractMatrix
-            serialize(cache_file_d1, kernel_data_d1)
+    # Read the cached tables if present; an unreadable file (e.g. truncated by an
+    # interrupted write) is treated as missing and regenerated below.
+    cached = try
+        if degree == :a0 && isfile(cache_file_range) && isfile(cache_file_d0)
+            (deserialize(cache_file_range), deserialize(cache_file_d0), Matrix{T}(undef,0,0), Matrix{T}(undef,0,0))
+        elseif subgrid == :linear && isfile(cache_file_range) && isfile(cache_file_d0)
+            (deserialize(cache_file_range), deserialize(cache_file_d0), Matrix{T}(undef,0,0), Matrix{T}(undef,0,0))
+        elseif subgrid == :cubic && isfile(cache_file_range) && isfile(cache_file_d0) && isfile(cache_file_d1)
+            (deserialize(cache_file_range), deserialize(cache_file_d0), deserialize(cache_file_d1), Matrix{T}(undef,0,0))
+        elseif subgrid == :quintic && isfile(cache_file_range) && isfile(cache_file_d0) && isfile(cache_file_d1) && isfile(cache_file_d2)
+            (deserialize(cache_file_range), deserialize(cache_file_d0), deserialize(cache_file_d1), deserialize(cache_file_d2))
+        else
+            nothing
         end
-        if kernel_data_d2 isa AbstractMatrix
-            serialize(cache_file_d2, kernel_data_d2)
-        end
-        return range_data, kernel_data_d0, kernel_data_d1, kernel_data_d2
+    catch err
+        err isa InterruptException && rethrow()
+        @warn "Unreadable cached kernel table, regenerating" degree float_type precompute derivative subgrid exception=err
+        nothing
     end
+    cached === nothing || return cached
+
+    @info "Generating precomputed kernel" degree float_type precompute derivative subgrid
+    range_data, kernel_data_d0, kernel_data_d1, kernel_data_d2 =
+                precompute_kernel_and_range(degree; precompute=precompute,
+                F=float_type, derivative=derivative)
+    serialize(cache_file_range, range_data)
+    serialize(cache_file_d0, kernel_data_d0)
+    if kernel_data_d1 isa AbstractMatrix
+        serialize(cache_file_d1, kernel_data_d1)
+    end
+    if kernel_data_d2 isa AbstractMatrix
+        serialize(cache_file_d2, kernel_data_d2)
+    end
+    return range_data, kernel_data_d0, kernel_data_d1, kernel_data_d2
 end

@@ -3,8 +3,9 @@
 # Evaluate mixed antiderivative/derivative/interpolation in N dimensions,
 # with exactly 2 integral dimensions using fast tail lookups.
 
-# Integral dimensions: K̃×K̃ center loop + strip lookups (tail1) + corner lookups (tail2).
-# Derivative dimensions: linear subgrid kernel evaluation.
+# Integral dimensions: K̃×K̃ center loop from exact column polynomials + strip lookups (tail1)
+# + corner lookups (tail2).
+# Derivative dimensions: kernel weights from exact column polynomials.
 
 # Cost: O(eqs^N) center + O(eqs^(N-1)) strips + O(eqs^(N-2)) corners.
 # """
@@ -15,7 +16,7 @@
             KP,KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
 
     x = T.(x)
-    # find the two integral dimensions (compile-time constant)
+    # find the two integral dimensions (compile-time constants)
     int_dim1, int_dim2 = _integral_dims2(Val(DO))
 
     # ── per-dimension grid positions ─────────────────────────────────────
@@ -30,55 +31,8 @@
     l_ok = ntuple(d -> l[d] >= 1,                  N)
     r_ok = ntuple(d -> r[d] <= size(itp.coefs, d), N)
 
-    # ── subgrid fractional positions for derivative dimensions (linear) ──
-    n_pre = ntuple(d -> length(itp.pre_range[d]), N)
-
-    t_sg = ntuple(N) do d
-        (d == int_dim1 || d == int_dim2) && return zero(T)
-        i_float = (x[d] - itp.knots[d][1]) / itp.h[d] + one(T)
-        pos = clamp(floor(Int, i_float), itp.eqs[d], length(itp.knots[d]) - itp.eqs[d])
-        diff_right = one(T) - (x[d] - itp.knots[d][pos]) / itp.h[d]
-        continuous_idx = diff_right * T(n_pre[d] - 1) + one(T)
-        continuous_idx - T(clamp(floor(Int, continuous_idx), 1, n_pre[d] - 1))
-    end
-
-    idx_sg = ntuple(N) do d
-        (d == int_dim1 || d == int_dim2) && return 0
-        i_float = (x[d] - itp.knots[d][1]) / itp.h[d] + one(T)
-        pos = clamp(floor(Int, i_float), itp.eqs[d], length(itp.knots[d]) - itp.eqs[d])
-        diff_right = one(T) - (x[d] - itp.knots[d][pos]) / itp.h[d]
-        continuous_idx = diff_right * T(n_pre[d] - 1) + one(T)
-        clamp(floor(Int, continuous_idx), 1, n_pre[d] - 1)
-    end
-
-    # ── K̃ lookup for integral dimensions (with subgrid) ──────────────────
-    @inline function eval_kt_int(d, jd)
-        eqs_d   = itp.eqs[d]
-        n_pre_d = n_pre[d]
-        h_pre_d = one(T) / T(n_pre_d - 1)
-        xjd     = itp.knots[d][eqs_d] + (jd - eqs_d) * itp.h[d]
-        sj      = (x[d] - xjd) / itp.h[d]
-        abs(sj) >= T(eqs_d) && return T(1//2) * T(sign(sj))
-        col_float = T(eqs_d) + sj
-        col       = clamp(floor(Int, col_float) + 1, 1, 2 * eqs_d)
-        t         = (col_float - T(col - 1)) * T(n_pre_d - 1) + one(T)
-        idx       = clamp(floor(Int, t), 1, n_pre_d - 1)
-        t        -= T(idx)
-        if SG[d] == :quintic
-            quintic_hermite(t,
-                itp.kernel_pre[d][idx,    col], itp.kernel_pre[d][idx+1,    col],
-                itp.kernel_d1_pre[d][idx, col], itp.kernel_d1_pre[d][idx+1, col],
-                itp.kernel_d2_pre[d][idx, col], itp.kernel_d2_pre[d][idx+1, col],
-                h_pre_d)
-        elseif SG[d] == :cubic
-            cubic_hermite(t,
-                itp.kernel_pre[d][idx,    col], itp.kernel_pre[d][idx+1,    col],
-                itp.kernel_d1_pre[d][idx, col], itp.kernel_d1_pre[d][idx+1, col],
-                h_pre_d)
-        else
-            (one(T) - t) * itp.kernel_pre[d][idx, col] + t * itp.kernel_pre[d][idx+1, col]
-        end
-    end
+    # ── kernel weights of every dimension (exact column polynomials) ─────
+    w = _mixed_weights(itp, x, i, Val(DO))
 
     result = zero(T)
 
@@ -88,32 +42,19 @@
 
     @inbounds for idx_d in Iterators.product(deriv_ranges...)
 
-        # product of derivative kernel values (linear subgrid)
-        kt_prod = one(T)
-        skip    = false
-        @inbounds for d in 1:N
-            (d == int_dim1 || d == int_dim2) && continue
-            pos = clamp(floor(Int, (x[d] - itp.knots[d][1]) / itp.h[d] + one(T)),
-                        itp.eqs[d], length(itp.knots[d]) - itp.eqs[d])
-            col = idx_d[d] - pos + itp.eqs[d]
-            if col < 1 || col > 2 * itp.eqs[d]
-                skip = true
-                break
-            end
-            k0 = itp.kernel_pre[d][idx_sg[d],   col]
-            k1 = itp.kernel_pre[d][idx_sg[d]+1, col]
-            kt_prod *= (one(T) - t_sg[d]) * k0 + t_sg[d] * k1
-        end
-        skip && continue
+        # product of the kernel weights of the non-integral dimensions
+        kt_prod = _derivative_weight_product(w, idx_d, i, itp.eqs, Val(DO))
 
         # ── center: K̃×K̃ + strips ─────────────────────────────────────────
         @inbounds for j2 in (i[int_dim2] - itp.eqs[int_dim2] + 1):(i[int_dim2] + itp.eqs[int_dim2])
-            lv2    = eval_kt_int(int_dim2, j2) - itp.left_values[int_dim2][j2]
+            lv2    = _antiderivative_weight(w[int_dim2], i[int_dim2], itp.eqs[int_dim2], j2) -
+                     itp.left_values[int_dim2][j2]
             idx_d2 = Base.setindex(idx_d, j2, int_dim2)
 
             # center: K̃(int_dim1) × K̃(int_dim2)
             @inbounds for j1 in (i[int_dim1] - itp.eqs[int_dim1] + 1):(i[int_dim1] + itp.eqs[int_dim1])
-                lv1      = eval_kt_int(int_dim1, j1) - itp.left_values[int_dim1][j1]
+                lv1      = _antiderivative_weight(w[int_dim1], i[int_dim1], itp.eqs[int_dim1], j1) -
+                           itp.left_values[int_dim1][j1]
                 coef_idx = Base.setindex(idx_d2, j1, int_dim1)
                 result  += itp.coefs[coef_idx...] * lv1 * lv2 * kt_prod
             end
@@ -128,7 +69,8 @@
 
         # strip: K̃(int_dim1) × tail1[int_dim2]
         @inbounds for j1 in (i[int_dim1] - itp.eqs[int_dim1] + 1):(i[int_dim1] + itp.eqs[int_dim1])
-            lv1    = eval_kt_int(int_dim1, j1) - itp.left_values[int_dim1][j1]
+            lv1    = _antiderivative_weight(w[int_dim1], i[int_dim1], itp.eqs[int_dim1], j1) -
+                     itp.left_values[int_dim1][j1]
             idx_d1 = Base.setindex(idx_d, j1, int_dim1)
             idx_l2 = Base.setindex(idx_d1, l[int_dim2], int_dim2)
             idx_r2 = Base.setindex(idx_d1, r[int_dim2], int_dim2)
@@ -163,8 +105,5 @@
     return result * scale
 end
 
-@inline function _integral_dims2(::Val{DO}) where {DO}
-    d1 = findfirst(d -> DO[d] == -1, 1:length(DO))::Int
-    d2 = findnext(d -> DO[d] == -1, 1:length(DO), d1+1)::Int
-    return d1, d2
-end
+# Indices of the two integral dimensions (DO[d] == −1), as fixed numbers at compile time
+_integral_dims2(::Val{DO}) where {DO} = _integral_dims(Val(DO))

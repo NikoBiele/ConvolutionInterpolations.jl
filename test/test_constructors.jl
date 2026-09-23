@@ -43,7 +43,7 @@ println("-"^60)
                                                    derivative=(0, 0))
         itp_fast_2d = FastConvolutionInterpolation(knots_2d, vs_2d, kernel=(kernel, kernel),
                                                    bc=((:detect, :detect), (:detect, :detect)),
-                                                   derivative=(0, 0), subgrid=(:cubic, :cubic))
+                                                   derivative=(0, 0))
         @test itp_direct_2d(1.0, 1.0) ≈ itp_fast_2d(1.0, 1.0) atol=1e-6
         @test itp_direct_2d(1.0, 1.0) ≈ sin(1.0) * cos(1.0) atol=0.1
     end
@@ -60,7 +60,7 @@ vs = [sin(x)*cos(y) for x in xs, y in ys]
         println("        - kernel combination: ", k1, ", ", k2)
         itp_fast = FastConvolutionInterpolation((xs, ys), vs; kernel=(k1, k2),
                                                    bc=((:detect, :detect), (:detect, :detect)),
-                                                   derivative=(0, 0), subgrid=(:cubic, :cubic))
+                                                   derivative=(0, 0))
         itp_direct = ConvolutionInterpolation((xs, ys), vs; kernel=(k1, k2),
                                                    bc=((:detect, :detect), (:detect, :detect)),
                                                    derivative=(0, 0))
@@ -78,7 +78,7 @@ vs3 = [sin(x)*cos(y)*sin(z) for x in xs, y in ys, z in zs]
         println("        - kernel combination: ", k1, ", ", k2, ", ", k3)
         itp_fast = FastConvolutionInterpolation((xs, ys, zs), vs3; kernel=(k1, k2, k3),
                                                    bc=((:detect, :detect), (:detect, :detect), (:detect, :detect)),
-                                                   derivative=(0, 0, 0), subgrid=(:cubic, :cubic, :cubic))
+                                                   derivative=(0, 0, 0))
         itp_direct = ConvolutionInterpolation((xs, ys, zs), vs3; kernel=(k1, k2, k3),
                                                    bc=((:detect, :detect), (:detect, :detect), (:detect, :detect)),
                                                    derivative=(0, 0, 0))

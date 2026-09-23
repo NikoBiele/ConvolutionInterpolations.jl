@@ -1,3 +1,5 @@
+include("derive_kernel_coefs.jl")
+include("column_polynomials.jl")
 include("convolution_kernel_a0.jl")
 include("convolution_kernel_a1.jl")
 include("convolution_kernel_a3.jl")

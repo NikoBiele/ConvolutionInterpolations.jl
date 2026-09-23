@@ -6,22 +6,27 @@ function (itp::FastConvolutionInterpolation{T,N,N,TCoefs,Axs,KA,HigherDimension{
         KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},FD,SD,SG}    
 
     x = T.(x)
-    n_pre = ntuple(i -> length(itp.pre_range[i]), N)
-    h_pre = ntuple(i -> one(T) / T(n_pre[i] - 1), N)
+    # Cell and position within it, per dimension
+    i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)
+    cells = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[d], size(itp.coefs, d) - itp.eqs[d]), N)
 
-    return _nd_integral_eval(itp, Val(SG), h_pre, x)
+    # K̃ weights per dimension at τ = t (column c ↔ coefficient j = i + eqs + 1 − c)
+    w = _column_weights_per_dim(Val(_kernel_sym(itp.kernel_sym)), _integral_orders(Val(N)),
+                                ntuple(d -> i_floats[d] - T(cells[d]), N))
+
+    return _nd_integral_eval(itp, w, cells, x)
 
 end
 
-@generated function _nd_integral_eval(itp::FastConvolutionInterpolation{T,N,N},
-                            ::Val{SG}, h_pre::NTuple{N,T}, x::NTuple{N,<:Number}) where {T, N, SG}
+@generated function _nd_integral_eval(itp::FastConvolutionInterpolation{T,N,N}, w::Tuple,
+                            cells::NTuple{N,Int}, x::NTuple{N,<:Number}) where {T, N}
     quote
         coefs = itp.coefs
         result = zero(T)
-        Base.Cartesian.@nloops $N i dd -> 1:itp.domain_size[dd] begin
+        Base.Cartesian.@nloops $N i dd -> 1:size(coefs, dd) begin
             kt_prod = one(T)
             Base.Cartesian.@nexprs $N dd -> begin
-                kt_prod *= eval_sg_kt(itp, i_dd, Val(dd), Val(SG), h_pre[dd], x) - itp.left_values[dd][i_dd]
+                kt_prod *= _antiderivative_weight(w[dd], cells[dd], itp.eqs[dd], i_dd) - itp.left_values[dd][i_dd]
             end
             result += Base.Cartesian.@nref($N, coefs, i) * kt_prod
         end

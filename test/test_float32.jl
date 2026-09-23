@@ -41,16 +41,13 @@ end
     @test convolution_interpolation(x32_f, y32_f; derivative=-1)(1.5f0) isa Float32
 end
 
-@testset "Float32 options: bc, extrap, subgrid" begin
-    println("    - 1D Float32 bc/extrap/subgrid combinations")
+@testset "Float32 options: bc, extrap" begin
+    println("    - 1D Float32 bc/extrap combinations")
     for bc in (:detect, :poly, :linear, :quadratic)
         @test convolution_interpolation(x32_f, y32_f; bc=bc)(1.5f0) isa Float32
     end
     for ex in (:line, :flat, :natural)
         @test convolution_interpolation(x32_f, y32_f; extrap=ex)(7.0f0) isa Float32
-    end
-    for sg in (:linear, :cubic, :quintic)
-        @test convolution_interpolation(x32_f, y32_f; subgrid=sg)(1.5f0) isa Float32
     end
 end
 

@@ -1,8 +1,5 @@
 module ConvolutionInterpolations
 
-using Artifacts
-using Scratch
-using Serialization
 using LinearAlgebra
 using NearestNeighbors
 using SparseArrays
@@ -14,7 +11,6 @@ include("convolution_kernels/convolution_kernels.jl")
 include("convolution_kernel_interpolation/convolution_kernel_interpolation.jl")
 include("convolution_fast_interpolation/convolution_fast_interpolation.jl")
 include("convolution_coefs/convolution_coefs.jl")
-include("precomputed_kernels/precomputed_kernel_tables.jl")
 include("scattered_to_grid/scattered_to_grid.jl")
 include("convolution_fit_scattered/fit_scattered.jl")
 

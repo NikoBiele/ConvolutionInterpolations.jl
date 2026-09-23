@@ -1,3 +1,4 @@
+include("deprecations.jl")
 include("convolution_interpolation_constructor.jl")
 include("convolution_interpolation_function.jl")
 include("extend_knots.jl")

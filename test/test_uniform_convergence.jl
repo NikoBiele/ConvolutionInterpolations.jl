@@ -6,7 +6,7 @@ convergence_kernels = [:a0, :a1, :a3, :b5] # :a4, :a5, :a7, :b7, :b9, :b11
 convergence_deriv_kernels = [:b5] #, :b7, :b9, :b11]
 expected_order_fast = Dict(
     :a0 => 1, :a1 => 2, :a3 => 3, #:a4 => 4, :a5 => 3, :a7 => 3,
-    :b5 => 7 #, :b7 => 7, :b9 => 7, :b11 => 7 # no accumulated floating point error (precomputed kernel)
+    :b5 => 7 #, :b7 => 7, :b9 => 7, :b11 => 7 # no accumulated floating point error (exact kernel coefficients)
 )
 expected_order_direct = Dict(
     :a0 => 1, :a1 => 2, :a3 => 3, # :a4 => 4, :a5 => 3, :a7 => 3,

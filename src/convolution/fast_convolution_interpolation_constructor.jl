@@ -1,7 +1,7 @@
 """
     FastConvolutionInterpolation(knots, vs::AbstractArray{T,N}; kwargs...) where {T,N}
 
-Construct a fast convolution interpolation object with precomputed kernel tables for O(1) evaluation.
+Construct a fast convolution interpolation object with exact kernel weights for O(1) evaluation.
 This is the lower-level fast constructor — most users should prefer `convolution_interpolation`,
 which wraps this with extrapolation handling and automatic mode selection.
 
@@ -15,20 +15,16 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
 - `kernel::Symbol=:auto`: Convolution kernel to use (default is N-dependent to reflect tensor product cost).
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a4` (quartic), `:a5` (quintic), `:a7` (septic)
   - `b`-series: `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
-- `precompute::Int=101`: Resolution of the precomputed kernel table. The default uses
-  pre-shipped tables (zero computation). Automatically raised to at least 10,000 for
-  `:linear` subgrid mode.
+- `precompute`: Deprecated, has no effect, and will be removed in a future release. Kernels
+  are evaluated exactly, so no kernel tables are precomputed.
 - `B::Float64=-1.0`: If a positive value is provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
   Forces eager mode.
 - `bc=:detect`: Boundary condition for kernel evaluation at domain edges.
   Options: `:detect`, `:poly`, `:linear`, `:quadratic`.
 - `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
-  kernels. For `a`-series kernels the top derivative automatically uses linear interpolation
-  to match the kernel's continuity class.
-- `subgrid::Symbol=:cubic`: Subgrid interpolation mode for the precomputed kernel table.
-  Options: `:linear` (fastest, needs high `precompute`), `:cubic` (default), `:quintic`.
-  Automatically downgraded to `:linear` for 3D+ and when evaluating the top derivative
-  of a kernel. Validated against the kernel's continuity class.
+  kernels. Negative values evaluate antiderivatives.
+- `subgrid`: Deprecated, has no effect, and will be removed in a future release. Kernels
+  are evaluated exactly, so there is no subgrid interpolation.
 - `lazy::Bool=false`: When `true`, skip ghost point expansion at construction time.
   The raw values are stored directly and ghost points are computed on the fly during
   evaluation near boundaries. Interior evaluation has zero overhead compared to eager mode.
@@ -49,11 +45,14 @@ See also: [`convolution_interpolation`](@ref), [`ConvolutionInterpolation`](@ref
 function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}},
                                       vs::AbstractArray{T,N};
                                       kernel::Union{Symbol,NTuple{N,Symbol}}=:auto,
-                                      precompute::Union{Int,NTuple{N,Int}}=101,
+                                      precompute=nothing,
                                       bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect,
                                       derivative::Union{Int,NTuple{N,Int}}=0,
-                                      subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic,
+                                      subgrid=nothing,
                                       lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
+
+    # deprecated keywords: warn if set, then ignore
+    _warn_deprecated_table_keywords(precompute, subgrid)
 
     # check and normalize inputs
     knots_tuple = knots isa AbstractVector ?
@@ -70,27 +69,23 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                     derivative isa Int ? ntuple(_ -> derivative, N) :
                     derivative isa NTuple{1,Int} ? ntuple(_ -> derivative[1], N) : 
                     error("Invalid derivative specification: $derivative.")
-    subgrids_tuple = subgrid isa NTuple{N,Symbol} ? subgrid :
-                    subgrid isa Symbol ? ntuple(_ -> subgrid, N) : 
-                    subgrid isa NTuple{1,Symbol} ? ntuple(_ -> subgrid[1], N) :
-                    error("Invalid subgrid specification: $subgrid.")
     bcs_tuple = bc isa NTuple{N,Tuple{Symbol,Symbol}} ? bc :
                     bc isa Tuple{Symbol,Symbol} ? ntuple(_ -> bc, N) :
                     bc isa NTuple{1,Tuple{Symbol,Symbol}} ? ntuple(_ -> bc[1], N) :
                     bc isa Symbol ? ntuple(_ -> (bc, bc), N) :
                     error("Invalid bc specification: $bc.")
-    precompute_tuple = precompute isa NTuple{N,Int} ? precompute :
-                    precompute isa Int ? ntuple(_ -> precompute, N) :
-                    precompute isa NTuple{1,Int} ? ntuple(_ -> precompute[1], N) :
-                    error("Invalid precompute specification $precompute")
-
+    # Fixed internal values until the struct cleanup: no tables are built, so neither affects
+    # the result. The subgrid tuple still selects the dedicated :a0/:a1 evaluator methods.
+    precompute_tuple = ntuple(_ -> 101, N)
+    subgrids_tuple = ntuple(_ -> :cubic, N)
+                    
     if any(==(:n3), kernels_tuple)
         error("The :n3 kernel is not supported by FastConvolutionInterpolation.")
     end
     if !all(d -> is_uniform_grid(knots_tuple[d]), 1:N)
         error("FastConvolutionInterpolation requires a uniform grid in every dimension.\n" *
-              "The fast kernels are precomputed on a uniform subgrid and cannot adapt " *
-              "their weights to nonuniform spacing.\n" *
+              "The fast kernel weights assume uniform spacing and cannot adapt \n" *
+              "to nonuniform spacing.\n" *
               "For nonuniform knots use either:\n" *
               "       - convolution_interpolation(knots, values; ...), which selects the " *
               "correct path automatically, or\n" *
@@ -126,9 +121,6 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
     n_integral = _count_integrals(Val{DV}())
 
     subgrids = _build_subgrids(Val{KS}(), Val{DV}(), Val{SG}(), Val{N}())
-    
-    precompute_actual = ntuple(d -> (subgrids[d] == :linear && !(kernel[d] in (:a0, :a1)) ?
-                                max(precompute[d], 10_000) : precompute[d]), N)
 
     h = ntuple(d -> knots[d][2] - knots[d][1], N)
     
@@ -140,13 +132,12 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
     end
     x0 = ntuple(d -> T(first(knots_new[d])), N)
     
-    tables       = ntuple(d -> get_precomputed_kernel_and_range(kernel[d],
-                                        precompute_actual[d], T,
-                                        derivative[d], subgrids[d]), N)
-    pre_range_d  = ntuple(d -> tables[d][1], N)
-    kernel_pre_d = ntuple(d -> tables[d][2], N)
-    kd1_pre_d    = ntuple(d -> tables[d][3], N)
-    kd2_pre_d    = ntuple(d -> tables[d][4], N)
+    # Kernel tables are no longer used: every evaluator computes its kernel weights from exact
+    # column polynomials. The struct fields remain as empty placeholders until they are removed.
+    pre_range_d  = ntuple(d -> T[], N)
+    kernel_pre_d = ntuple(d -> Matrix{T}(undef, 0, 0), N)
+    kd1_pre_d    = ntuple(d -> Matrix{T}(undef, 0, 0), N)
+    kd2_pre_d    = ntuple(d -> Matrix{T}(undef, 0, 0), N)
 
     anchor = ntuple(d -> derivative[d] == -1 ? knots_new[d][eqs[d]] : zero(T), N)
 
@@ -156,7 +147,7 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
     tail3_face_l, tail3_face_r,
     tail3_corner_lll, tail3_corner_rll, tail3_corner_lrl, tail3_corner_llr,
     tail3_corner_rrl, tail3_corner_rlr, tail3_corner_lrr, tail3_corner_rrr = 
-                                    _build_tails(coefs, tables, Val{DV}(), eqs, knots_new, subgrids)
+                                    _build_tails(coefs, kernel, Val{DV}(), eqs, knots_new, subgrids)
 
     kernel_type = ntuple(d -> nothing, N)
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
@@ -187,14 +178,14 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
     )
 end
 
-function _build_tails(coefs::AbstractArray{T,N}, tables, ::Val{DV}, eqs, knots_new, subgrids) where {T,N,DV}
+function _build_tails(coefs::AbstractArray{T,N}, kernel, ::Val{DV}, eqs, knots_new, subgrids) where {T,N,DV}
     n_integral = _count_integrals(Val{DV}())
     derivative = DV
     integral_type = n_integral <= 3 ? Val(n_integral) : HigherDimension(Val(n_integral))
-    return _build_tails_dispatch(coefs, tables, derivative, eqs, knots_new, integral_type, subgrids)
+    return _build_tails_dispatch(coefs, kernel, derivative, eqs, knots_new, integral_type, subgrids)
 end
 
-function _build_tails_dispatch(coefs::AbstractArray{T,N}, tables, derivative, eqs, knots_new, ::Val{0}, subgrids) where {T,N}
+function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::Val{0}, subgrids) where {T,N}
     placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
     left_values = ntuple(_ -> [zero(T)], N)
     tail1_left  = ntuple(_ -> placeholder, N)
@@ -209,13 +200,12 @@ function _build_tails_dispatch(coefs::AbstractArray{T,N}, tables, derivative, eq
            placeholder, placeholder, placeholder, placeholder
 end
 
-function _build_tails_dispatch(coefs::AbstractArray{T,N}, tables, derivative, eqs, knots_new, ::Val{1}, subgrids) where {T,N}
+function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::Val{1}, subgrids) where {T,N}
     placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
     int_dims = findall(d -> derivative[d] == -1, 1:N)
     left_values = ntuple(N) do d
         if derivative[d] == -1
-            _compute_left_values(T, eqs[d], size(coefs, d),
-                tables[d][2], tables[d][3], tables[d][4], Val(subgrids[d]))
+            _compute_left_values(T, kernel[d], eqs[d], size(coefs, d))
         else
             [zero(T)]
         end
@@ -246,13 +236,12 @@ function _build_tails_dispatch(coefs::AbstractArray{T,N}, tables, derivative, eq
            placeholder, placeholder, placeholder, placeholder
 end
 
-function _build_tails_dispatch(coefs::AbstractArray{T,N}, tables, derivative, eqs, knots_new, ::Val{2}, subgrids) where {T,N}
+function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::Val{2}, subgrids) where {T,N}
     placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
     int_dims = findall(d -> derivative[d] == -1, 1:N)
     left_values = ntuple(N) do d
         if derivative[d] == -1
-            _compute_left_values(T, eqs[d], size(coefs, d),
-                tables[d][2], tables[d][3], tables[d][4], Val(subgrids[d]))
+            _compute_left_values(T, kernel[d], eqs[d], size(coefs, d))
         else
             [zero(T)]
         end
@@ -291,13 +280,12 @@ function _build_tails_dispatch(coefs::AbstractArray{T,N}, tables, derivative, eq
            placeholder, placeholder, placeholder, placeholder
 end
 
-function _build_tails_dispatch(coefs::AbstractArray{T,N}, tables, derivative, eqs, knots_new, ::Val{3}, subgrids) where {T,N}
+function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::Val{3}, subgrids) where {T,N}
     placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
     int_dims = findall(d -> derivative[d] == -1, 1:N)
     left_values = ntuple(N) do d
         if derivative[d] == -1
-            _compute_left_values(T, eqs[d], size(coefs, d),
-                tables[d][2], tables[d][3], tables[d][4], Val(subgrids[d]))
+            _compute_left_values(T, kernel[d], eqs[d], size(coefs, d))
         else
             [zero(T)]
         end
@@ -356,13 +344,12 @@ function _build_tails_dispatch(coefs::AbstractArray{T,N}, tables, derivative, eq
            tail3_corner_rrl, tail3_corner_rlr, tail3_corner_lrr, tail3_corner_rrr
 end
 
-function _build_tails_dispatch(coefs::AbstractArray{T,N}, tables, derivative, eqs, knots_new, ::HigherDimension{NI}, subgrids) where {T,N,NI}
+function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::HigherDimension{NI}, subgrids) where {T,N,NI}
     # n_integral > 3: HigherDimension path, no tail arrays needed
     placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
     left_values = ntuple(N) do d
         if derivative[d] == -1
-            _compute_left_values(T, eqs[d], size(coefs, d),
-                tables[d][2], tables[d][3], tables[d][4], Val(subgrids[d]))
+            _compute_left_values(T, kernel[d], eqs[d], size(coefs, d))
         else
             [zero(T)]
         end
@@ -411,40 +398,23 @@ end
     return T
 end
 
-function _compute_left_values(T, eqs, n_coefs_d, kernel_pre, kernel_d1_pre, kernel_d2_pre, sg)
-    n_pre_loc = size(kernel_pre, 1)
-    h_pre_loc = one(T) / T(n_pre_loc - 1)
+# K̃ at the integer offset eqs − j of every coefficient j: the anchoring constants of an
+# integral dimension. Exact: the constant terms of the column polynomials of K̃ (their value
+# at τ = 0), rounded once to T, and the saturated values ±½ outside the kernel support.
+function _compute_left_values(T, kernel::Symbol, eqs::Int, n_coefs_d::Int)
     lv = zeros(T, n_coefs_d)
-    @inbounds for j in 1:n_coefs_d
-        sj = T(eqs - j)
-        s_abs = abs(sj)
-        if s_abs >= T(eqs)
-            lv[j] = T(1//2) * T(sign(sj))
+    columns = kernel == :a0 ? nothing : _column_polynomials_exact(kernel, -1)
+    for j in 1:n_coefs_d
+        s = eqs - j                                   # integer offset of coefficient j
+        if abs(s) >= eqs
+            lv[j] = T(1//2) * T(sign(s))              # outside the support: saturated
+        elseif kernel == :a0
+            lv[j] = zero(T)                           # :a0 (eqs = 1): only s = 0 is inside, K̃(0) = 0
         else
-            col_float = T(eqs) + sj
-            col = clamp(floor(Int, col_float) + 1, 1, 2 * eqs)
-            x_diff_right = col_float - T(col - 1)
-            continuous_idx = x_diff_right * T(n_pre_loc - 1) + one(T)
-            idx      = clamp(floor(Int, continuous_idx), 1, n_pre_loc - 1)
-            idx_next = idx + 1
-            t        = continuous_idx - T(idx)
-            lv[j] = if sg == Val(:quintic)
-                quintic_hermite(t,
-                    kernel_pre[idx,    col], kernel_pre[idx_next,    col],
-                    kernel_d1_pre[idx, col], kernel_d1_pre[idx_next, col],
-                    kernel_d2_pre[idx, col], kernel_d2_pre[idx_next, col],
-                    h_pre_loc)
-            elseif sg == Val(:cubic)
-                cubic_hermite(t,
-                    kernel_pre[idx,    col], kernel_pre[idx_next,    col],
-                    kernel_d1_pre[idx, col], kernel_d1_pre[idx_next, col],
-                    h_pre_loc)
-            else
-                (one(T) - t) * kernel_pre[idx, col] + t * kernel_pre[idx_next, col]
-            end
+            lv[j] = T(columns[s + eqs + 1][1])        # column c = s + eqs + 1, at τ = 0
         end
     end
-    lv
+    return lv
 end
 
 # Computes the suffix (reverse cumulative) sum of A along dimension `dims`.
@@ -452,6 +422,14 @@ end
 function _suffix_sum(A::AbstractArray, dims::Int)
     reverse(cumsum(reverse(A, dims=dims), dims=dims), dims=dims)
 end
+
+# Highest derivative order per kernel, used by `_build_subgrids` to choose subgrid modes.
+# Temporary: removed together with the `subgrid` keyword.
+const _max_shipped_derivative = Dict(
+    :a0 => -1, :a1 => 0,
+    :a3 => 0, :a4 => 0, :a5 => 0, :a7 => 0,
+    :b5 => 2, :b7 => 4, :b9 => 5, :b11 => 6, :b13 => 6,
+)
 
 @generated function _build_subgrids(::Val{KS}, ::Val{DV}, ::Val{SG}, ::Val{N}) where {KS,DV,SG,N}
     a0_a1_kernel_present = any(k -> k == :a0 || k == :a1, KS)

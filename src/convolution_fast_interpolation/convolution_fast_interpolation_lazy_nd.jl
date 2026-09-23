@@ -62,30 +62,17 @@ end
 
     else
 
-        # Compute normalized left distances - recompute from actual knot positions
-        diff_left = ntuple(d -> (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
-        diff_right = ntuple(d -> one(T) - diff_left[d], N)
+        # Normalized positions within the cell, τ = diff_right per dimension
+        diff_right = ntuple(d -> one(T) - (T(x[d]) - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
 
-        idx_lower = ntuple(d -> clamp(floor(Int, diff_right[d] * (length(itp.pre_range[d]) - one(Int64))) + one(Int64),
-                                    one(Int64), length(itp.pre_range[d]) - one(Int64)), N)
-        
-        idx_upper = ntuple(d -> idx_lower[d] + 1, N)
-        t = ntuple(d -> (diff_right[d] - itp.pre_range[d][idx_lower[d]]) / 
-                        (itp.pre_range[d][idx_upper[d]] - itp.pre_range[d][idx_lower[d]]), N)
+        # Kernel weights per dimension, each with its own kernel and derivative order
+        w = _column_weights_per_dim(Val(_kernel_sym(itp.kernel_sym)), Val(DO), diff_right)
 
         result = zero(T)
-        
         @inbounds for offsets in Iterators.product(ntuple(d -> -(itp.eqs[d]-1):itp.eqs[d], N)...)
             idxs = ntuple(d -> pos_ids[d] + offsets[d], N)
             coef = itp.coefs[idxs...]
-
-            kernel_val = one(T)
-            @inbounds for d in 1:N
-                k_lower = itp.kernel_pre[d][idx_lower[d], offsets[d]+itp.eqs[d]]
-                k_upper = itp.kernel_pre[d][idx_upper[d], offsets[d]+itp.eqs[d]]
-                kernel_val *= (one(T) - t[d]) * k_lower + t[d] * k_upper
-            end
-            
+            kernel_val = prod(ntuple(d -> w[d][offsets[d] + itp.eqs[d]], Val(N)))
             result += coef * kernel_val
         end
         

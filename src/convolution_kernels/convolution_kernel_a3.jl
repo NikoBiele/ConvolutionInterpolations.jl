@@ -11,10 +11,10 @@ const a3_coefs = Dict(
     :eq1 => [1//1, 0//1, -5//2, 3//2],
     :eq2 => [2//1, -4//1, 5//2, -1//2]
 )
-const a3_coefs_d1 = Dict(
-    :eq1 => [0//1, 0//1, 2//1*-5//2, 3//1*3//2],
-    :eq2 => [0//1, -4//1, 2//1*5//2, 3//1*-1//2]
-)
+
+# Derivative coefficients, derived exactly from a3_coefs (see derive_kernel_coefs.jl)
+const a3_coefs_d1 = _derivative_coefs(a3_coefs, 1)
+
 const a3_coefs_i1 = Dict(
     :eq1 => [0//1, 1//1, 0//1, -5//6, 3//8],
     :eq2 => [-1//6, 2//1, -2//1, 5//6, -1//8]

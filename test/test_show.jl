@@ -89,13 +89,6 @@ xg4 = range(0, 1, 8);  z4 = [a+b+c+d for a in xg4, b in xg4, c in xg4, d in xg4]
                       bc=((:linear, :quadratic), (:detect, :poly))))   # per-dim/per-direction
     end
 
-    @testset "subgrid" begin                     # quintic/cubic implemented 1D/2D
-        @testset "subgrid=$sg" for sg in (:linear, :cubic, :quintic)
-            println("    - Subgrid: ", sg)
-            check_show(ci(x1u, y1u; kernel=:b5, subgrid=sg))
-        end
-    end
-
     @testset "dimensions" begin
         println("    - Dimensions")
         check_show(ci((xg, yg), z2; kernel=:b5))           # 2D uniform

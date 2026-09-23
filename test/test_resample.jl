@@ -23,8 +23,7 @@ println("-"^60)
         signal = sin.(xs_in)
         analytical = sin.(xs_out)
         errors = map((:a1, :a3, :a4, :b5)) do k
-            subgrid = k == :a1 ? :linear : :cubic
-            r = convolution_resample((xs_in,), (xs_out,), signal; kernel=k, subgrid=subgrid)
+            r = convolution_resample((xs_in,), (xs_out,), signal; kernel=k)
             maximum(abs.(r .- analytical))
         end
         # higher order kernels should be at least as accurate
@@ -79,14 +78,17 @@ println("-"^60)
         @test maximum(abs.(result .- analytical)) < 1e-3
     end
 
-    @testset "invalid subgrid/kernel combination" begin
-        println("    - Invalid subgrid/kernel combination")
+    @testset "deprecated subgrid keyword is ignored" begin
+        println("    - Deprecated subgrid keyword is ignored")
         xs_in  = range(0.0, 2π, length=50)
         xs_out = range(0.0, 2π, length=100)
         signal = sin.(xs_in)
-        @test_throws ErrorException convolution_resample(
-            (xs_in,), (xs_out,), signal;
-            kernel=:a1, subgrid=:cubic)
+        # Without the keyword: the reference result
+        r_default = convolution_resample((xs_in,), (xs_out,), signal; kernel=:a1)
+        # With the deprecated keyword: a warning, and an identical result
+        r_subgrid = @test_logs (:warn, r"`subgrid` no longer has any effect") convolution_resample(
+            (xs_in,), (xs_out,), signal; kernel=:a1, subgrid=:cubic)
+        @test r_subgrid == r_default
     end
 
 end

@@ -17,21 +17,19 @@ Create a convolution-based interpolation object with automatic optimization and 
   `:a0`, `:a1`, and all `b`-series kernels work on both uniform and nonuniform grids.
   `:a3` falls back to `:n3` on nonuniform grids (same order, nonuniform weights).
   `:a4`, `:a5` and `:a7` are uniform-only and raise an error on nonuniform grids.
-- `fast::Bool=true`: Use precomputed kernel tables for O(1) evaluation. Automatically
-  disabled for nonuniform grids.
-- `precompute::Int=101`: Resolution of the precomputed kernel table. The default uses
-  pre-shipped tables (zero computation). Higher values (e.g. 10_000) trigger on-demand
-  computation and disk caching for the `:linear` subgrid mode.
+- `fast::Bool=true`: Use the fast uniform-grid evaluation (exact kernel weights from the
+  kernels' polynomial pieces, O(1) per evaluation). Automatically disabled for nonuniform grids.
+- `precompute`: Deprecated, has no effect, and will be removed in a future release. Kernels
+  are evaluated exactly, so no kernel tables are precomputed.
 - `B::Float64=-1.0`: If a positive value is provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
 - `extrap=:throw`: Behavior outside the grid domain.
   Options: `:throw`, `:flat`, `:line` or `:natural`.
 - `bc=:detect`: Boundary condition for kernel evaluation at domain edges.
   Options: `:detect`, `:poly`, `:linear`, `:quadratic`.
 - `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
-  kernels. For `a`-series kernels the top derivative automatically uses linear interpolation
-  to match the kernel's continuity class.
-- `subgrid::Symbol=:cubic`: Subgrid interpolation mode for precomputed kernel tables.
-  Options: `:linear` (fastest, needs high `precompute`), `:cubic` (default), `:quintic`.
+  kernels. Negative values evaluate antiderivatives (uniform grids, fast path).
+- `subgrid`: Deprecated, has no effect, and will be removed in a future release. Kernels
+  are evaluated exactly, so there is no subgrid interpolation.
 - `lazy::Bool=false`: When `true`, skip ghost point expansion at construction time.
   Ghost values are computed on the fly only when evaluating near boundaries, saving memory
   and speeding up construction — especially in high dimensions. Interior evaluation is
@@ -81,11 +79,14 @@ See also: [`FastConvolutionInterpolation`](@ref), [`ConvolutionInterpolation`](@
 
 function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}},
         values::AbstractArray{T,N};
-        kernel::Union{Symbol,NTuple{N,Symbol}}=:auto, fast::Bool=true, precompute::Int=101,
+        kernel::Union{Symbol,NTuple{N,Symbol}}=:auto, fast::Bool=true, precompute=nothing,
         extrap::Union{Symbol,AbstractExtrapolation}=Throw(),
         bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect,
-        derivative::Union{Int,NTuple{N,Int}}=0, subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic,
+        derivative::Union{Int,NTuple{N,Int}}=0, subgrid=nothing,
         lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
+
+    # deprecated keywords: warn if set, then ignore
+    _warn_deprecated_table_keywords(precompute, subgrid)
 
     # check and normalize inputs
     knots_tuple = knots isa AbstractVector ?
@@ -103,10 +104,6 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
                     derivative isa Int ? ntuple(_ -> derivative, N) :
                     derivative isa NTuple{1,Int} ? ntuple(_ -> derivative[1], N) : 
                     error("Invalid derivative specification: $derivative.")
-    subgrids_tuple = subgrid isa NTuple{N,Symbol} ? subgrid :
-                    subgrid isa Symbol ? ntuple(_ -> subgrid, N) : 
-                    subgrid isa NTuple{1,Symbol} ? ntuple(_ -> subgrid[1], N) :
-                    error("Invalid subgrid specification: $subgrid.")
     bcs_tuple = bc isa NTuple{N,Tuple{Symbol,Symbol}} ? bc :
                     bc isa Tuple{Symbol,Symbol} ? ntuple(_ -> bc, N) :
                     bc isa NTuple{1,Tuple{Symbol,Symbol}} ? ntuple(_ -> bc[1], N) :
@@ -150,12 +147,12 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
     end
 
     if extrap == :natural || extrap == Natural()
-        return _build_natural(knots_tuple, values, kernels_tuple, fast, precompute,
-                              bcs_tuple, derivatives_tuple, subgrids_tuple,
+        return _build_natural(knots_tuple, values, kernels_tuple, fast,
+                              bcs_tuple, derivatives_tuple,
                               lazy, boundary_fallback)
     elseif fast
-        return _build_fast(knots_tuple, values, kernels_tuple, precompute, bcs_tuple,
-                          derivatives_tuple, subgrids_tuple, extrap,
+        return _build_fast(knots_tuple, values, kernels_tuple, bcs_tuple,
+                          derivatives_tuple, extrap,
                           lazy, boundary_fallback)
     else
         return _build_slow(knots_tuple, values, kernels_tuple, bcs_tuple, derivatives_tuple,
@@ -164,15 +161,14 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
 end
 
 function _build_fast(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N},
-                    kernel::NTuple{N,Symbol}, precompute::Int,
+                    kernel::NTuple{N,Symbol},
                     bc::NTuple{N,Tuple{Symbol,Symbol}},
                     derivative::NTuple{N,Int},
-                    subgrid::NTuple{N,Symbol},
                     extrap::Union{Symbol,AbstractExtrapolation},
                     lazy::Bool, boundary_fallback::Bool) where {T,N}
     itp = FastConvolutionInterpolation(knots, values;
-                                  kernel, precompute, bc, derivative,
-                                  subgrid, lazy, boundary_fallback)
+                                  kernel, bc, derivative,
+                                  lazy, boundary_fallback)
     return ConvolutionExtrapolation(itp, _extrap_type(extrap))
 end
 
@@ -189,10 +185,8 @@ end
 
 function _build_natural(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N}, 
                         kernel::NTuple{N,Symbol}, fast::Bool,
-                        precompute::Int,
                         bc::NTuple{N,Tuple{Symbol,Symbol}},
                         derivative::NTuple{N,Int},
-                        subgrid::NTuple{N,Symbol}, 
                         lazy::Bool, boundary_fallback::Bool) where {T,N}
     # Natural extrapolation always uses eager mode (needs double-extrapolation)
     itp = ConvolutionInterpolation(knots, values; kernel, bc, derivative, 
@@ -200,8 +194,7 @@ function _build_natural(knots::NTuple{N,AbstractVector}, values::AbstractArray{T
     bc = ntuple(_ -> (:linear,:linear), N) # overwrites
     if fast
         itp = FastConvolutionInterpolation(itp.knots, itp.coefs;
-                        kernel, precompute, bc,
-                        derivative, subgrid,
+                        kernel, bc, derivative,
                         lazy, boundary_fallback)
     else
         itp = ConvolutionInterpolation(itp.knots, itp.coefs;

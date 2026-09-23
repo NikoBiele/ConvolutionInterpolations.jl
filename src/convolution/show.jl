@@ -25,8 +25,7 @@ function Base.show(io::IO, itp::FastConvolutionInterpolation)
     dord = _show_do(itp.derivative_order)
     sz   = join(size(itp.coefs), "×")
     kbc = _show_kbc(itp.bc)
-    sgs = _show_subgrid(itp.subgrid)
-    print(io, "FastConvolutionInterpolation($T, $(N)D, coefs=$(sz), kernel=$deg, $dord, subgrid=$sgs, bc=$kbc)")
+    print(io, "FastConvolutionInterpolation($T, $(N)D, coefs=$(sz), kernel=$deg, $dord, bc=$kbc)")
 end
 
 # --- Helpers ---
@@ -49,8 +48,6 @@ _show_do(::IntegralOrder)                = "integral"
 _show_do(::FastIntegralOrder)            = "integral"
 _show_do(::MixedIntegralOrder{DO}) where DO = "mixed=$DO"
 _show_do(::FastMixedIntegralOrder{DO}) where DO = "mixed=$DO"
-
-_show_subgrid(::Val{S}) where S = _show_S(S)
 
 function _extract_kernel_sym(deg)
     if deg isa Val

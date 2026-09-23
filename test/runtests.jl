@@ -2,7 +2,8 @@ using ConvolutionInterpolations
 using Test, Random, StatsBase
 
 @testset "ConvolutionInterpolations.jl" begin
-    include("test_kernel_artifact.jl")
+    include("test_column_polynomials.jl")
+    include("test_nd_integral_separable.jl")
     include("test_constructors.jl")
     include("test_uniform_interpolation.jl")
     include("test_uniform_derivatives.jl")
@@ -23,7 +24,6 @@ using Test, Random, StatsBase
     include("test_perdim_kernel_derivatives.jl")
     include("test_boundary_condition.jl")
     include("test_extrapolation.jl")
-    include("test_subgrid_downgrade.jl")
     include("test_gaussian.jl")
     include("test_bigfloat_precision.jl")
     include("test_float32.jl")
@@ -32,4 +32,5 @@ using Test, Random, StatsBase
     include("test_resample.jl")
     include("test_fit_scattered.jl")
     include("test_show.jl")
+    include("test_deprecations.jl")
 end

@@ -173,9 +173,10 @@ point (`D x Np`); `values` holds the corresponding data values.
 Fits a grid-constrained convolution interpolant with `fit_scattered` and wraps
 it in the standard fast interpolant, so evaluation, derivatives, and integrals
 work exactly as for gridded data. All `fit_scattered` keyword arguments are
-accepted, plus `precompute`, `derivative`, and `subgrid`, which are forwarded
-to `FastConvolutionInterpolation`. The boundary condition is fixed to `:poly`
-for consistency with the fit.
+accepted, plus `derivative`, which is forwarded to `FastConvolutionInterpolation`.
+The deprecated `precompute` and `subgrid` keywords are still accepted and forwarded,
+but have no effect. The boundary condition is fixed to `:poly` for consistency
+with the fit.
 
 ```julia
 pts = rand(2, 500)                      # 500 scattered points in 2D
@@ -193,9 +194,9 @@ function convolution_interpolation(points::AbstractMatrix, values::AbstractVecto
                                    solver::Symbol=:cholesky,
                                    W::Real=1e6, iters::Int=20, tol::Real=1e-11,
                                    verbose::Bool=false,
-                                   precompute::Union{Int,Tuple{Vararg{Int}}}=101,
+                                   precompute=nothing,
                                    derivative::Union{Int,Tuple{Vararg{Int}}}=0,
-                                   subgrid::Union{Symbol,Tuple{Vararg{Symbol}}}=:cubic,
+                                   subgrid=nothing,
                                    extrap::Union{Symbol,AbstractExtrapolation}=Throw())
     D = size(points, 1)
     kernel_res = kernel === :auto ? _default_scattered_kernel(D) : kernel

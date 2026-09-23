@@ -11,11 +11,9 @@ const a4_coefs = Dict(
     :eq2 => [15//6, -59//12, 3//1, -7//12],
     :eq3 => [-3//2, 21//12, -2//3, 1//12]
 )
-const a4_coefs_d1 = Dict(
-    :eq1 => [0//1*1//1, 0//1, 2//1*-7//3, 3//1*4//3],
-    :eq2 => [0//1*15//6, -59//12, 2//1*3//1, 3//1*-7//12],
-    :eq3 => [0//1*-3//2, 21//12, 2//1*-2//3, 3//1*1//12]
-)
+
+# Derivative coefficients, derived exactly from a4_coefs (see derive_kernel_coefs.jl)
+const a4_coefs_d1 = _derivative_coefs(a4_coefs, 1)
 
 const a4_coefs_i1 = Dict(
     :eq1 => [0//1, 1//1, 0//1, -7//9, 1//3],

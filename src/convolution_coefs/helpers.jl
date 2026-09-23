@@ -17,6 +17,7 @@ end
 @inline _kernel_sym(::LowerOrderKernel{S}) where S = S
 @inline _kernel_sym(::HigherOrderMixedKernel{S}) where S = S
 @inline _kernel_sym(::LowerOrderMixedKernel{S}) where S = S
+@inline _kernel_sym(::FullMixedOrderKernel{S}) where S = S
 
 # equation tuple helpers
 @inline _eqs_d(eqs::Int, d) = eqs

@@ -1,6 +1,6 @@
 """
     convolution_resample(knots_in, knots_out, values)
-    convolution_resample(knots_in, knots_out, values; kernel, derivative, bc, subgrid, precompute)
+    convolution_resample(knots_in, knots_out, values; kernel, derivative, bc)
 
 Resample `values` from the uniform grid `knots_in` to the uniform grid `knots_out` using
 high-order separable convolution interpolation.
@@ -16,12 +16,12 @@ high-order separable convolution interpolation.
 - `derivative`: derivative order, default `0`. An `Int` applies to all dimensions;
   an `NTuple{N,Int}` specifies per-dimension orders. Negative values compute antiderivatives.
 - `bc`: boundary condition, default `:detect`. See [Boundary Conditions] for options.
-- `subgrid`: subgrid interpolation method, default `:cubic`. Options: `:linear`, `:cubic`, `:quintic`.
-- `precompute`: number of precomputed kernel points, default `101`.
+- `subgrid`, `precompute`: deprecated, have no effect, and will be removed in a future release.
+  Kernels are evaluated exactly, so there are no precomputed tables or subgrid interpolation.
 
 # Default kernels by dimension
 The convenience wrappers (called without keywords) use dimension-appropriate defaults:
-- 1D, 2D, 3D to 10D: `:b13` with `:cubic` subgrid
+- 1D, 2D, 3D to 10D: `:b13`
 
 # Returns
 Array of resampled values with `size(result, d) == length(knots_out[d])`.
@@ -174,11 +174,14 @@ end
 function convolution_resample(knots_in::NTuple{N,AbstractVector},
                                knots_out::NTuple{N,AbstractVector},
                                values::AbstractArray{T,N};
-                               precompute::Union{Int,NTuple{N,Int}}=101,
+                               precompute=nothing,
                                kernel::Union{Symbol,NTuple{N,Symbol}}=:b13,
                                derivative::Union{Int,NTuple{N,Int}}=0,
                                bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect,
-                               subgrid::Union{Symbol,NTuple{N,Symbol}}=:cubic) where {T,N}
+                               subgrid=nothing) where {T,N}
+
+    # deprecated keywords: warn if set, then ignore
+    _warn_deprecated_table_keywords(precompute, subgrid)
 
     # check and normalize inputs
     knots_in_tuple = knots_in isa AbstractVector ? (T.(knots_in),) : 
@@ -195,26 +198,11 @@ function convolution_resample(knots_in::NTuple{N,AbstractVector},
                     derivative isa Int ? ntuple(_ -> derivative, N) :
                     derivative isa NTuple{1,Int} ? ntuple(_ -> derivative[1], N) : 
                     error("Invalid derivative specification: $derivative.")
-    subgrids_tuple = subgrid isa NTuple{N,Symbol} ? subgrid :
-                    subgrid isa Symbol ? ntuple(_ -> subgrid, N) : 
-                    subgrid isa NTuple{1,Symbol} ? ntuple(_ -> subgrid[1], N) :
-                    error("Invalid subgrid specification: $subgrid.")
     bcs_tuple = bc isa NTuple{N,Tuple{Symbol,Symbol}} ? bc :
                     bc isa Tuple{Symbol,Symbol} ? ntuple(_ -> bc, N) :
                     bc isa NTuple{1,Tuple{Symbol,Symbol}} ? ntuple(_ -> bc[1], N) :
                     bc isa Symbol ? ntuple(_ -> (bc, bc), N) :
                     error("Invalid bc specification: $bc.")
-    precompute_tuple = precompute isa NTuple{N,Int} ? precompute :
-                    precompute isa Int ? ntuple(_ -> precompute, N) :
-                    precompute isa NTuple{1,Int} ? ntuple(_ -> precompute[1], N) :
-                    error("Invalid precompute specification $precompute")
-
-    # validate subgrid/kernel combinations
-    for d in 1:N
-        if subgrids_tuple[d] != :linear && kernels_tuple[d] in (:a0, :a1)
-            error("Cannot use $(subgrids_tuple[d]) subgrid with $(kernels_tuple[d]) kernel. Use :linear instead.")
-        end
-    end
 
     for d in 1:N
         if derivatives_tuple[d] < 0
@@ -223,17 +211,13 @@ function convolution_resample(knots_in::NTuple{N,AbstractVector},
         end
     end
 
-    subgrids_valid = _build_subgrids(Val{kernels_tuple}(), Val{derivatives_tuple}(), Val{subgrids_tuple}(), Val{N}())
-
-    precompute_actual = ntuple(d -> (subgrids_valid[d] == :linear && !(kernels_tuple[d] in (:a0, :a1)) ?
-                                    max(precompute_tuple[d], 10_000) : precompute_tuple[d]), N)
-
+    # Fixed internal values until the struct cleanup: neither affects the result
     return convolution_resample_internal(knots_in_tuple, knots_out_tuple, values,
-                                        precompute_actual,
+                                        ntuple(_ -> 101, N),
                                         kernels_tuple,
                                         derivatives_tuple,
                                         bcs_tuple,
-                                        subgrids_valid)
+                                        ntuple(_ -> :cubic, N))
 
 end
 
@@ -245,15 +229,6 @@ function convolution_resample_internal(knots_in::NTuple{N,AbstractVector},
                                derivatives::NTuple{N,Int},
                                bcs::NTuple{N,Tuple{Symbol,Symbol}},
                                subgrids::NTuple{N,Symbol}) where {T,N}
-
-    # lookup tables once if all dims use same kernel/derivative/subgrid
-    same_all = allequal(kernels) && allequal(derivatives) && allequal(subgrids)
-    if same_all
-        pre_range, kernel_pre, kd1_pre, kd2_pre = get_precomputed_kernel_and_range(
-            kernels[1], precompute[1], T, derivatives[1], subgrids[1])
-        eqs_same = DEGREE_TO_EQUATIONS[kernels[1]]
-        l_range  = -(eqs_same-1):eqs_same
-    end
 
     # pre-allocate a concrete buffer
     buf_in  = Array{T,N}(undef, size(values))
@@ -269,19 +244,15 @@ function convolution_resample_internal(knots_in::NTuple{N,AbstractVector},
         eqs_d  = DEGREE_TO_EQUATIONS[kernels[d]]
         h_d    = T(knots_in[d][2] - knots_in[d][1])
         n_coef = n_in + 2*(eqs_d - 1)
-        sg     = subgrids[d]
+
+        # kernel and derivative order of this dimension, passed to the slice evaluator
+        kernel_val     = Val(kernels[d])
+        derivative_val = Val(derivatives[d])
 
         # allocate once per dimension pass
         coef_buf  = zeros(T, n_coef)
         out_buf   = zeros(T, n_out)
         workspace = BoundaryWorkspace(T, Val(1), eqs_d, n_in)
-        if !same_all
-            pre_range, kernel_pre, kd1_pre, kd2_pre = get_precomputed_kernel_and_range(
-                kernels[d], precompute[d], T, derivatives[d], sg)
-            l_range = -(eqs_d-1):eqs_d
-        end
-        n_pre        = length(pre_range)
-        h_pre        = one(T) / T(n_pre - 1)
         x_expanded_1 = knots_in[d][1] - (eqs_d - 1) * h_d
 
         next_size    = ntuple(i -> i == d ? n_out : size(current, i), Val(N))
@@ -317,62 +288,8 @@ function convolution_resample_internal(knots_in::NTuple{N,AbstractVector},
                                                workspace, (n_in,), Val(false))
 
             # evaluate at output knots into out_buf
-            @inbounds for k in 1:n_out
-                xq           = knots_out[d][k]
-                i_float      = (xq - x_expanded_1) / h_d + one(T)
-                i            = clamp(floor(Int, i_float), eqs_d, n_coef - eqs_d)
-                knot_i       = x_expanded_1 + (i - 1) * h_d
-                x_diff_left  = (xq - knot_i) / h_d
-                x_diff_right = one(T) - x_diff_left
-
-                continuous_idx = x_diff_right * T(n_pre - 1) + one(T)
-                idx      = clamp(floor(Int, continuous_idx), 1, n_pre - 1)
-                idx_next = idx + 1
-                t        = continuous_idx - T(idx)
-
-                if sg == :quintic
-                    sum_f0  = zero(T); sum_f1  = zero(T)
-                    sum_d0  = zero(T); sum_d1  = zero(T)
-                    sum_dd0 = zero(T); sum_dd1 = zero(T)
-                    for l in l_range
-                        coef    = coef_buf[i + l]
-                        col     = l + eqs_d
-                        sum_f0  += coef * kernel_pre[idx,      col]
-                        sum_f1  += coef * kernel_pre[idx_next, col]
-                        sum_d0  += coef * kd1_pre[idx,      col]
-                        sum_d1  += coef * kd1_pre[idx_next, col]
-                        sum_dd0 += coef * kd2_pre[idx,      col]
-                        sum_dd1 += coef * kd2_pre[idx_next, col]
-                    end
-                    out_buf[k] = quintic_hermite(t, sum_f0, sum_f1, sum_d0, sum_d1,
-                                                 sum_dd0, sum_dd1, h_pre)
-
-                elseif sg == :cubic
-                    sum_f0 = zero(T); sum_f1 = zero(T)
-                    sum_d0 = zero(T); sum_d1 = zero(T)
-                    for l in l_range
-                        coef   = coef_buf[i + l]
-                        col    = l + eqs_d
-                        sum_f0 += coef * kernel_pre[idx,      col]
-                        sum_f1 += coef * kernel_pre[idx_next, col]
-                        sum_d0 += coef * kd1_pre[idx,      col]
-                        sum_d1 += coef * kd1_pre[idx_next, col]
-                    end
-                    out_buf[k] = cubic_hermite(t, sum_f0, sum_f1, sum_d0, sum_d1, h_pre)
-
-                else # :linear
-                    result_lower = zero(T)
-                    result_upper = zero(T)
-                    for l in l_range
-                        coef         = coef_buf[i + l]
-                        col          = l + eqs_d
-                        result_lower += coef * kernel_pre[idx,      col]
-                        result_upper += coef * kernel_pre[idx_next, col]
-                    end
-                    out_buf[k] = (one(T) - t) * result_lower + t * result_upper
-
-                end
-            end
+            _resample_slice!(out_buf, coef_buf, knots_out[d], x_expanded_1, h_d, eqs_d, n_coef,
+                             kernel_val, derivative_val)
 
             # write out_buf into next
             for k in 1:n_out
@@ -383,4 +300,28 @@ function convolution_resample_internal(knots_in::NTuple{N,AbstractVector},
         current_ref[] = next
     end
     return current_ref[]
+end
+
+# Evaluate one slice (its coefficients in coef_buf) at all output knots of the dimension,
+# with the exact column polynomials of kernel K at derivative order D. Specialized per
+# (K, D), so the column polynomials are constants inside the loop.
+function _resample_slice!(out_buf::Vector{T}, coef_buf::Vector{T}, knots_out_d::AbstractVector,
+                          x_expanded_1::T, h_d::T, eqs_d::Int, n_coef::Int,
+                          ::Val{K}, ::Val{D}) where {T,K,D}
+    @inbounds for k in eachindex(out_buf)
+        xq           = knots_out_d[k]
+        i_float      = (xq - x_expanded_1) / h_d + one(T)
+        i            = clamp(floor(Int, i_float), eqs_d, n_coef - eqs_d)
+        knot_i       = x_expanded_1 + (i - 1) * h_d
+        x_diff_right = one(T) - (xq - knot_i) / h_d
+
+        # kernel weights of all 2·eqs columns (column c ↔ coef_buf[i − eqs + c])
+        w = _kernel_weights(Val(K), Val(D), x_diff_right)
+        s = zero(T)
+        for c in 1:length(w)
+            s += coef_buf[i - eqs_d + c] * w[c]
+        end
+        out_buf[k] = s
+    end
+    return out_buf
 end

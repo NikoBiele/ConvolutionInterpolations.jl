@@ -4,7 +4,7 @@ println("-"^60)
 
 convergence_nu_kernels = [:b5] #, :b7, :b9, :b11]
 expected_order_nonuniform = Dict(
-    :b5 => 7 #, :b7 => 7, :b9 => 7, :b11 => 6 # no accumulated floating point error (precomputed kernel)
+    :b5 => 7 #, :b7 => 7, :b9 => 7, :b11 => 6 # no accumulated floating point error (exact kernel coefficients)
 )
 
 # shared helper

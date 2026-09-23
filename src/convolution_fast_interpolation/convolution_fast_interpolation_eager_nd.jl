@@ -5,23 +5,23 @@ Evaluate N-dimensional (N > 3) fast convolution interpolation at coordinates `x`
 
 Dispatches on kernel type:
 
-**Specialized kernels** (no precomputed table):
+**Specialized kernels**:
 - `:a0` — Nearest neighbor, ~20ns (4D). Selects nearest grid point per dimension.
 - `:a1` — Multilinear interpolation, ~35ns (4D). Interpolates over 2^N corners
   using bit-manipulation to enumerate combinations efficiently.
 
-**Higher-order kernels**: Uses linear subgrid interpolation over all `(2*eqs)^N`
-kernel support points. The N-D kernel is formed as a tensor product of 1D kernels:
-`K_N(x₁,...,x_N) = K₁(x₁)·...·K₁(x_N)`. Each 1D kernel value is linearly
-interpolated from the precomputed table.
+**Higher-order kernels**: exact column polynomials. The kernel weights of each dimension are
+evaluated once from compile-time polynomial coefficients (see `_column_rows`), and the N-D
+kernel is their tensor product `K_N(x₁,...,x_N) = K₁(x₁)·...·K₁(x_N)` over all `(2*eqs)^N`
+support points.
 
-O(1) evaluation time with respect to grid size, allocation-free. Only linear subgrid
-is available in N > 3 dimensions. The exponential growth in support points (e.g.
-`(2*eqs)^N`) limits practical use to modest kernel orders in high dimensions.
+O(1) evaluation time with respect to grid size, allocation-free, exact to rounding for every
+derivative order. The `(2*eqs)^N` support limits practical use to modest kernel orders in
+high dimensions.
 
 Results scaled by `∏ᵢ (-1/hᵢ)^derivative`.
 
-See also: `FastConvolutionInterpolation`.
+See also: `FastConvolutionInterpolation`, `_column_weights_per_dim`.
 """
 
 @inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
@@ -105,38 +105,31 @@ function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{
 
     x = T.(x)
     # specialized dispatch for N-dimensional higher-order kernel
-    
+
     # Compute i_float once per dimension
     i_floats = ntuple(d -> (x[d] - itp.x0[d]) / itp.h[d] + one(T), N)
-    
+
     # Find knot indices for each dimension
     pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[1], length(itp.knots[d]) - itp.eqs[1]), N)
-    
-    # Compute normalized left distances - recompute from actual knot positions
+
+    # Normalized distances within the cell
     diff_left = ntuple(d -> i_floats[d] - T(pos_ids[d]), N)
     diff_right = ntuple(d -> one(T) - diff_left[d], N)
 
-    idx_lower = ntuple(d -> clamp(floor(Int, diff_right[d] * (length(itp.pre_range[d]) - one(Int64))) + one(Int64),
-                                   one(Int64), length(itp.pre_range[d]) - one(Int64)), N)
-    
-    idx_upper = ntuple(d -> idx_lower[d] + 1, N)
-    t = ntuple(d -> (diff_right[d] - itp.pre_range[d][idx_lower[d]]) / 
-                     (itp.pre_range[d][idx_upper[d]] - itp.pre_range[d][idx_lower[d]]), N)
+    # Kernel weights per dimension at τ = diff_right (column offsets[d] + eqs)
+    w = _column_weights_per_dim(Val(DG), Val(DO), diff_right)
 
     result = zero(T)
-    
     @inbounds for offsets in Iterators.product(ntuple(d -> -(itp.eqs[1]-1):itp.eqs[1], N)...) # same kernel in all directions
         coef = itp.coefs[(pos_ids .+ offsets)...]
-        
+
         kernel_val = one(T)
         @inbounds for d in 1:N
-            k_lower = itp.kernel_pre[1][idx_lower[d], offsets[d]+itp.eqs[d]] # same kernel in all directions
-            k_upper = itp.kernel_pre[1][idx_upper[d], offsets[d]+itp.eqs[d]] # same kernel in all directions
-            kernel_val *= (one(T) - t[d]) * k_lower + t[d] * k_upper
+            kernel_val *= w[d][offsets[d] + itp.eqs[1]]
         end
-        
+
         result += coef * kernel_val
     end
-    
-    return  @inbounds @fastmath result * prod((-one(T)/itp.h[d])^DO[d] for d in 1:N)
+
+    return @inbounds @fastmath result * prod((-one(T)/itp.h[d])^DO[d] for d in 1:N)
 end

@@ -1,6 +1,9 @@
 using ConvolutionInterpolations
 using Test, Random, StatsBase
 
+# Seed the global RNG so that every random draw in the suite is reproducible
+Random.seed!(20260924)
+
 @testset "ConvolutionInterpolations.jl" begin
     include("test_column_polynomials.jl")
     include("test_nd_integral_separable.jl")
@@ -17,6 +20,7 @@ using Test, Random, StatsBase
     include("test_nonuniform_a0_a1.jl")
     include("test_nonuniform_lazy.jl")
     include("test_antiderivative.jl")
+    include("test_higher_integrals.jl")
     include("test_perdim_derivatives.jl")
     include("test_mixed_integral_1D_2D.jl")
     include("test_mixed_integral_3D_4D.jl")

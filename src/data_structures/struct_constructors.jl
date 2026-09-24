@@ -167,6 +167,15 @@ struct IntegralOrder end
 struct FastIntegralOrder end
 
 """
+    FastIntegralOrders{DO}
+
+Dispatch type for integrals of any order in any number of dimensions on the fast path. `DO` is
+the per-dimension order tuple: `DO[d] < 0` integrates along dimension d (order −DO[d]), and
+`DO[d] ≥ 0` interpolates (0) or differentiates along it.
+"""
+struct FastIntegralOrders{DO} end
+
+"""
     DerivativeOrder{DO}
 
 Dispatch type indicating the derivative order of a `ConvolutionInterpolation` or
@@ -196,8 +205,6 @@ Used when at least one but not all dimensions have `derivative == -1`.
 See also: `IntegralOrder`, `DerivativeOrder`.
 """
 struct MixedIntegralOrder{DO} end
-
-struct FastMixedIntegralOrder{DO} end
 
 abstract type AbstractExtrapolation end
 

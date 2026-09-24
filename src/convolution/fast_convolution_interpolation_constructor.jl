@@ -95,6 +95,22 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         error("Derivatives not supported in lazy mode with 'boundary_fallback=true'.")
     end
 
+    # antiderivatives (derivative < 0) build their tails from the full coefficient array, which
+    # lazy mode deliberately skips, so the two cannot be combined
+    if lazy && any(d -> derivatives_tuple[d] < 0, 1:N)
+        error("Antiderivatives (derivative < 0) are not supported in lazy mode.")
+    end
+
+    # antiderivatives of order 2 and higher (derivative = -M, M ≥ 2): up to each kernel's highest
+    # integral order, in every dimension
+    for d in 1:N
+        derivatives_tuple[d] < -1 || continue
+        M = -derivatives_tuple[d]
+        max_order = _max_integral_order[kernels_tuple[d]]
+        M <= max_order || error("Kernel :$(kernels_tuple[d]) supports antiderivatives up to order " *
+                                "$max_order (derivative = -$max_order). Got derivative = -$M.")
+    end
+
     return _build_fast_uniform_convolution(knots_tuple, vs, bcs_tuple, boundary_fallback,
                                            Val(kernels_tuple), Val(lazy),
                                            Val(derivatives_tuple))
@@ -124,7 +140,7 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
     end
     x0 = ntuple(d -> T(first(knots_new[d])), N)
 
-    anchor = ntuple(d -> derivative[d] == -1 ? knots_new[d][eqs[d]] : zero(T), N)
+    anchor = ntuple(d -> derivative[d] < 0 ? knots_new[d][eqs[d]] : zero(T), N)
 
     left_values, tail1_left, tail2_ll, tail3_edge_ll, tail3_corner_lll =
                                     _build_tails(coefs, kernel, Val{DV}(), eqs, knots_new)
@@ -140,6 +156,23 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
     domain_size = ntuple(d -> size(vs, d), N)
     lazy_workspace = LazyBoundaryWorkspace(T, Val(N), maximum(eqs))
 
+    # integrals of any order in any dimension: exact anchoring and entry tables per integral
+    # dimension, and the left tails of every region (tails only for at most 3 integral dimensions)
+    if any(<(0), derivative) && !all(==(-1), derivative)
+        integral_taylor = ntuple(d -> derivative[d] < 0 ?
+                                 _anchor_taylor_table(T, kernel[d], -derivative[d], eqs[d]) :
+                                 Matrix{T}(undef, 0, 0), N)
+        integral_entries = ntuple(d -> derivative[d] < 0 ?
+                                  _near_anchor_entries(T, kernel[d], -derivative[d], eqs[d]) :
+                                  Matrix{T}(undef, 0, 0), N)
+        integral_tails = count(<(0), derivative) <= 3 ?
+                         _build_region_tails(coefs, kernel, derivative, eqs) : Vector{Array{T,N}}[]
+    else
+        integral_taylor = ntuple(_ -> Matrix{T}(undef, 0, 0), N)
+        integral_entries = ntuple(_ -> Matrix{T}(undef, 0, 0), N)
+        integral_tails = Vector{Array{T,N}}[]
+    end
+
     return FastConvolutionInterpolation{T,N,n_integral,typeof(coefs),typeof(knots_new),
                                         typeof(kernel_type),typeof(dimension),typeof(kernels),
                                         typeof(eqs),
@@ -150,11 +183,14 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
         bc, do_type, nothing, nothing, Val(:not_used),
         Val{LZ}(), boundary_fallback, left_values, anchor, integral_dimension, lazy_workspace,
         tail1_left, tail2_ll, tail3_edge_ll, tail3_corner_lll,
+        integral_taylor, integral_entries, integral_tails,
     )
 end
 
 function _build_tails(coefs::AbstractArray{T,N}, kernel, ::Val{DV}, eqs, knots_new) where {T,N,DV}
-    n_integral = _count_integrals(Val{DV}())
+    # the order-1 tails are only read by the pure first-order integral evaluators; every other
+    # integral uses the generic data (integral_taylor, integral_entries, integral_tails)
+    n_integral = all(==(-1), DV) ? N : 0
     derivative = DV
     integral_type = n_integral <= 3 ? Val(n_integral) : HigherDimension(Val(n_integral))
     return _build_tails_dispatch(coefs, kernel, derivative, eqs, knots_new, integral_type)
@@ -236,14 +272,14 @@ function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eq
 end
 
 @generated function _build_fast_do_type(::Val{D}) where D
-    n_int = count(==(-1), D)
-    N = length(D)
-    if n_int == 0
-        return :(DerivativeOrder(Val($D)))
-    elseif n_int == N
+    if all(==(-1), D)
+        # pure first-order integrals: the specialized evaluators, fastest for this case
         return :(FastIntegralOrder())
+    elseif any(<(0), D)
+        # every other integral: any orders, possibly mixed with interpolation or derivatives
+        return :(FastIntegralOrders{$D}())
     else
-        return :(FastMixedIntegralOrder{$D}())
+        return :(DerivativeOrder(Val($D)))
     end
 end
 

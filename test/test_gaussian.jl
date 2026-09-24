@@ -24,14 +24,19 @@ end
 
 println("    - Convolution_smooth")
 @testset "convolution_smooth" begin
+    # root-mean-square of an array: concentrated, unlike the maximum, which measures the
+    # tail of the noise distribution and fluctuates strongly between noise draws
+    rms(v) = sqrt(sum(abs2, v) / length(v))
+    # seeded noise, so every run (and every failure) is reproducible
+    rng = Random.MersenneTwister(1)
 
     @testset "1D smooth recovers signal" begin
         xs = range(0.0, 2π, length=200)
         signal = sin.(xs)
-        noisy  = signal .+ 0.1 .* randn(200)
+        noisy  = signal .+ 0.1 .* randn(rng, 200)
         smoothed = convolution_smooth(xs, noisy, 0.05)
-        # should recover sin well after smoothing
-        @test maximum(abs.(smoothed .- signal)) < 0.2
+        # smoothing must remove most of the noise: error well below the noise level (measured 0.29)
+        @test rms(smoothed .- signal) < 0.45 * rms(noisy .- signal)
         @test length(smoothed) == length(xs)
         @test eltype(smoothed) == Float64
     end
@@ -48,27 +53,29 @@ println("    - Convolution_smooth")
         xs = range(0.0, 2π, length=100)
         ys = range(0.0, 2π, length=100)
         signal   = [sin(x)*cos(y) for x in xs, y in ys]
-        noisy    = signal .+ 0.1 .* randn(100, 100)
+        noisy    = signal .+ 0.1 .* randn(rng, 100, 100)
         smoothed = convolution_smooth((xs, ys), noisy, 0.05)
         @test size(smoothed) == (100, 100)
         @test eltype(smoothed) == Float64
-        @test maximum(abs.(smoothed .- signal)) < 0.2
+        # error well below the noise level (measured 0.21)
+        @test rms(smoothed .- signal) < 0.35 * rms(noisy .- signal)
     end
 
     @testset "3D smooth recovers signal" begin
         xs = range(0.0, 2π, length=100)
         signal   = [sin(x)*cos(y)*sin(z) for x in xs, y in xs, z in xs]
-        noisy    = signal .+ 0.1 .* randn(100, 100, 100)
+        noisy    = signal .+ 0.1 .* randn(rng, 100, 100, 100)
         smoothed = convolution_smooth((xs, xs, xs), noisy, 0.05)
         @test size(smoothed) == (100, 100, 100)
-        @test maximum(abs.(smoothed .- signal)) < 0.25
+        # error well below the noise level (measured 0.20)
+        @test rms(smoothed .- signal) < 0.30 * rms(noisy .- signal)
     end
 
     @testset "smooth preserves array size" begin
         for N in (1, 2, 3)
             n  = 20
             ks = ntuple(_ -> range(0.0, 2π, length=n), N)
-            vs = randn(ntuple(_ -> n, N)...)
+            vs = randn(rng, ntuple(_ -> n, N)...)
             sm = convolution_smooth(ks, vs, 0.5)
             @test size(sm) == size(vs)
             @test eltype(sm) == Float64
@@ -77,7 +84,7 @@ println("    - Convolution_smooth")
 
     @testset "stronger smoothing gives smoother result" begin
         xs = range(0.0, 2π, length=200)
-        noisy = sin.(xs) .+ 0.3 .* randn(200)
+        noisy = sin.(xs) .+ 0.3 .* randn(rng, 200)
         sm_weak   = convolution_smooth(xs, noisy, 0.5)
         sm_strong = convolution_smooth(xs, noisy, 0.05)
         # stronger smoothing (smaller B) should have smaller max second difference

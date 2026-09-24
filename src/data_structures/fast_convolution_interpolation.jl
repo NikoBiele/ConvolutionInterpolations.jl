@@ -50,6 +50,18 @@ rounding for every kernel, derivative and integral order.
 - `tail1_left`, `tail2_ll`, `tail3_edge_ll`, `tail3_corner_lll`: Prefix sums of the
   antiderivative contributions left of the stencil, for O(1) integral evaluation. Coefficients
   right of the stencil contribute exactly zero, so there are no right tails.
+- `anchor_taylor::Matrix{T}`: For a 1D integral of order M ≥ 2, the exact values
+  K_{M−r}(eqs − j) of the coefficients near the anchor (r = 0 … M−1), which anchor the M-fold
+  integral and all lower integrals at zero
+- `tail_polynomial::Vector{Array{T,N}}`: For a 1D integral of order M ≥ 2, the left tail as
+  a polynomial in the position within the cell: array k holds the coefficient of t^(k−1)
+- `integral_taylor::NTuple{N,Matrix{T}}`: For each integral dimension of order m, the exact values
+  K_{m−r}(eqs − j) of the coefficients near the anchor (see `_anchor_taylor_table`)
+- `integral_entries::NTuple{N,Matrix{T}}`: For each integral dimension, the exact polynomials
+  (in the position within the cell) that near-anchor coefficients contribute left of the stencil
+- `integral_tails::Vector{Vector{Array{T,N}}}`: For at most 3 integral dimensions, the left tails
+  of every region: entry `mask` holds one array per combination of powers of the positions within
+  the cell (see `_build_region_tails`)
 """
 
 struct LazyBoundaryWorkspace{T,N}
@@ -89,4 +101,8 @@ struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
     tail2_ll::Array{T,N}                   # left-saturated in both of 2 integral dimensions
     tail3_edge_ll::NTuple{3, Array{T,N}}   # 3 integral dims: free in dim k, left-saturated in the other two
     tail3_corner_lll::Array{T,N}           # 3 integral dims: left-saturated in all three
+    # integrals of any order in any dimension (see FastIntegralOrders)
+    integral_taylor::NTuple{N, Matrix{T}}      # per integral dimension: exact anchoring table
+    integral_entries::NTuple{N, Matrix{T}}     # per integral dimension: near-anchor entry polynomials
+    integral_tails::Vector{Vector{Array{T,N}}} # left tails of every region (≤ 3 integral dimensions)
 end

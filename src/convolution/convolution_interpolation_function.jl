@@ -110,14 +110,18 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
                     bc isa Symbol ? ntuple(_ -> (bc, bc), N) :
                     error("Invalid bc specification: $bc.")
 
-    is_integral = any(d -> derivatives_tuple[d] == -1, 1:N)
+    is_integral = any(d -> derivatives_tuple[d] < 0, 1:N)
     is_nonuniform = any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || any(d -> kernels_tuple[d] == :n3, 1:N)
 
     if is_integral && is_nonuniform
-      error("Nonuniform antiderivative (derivative=-1) is not directly supported.\n")
+      error("Antiderivatives (derivative < 0) are not supported on nonuniform grids.")
     elseif is_integral && !is_nonuniform
       if lazy && fast
         error("Lazy mode not supported in fast mode for antiderivatives.")
+      end
+      if !fast && any(d -> derivatives_tuple[d] < -1, 1:N)
+        error("Antiderivatives of order 2 and higher (derivative < -1) are only available " *
+              "on the fast path (fast=true).")
       end
     elseif !is_integral && is_nonuniform
       fast = false # nonuniform grids not supported in fast mode

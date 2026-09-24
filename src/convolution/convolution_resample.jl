@@ -64,111 +64,90 @@ See also: [`convolution_interpolation`](@ref), [`convolution_smooth`](@ref)
 # 1D convenience wrapper
 function convolution_resample(knots_in::AbstractVector, knots_out::AbstractVector, values::AbstractVector{T}) where {T}
     return convolution_resample_internal((knots_in,), (knots_out,), values,
-                                        (101,),
                                         (:b13,),
                                         (0,),
-                                        ((:detect,:detect),),
-                                        (:cubic,))
+                                        ((:detect,:detect),))
 end
 
 # 2D convenience wrapper
 function convolution_resample(knots_in::NTuple{2,AbstractVector}, knots_out::NTuple{2,AbstractVector},
                                 values::AbstractArray{T,2}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (101,101),
                                         (:b13,:b13),
                                         (0,0),
-                                        ((:detect,:detect),(:detect,:detect)),
-                                        (:cubic,:cubic))
+                                        ((:detect,:detect),(:detect,:detect)))
 end
 
 # 3D convenience wrapper
 function convolution_resample(knots_in::NTuple{3,AbstractVector}, knots_out::NTuple{3,AbstractVector},
                                 values::AbstractArray{T,3}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (101,101,101),
                                         (:b13,:b13,:b13),
                                         (0,0,0),
-                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:cubic,:cubic,:cubic))
+                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
 
 # 4D convenience wrapper
 function convolution_resample(knots_in::NTuple{4,AbstractVector}, knots_out::NTuple{4,AbstractVector},
                                 values::AbstractArray{T,4}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (101,101,101,101),
                                         (:b13,:b13,:b13,:b13),
                                         (0,0,0,0),
-                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:cubic,:cubic,:cubic,:cubic))
+                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
 
 # 5D convenience wrapper
 function convolution_resample(knots_in::NTuple{5,AbstractVector}, knots_out::NTuple{5,AbstractVector},
                                 values::AbstractArray{T,5}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (101,101,101,101,101),
                                         (:b13,:b13,:b13,:b13,:b13),
                                         (0,0,0,0,0),
-                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:cubic,:cubic,:cubic,:cubic,:cubic))
+                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
 
 # 6D convenience wrapper
 function convolution_resample(knots_in::NTuple{6,AbstractVector}, knots_out::NTuple{6,AbstractVector},
                                 values::AbstractArray{T,6}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (101,101,101,101,101,101),
                                         (:b13,:b13,:b13,:b13,:b13,:b13),
                                         (0,0,0,0,0,0),
-                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:cubic,:cubic,:cubic,:cubic,:cubic,:cubic))
+                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
 
 # 7D convenience wrapper
 function convolution_resample(knots_in::NTuple{7,AbstractVector}, knots_out::NTuple{7,AbstractVector},
                                 values::AbstractArray{T,7}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (101,101,101,101,101,101,101),
                                         (:b13,:b13,:b13,:b13,:b13,:b13,:b13),
                                         (0,0,0,0,0,0,0),
-                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic))
+                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
 
 # 8D convenience wrapper
 function convolution_resample(knots_in::NTuple{8,AbstractVector}, knots_out::NTuple{8,AbstractVector},
                                 values::AbstractArray{T,8}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (101,101,101,101,101,101,101,101),
                                         (:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13),
                                         (0,0,0,0,0,0,0,0),
-                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic))
+                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
-
 
 # 9D convenience wrapper
 function convolution_resample(knots_in::NTuple{9,AbstractVector}, knots_out::NTuple{9,AbstractVector},
                                 values::AbstractArray{T,9}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (101,101,101,101,101,101,101,101,101),
                                         (:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13),
                                         (0,0,0,0,0,0,0,0,0),
-                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic))
+                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
 
 # 10D convenience wrapper
 function convolution_resample(knots_in::NTuple{10,AbstractVector}, knots_out::NTuple{10,AbstractVector},
                                 values::AbstractArray{T,10}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (101,101,101,101,101,101,101,101,101,101),
                                         (:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13),
                                         (0,0,0,0,0,0,0,0,0,0),
-                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)),
-                                        (:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic,:cubic))
+                                        ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
 
 function convolution_resample(knots_in::NTuple{N,AbstractVector},
@@ -211,24 +190,19 @@ function convolution_resample(knots_in::NTuple{N,AbstractVector},
         end
     end
 
-    # Fixed internal values until the struct cleanup: neither affects the result
     return convolution_resample_internal(knots_in_tuple, knots_out_tuple, values,
-                                        ntuple(_ -> 101, N),
                                         kernels_tuple,
                                         derivatives_tuple,
-                                        bcs_tuple,
-                                        ntuple(_ -> :cubic, N))
+                                        bcs_tuple)
 
 end
 
 function convolution_resample_internal(knots_in::NTuple{N,AbstractVector},
                                knots_out::NTuple{N,AbstractVector},
                                values::AbstractArray{T,N},
-                               precompute::NTuple{N,Int},
                                kernels::NTuple{N,Symbol},
                                derivatives::NTuple{N,Int},
-                               bcs::NTuple{N,Tuple{Symbol,Symbol}},
-                               subgrids::NTuple{N,Symbol}) where {T,N}
+                               bcs::NTuple{N,Tuple{Symbol,Symbol}}) where {T,N}
 
     # pre-allocate a concrete buffer
     buf_in  = Array{T,N}(undef, size(values))
@@ -242,7 +216,8 @@ function convolution_resample_internal(knots_in::NTuple{N,AbstractVector},
         n_in   = size(current, d)
         n_out  = length(knots_out[d])
         eqs_d  = DEGREE_TO_EQUATIONS[kernels[d]]
-        h_d    = T(knots_in[d][2] - knots_in[d][1])
+        h_d    = T((last(knots_in[d]) - first(knots_in[d]))/(length(knots_in[d]) - 1))
+
         n_coef = n_in + 2*(eqs_d - 1)
 
         # kernel and derivative order of this dimension, passed to the slice evaluator

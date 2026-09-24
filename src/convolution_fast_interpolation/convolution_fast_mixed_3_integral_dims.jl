@@ -7,11 +7,10 @@ Integral dimensions: full 27-region decomposition (center + faces + edges + corn
 with K̃ weights from exact column polynomials.
 Derivative dimensions: kernel weights from exact column polynomials.
 """
-@inline function (itp::FastConvolutionInterpolation{T,N,3,TCoefs,Axs,KA,DIM,DG,EQ,PR,KP,KBC,
+@inline function (itp::FastConvolutionInterpolation{T,N,3,TCoefs,Axs,KA,DIM,DG,EQ,KBC,
             FastMixedIntegralOrder{DO},FD,SD,Val{SG},Val{false},Val{3}})(x::Vararg{Number,N}) where
             {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},Axs<:Tuple{Vararg{AbstractVector}},
-            KA<:Tuple{Vararg{Nothing}},DIM,DG,EQ<:Tuple{Vararg{Int}},PR<:Tuple{Vararg{AbstractVector}},
-            KP,KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
+            KA<:Tuple{Vararg{Nothing}},DIM,DG,EQ<:Tuple{Vararg{Int}},KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
 
     x = T.(x)
     # find the three integral dimensions (compile-time constants)

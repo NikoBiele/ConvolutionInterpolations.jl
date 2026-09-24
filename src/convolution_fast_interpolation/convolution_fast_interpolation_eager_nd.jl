@@ -25,10 +25,9 @@ See also: `FastConvolutionInterpolation`, `_column_weights_per_dim`.
 """
 
 @inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-                    LowerOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},
+                    LowerOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},
                     Val{false},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
-                    KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},DG,EQ<:NTuple{N,Int},
-                    PR<:NTuple{N,<:AbstractVector},KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},
+                    KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},DG,EQ<:NTuple{N,Int},KBC<:NTuple{N,Tuple{Symbol,Symbol}},
                     DO,FD,SD,SG}
 
     x = T.(x)
@@ -96,11 +95,10 @@ end
 end
 
 function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-            HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},
+            HigherOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},
                     Val{false},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,
                     TCoefs<:AbstractArray{T,N},KA<:NTuple{N,<:Nothing},
-                    Axs<:NTuple{N,<:AbstractVector},DG,EQ<:NTuple{N,Int},
-                    PR<:NTuple{N,<:AbstractVector},KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},
+                    Axs<:NTuple{N,<:AbstractVector},DG,EQ<:NTuple{N,Int},KBC<:NTuple{N,Tuple{Symbol,Symbol}},
                     DO,FD,SD,SG}
 
     x = T.(x)

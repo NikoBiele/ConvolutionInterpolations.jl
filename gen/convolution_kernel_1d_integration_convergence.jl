@@ -1,8 +1,6 @@
 using ConvolutionInterpolations
 using CairoMakie
 using LaTeXStrings
-using Scratch
-# Scratch.clear_scratchspaces!()
 
 ############ 1D ################
 

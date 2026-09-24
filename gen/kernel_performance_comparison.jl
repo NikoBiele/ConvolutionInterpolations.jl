@@ -2,8 +2,6 @@ using ConvolutionInterpolations
 using CairoMakie
 using Chairmarks
 using Printf
-# using Scratch
-# Scratch.clear_scratchspaces!()
 
 # --- Benchmark setup ---
 kernels = [:a0, :a1, :a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11, :b13]
@@ -95,4 +93,4 @@ end
 
 fig
 
-save("fig/kernel_performance_comparison.png", fig, px_per_unit=3.0)
+# save("fig/kernel_performance_comparison.png", fig, px_per_unit=3.0)

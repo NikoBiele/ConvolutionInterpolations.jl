@@ -9,7 +9,7 @@ High-order interpolation, differentiation, integration and smoothing on discrete
 ConvolutionInterpolations.jl uses a new family of high-order convolution kernels to provide a single unified interface for interpolation, differentiation, integration and smoothing - from nearest-neighbor to C¹¹ smooth 13th-degree polynomial kernels, on uniform and non-uniform grids, in any number of dimensions.
 
 - **High accuracy kernels**: 7th order convergence for uniform, up to 14th order for non-uniform
-- **Uniform grids**: Uniform grids use optimized precomputed kernels
+- **Uniform grids**: Kernels are evaluated exactly from their polynomial pieces
 - **Non-uniform grids**: Non-uniform grids are detected automatically
 - **O(1) evaluation (uniform)**: Query time is independent of grid size with allocation-free evaluation
 - **N-dimensional**: Separable kernel design scales naturally from 1D to arbitrary dimensions
@@ -288,7 +288,7 @@ The 1D Runge function demonstrates convergence behavior across kernel families:
 - `:b` kernels reach machine precision (~10⁻¹⁴) by 1000 sample points
 - `:b`-series kernels show 7th order convergence (slope ≈ -7 on the log-log plot)
 - The `:a4` kernel show 4th order convergence, and is similar to cubic splines
-- The discretized kernel approach is both faster and more numerically stable than direct polynomial evaluation
+- The fast path evaluates each kernel's polynomial pieces in a local coordinate within the grid cell, which is both fast and numerically stable
 - Chebyshev interpolation shown for reference (requires non-uniform grid points)
 
 ### Frequency Response
@@ -303,10 +303,10 @@ Performance across dimensions and kernel families:
 
 [![Kernel performance heatmap](fig/kernel_performance_comparison.png)](fig/kernel_performance_comparison.png)
 
-**Initialization** (left panel): One-time setup cost in eager mode (`lazy=false`). Ranges from ~2 μs for linear kernels to ~0.5 s for 4D `:b` kernels. For kernels higher than `:a1`, setup time scales with the number of boundary points. Benchmarks use 50 grid points per dimension (50, 50², 50³, 50⁴). With `lazy=true`, construction is constant-time regardless of grid size or dimension — see [High-Dimensional Interpolation](#high-dimensional-interpolation) for benchmarks.
+**Initialization** (left panel): One-time setup cost in eager mode (`lazy=false`). Ranges from ~2 μs for linear kernels to ~0.3 s for 4D `:b` kernels. For kernels higher than `:a1`, setup time scales with the number of boundary points. Benchmarks use 50 grid points per dimension (50, 50², 50³, 50⁴). With `lazy=true`, construction is constant-time regardless of grid size or dimension — see [High-Dimensional Interpolation](#high-dimensional-interpolation) for benchmarks.
 
-**Evaluation** (right panel): Cost per interpolation call with default settings (`:cubic` subgrid, extrapolation wrapper).
-Lower times are achievable with lower order kernels, `:linear` subgrid or by bypassing the extrapolation wrapper (`itp.itp(x)`).
+**Evaluation** (right panel): Cost per interpolation call with default settings (extrapolation wrapper).
+Lower times are achievable with lower order kernels or by bypassing the extrapolation wrapper (`itp.itp(x)`).
 
 Evaluation cost scales as (stencil)ᴺ across dimensions due to tensor product structure.
 
@@ -420,7 +420,7 @@ itp_d1(1.0, 2.0)  # Returns cos(1.0) * cos(2.0)
 
 Approximately one order of convergence is lost per derivative order.
 
-Switching from `subgrid=:cubic` (default) to `subgrid=:linear` makes one additional derivative order available.
+Every derivative order a kernel supports is available by default and evaluated exactly, including its highest.
 
 Per-dimension derivative orders are supported by passing a tuple to `derivative`:
 
@@ -599,39 +599,28 @@ itp = convolution_interpolation((x, y, z, t), data; kernel=(:a3,:a3,:b5,:b7), la
 
 For full boundary accuracy with mixed kernels in any dimension, use `lazy=false` (eager mode).
 
-### Subgrid Interpolation
+### Exact Kernel Evaluation
 
-The fast evaluation mode convolves data with precomputed kernel values, then interpolates between convolution results. 
-The `subgrid` parameter controls this inner interpolation:
+On uniform grids, every kernel weight is computed exactly from the kernel's polynomial pieces.
+For a point at fractional position `t` within its grid cell, each coefficient in the stencil is
+weighted by a single polynomial in `t`. These polynomials are derived in exact rational
+arithmetic from each kernel's definition, for every derivative and integral order, and rounded
+once to the working precision. At evaluation time, the weights of all stencil coefficients are
+computed together with Horner's scheme.
 
-```julia
-itp = convolution_interpolation(x, y; subgrid=:cubic);                    # Default, high accuracy
-itp = convolution_interpolation(x, y; subgrid=:quintic);                  # Even higher accuracy
-itp = convolution_interpolation(x, y; subgrid=:linear, precompute=10_000); # Fastest evaluation
-```
+The result is exact to rounding for every kernel, derivative and integral order, in any
+precision (`Float32`, `Float64`, `BigFloat`), with no precomputed tables and nothing written
+to disk.
 
-| Subgrid    | Method               | Kernel derivatives used | Speed   | Accuracy |
-|------------|----------------------|------------------------|---------|----------|
-| `:linear`  | Linear interpolation | 0                      | Fastest | Lowest   |
-| `:cubic`   | Cubic Hermite        | 1                      | Middle  | High     |
-| `:quintic` | Quintic Hermite      | 2                      | Slowest | Highest  |
-
-Cubic and quintic subgrids use analytically predifferentiated kernels for Hermite interpolation, achieving high accuracy with far fewer precomputed points than linear subgrid requires. The default `:cubic` with `precompute=101` uses kernel tables shipped with the package as a Julia artifact, requiring no kernel computation at startup. For linear subgrid, increase `precompute` to at least 10,000.
-
-The available subgrid order depends on remaining smooth derivatives: `max_derivative[kernel] - derivative`. For example, b5 with `derivative=3` has no remaining derivatives, so only `:linear` is available.
-
-Cubic and quintic subgrids are implemented for 1D and 2D.
-Linear and cubic subgrids are implemented for 3D.
-Higher dimensions use `:linear` subgrid, as tensor products per cell grow as `(order+1)ᴺ`.
-
-Benchmarks in the [Speed](#speed) section use the default `:cubic` subgrid.
+The `precompute` and `subgrid` keywords of earlier versions no longer have any effect.
+They are still accepted, with a deprecation warning, and will be removed in a future release.
 
 ## Performance Guidelines
 
 - **Default `:b7` works everywhere**: 7th-order accuracy on uniform grids, non-uniform grids, high-order derivatives
 - **Use `lazy=true` in high dimensions**: Skips ghost point expansion, reducing construction time and memory
 - **Use `:a0`, `:a1` or `:a3` in high dimensions**: Evaluation time of narrower kernels scale better with dimensions
-- **Pre-shipped kernel tables**: The default `precompute=101` with `:cubic` or `:quintic` subgrid loads precomputed tables shipped as a Julia artifact
+- **Any precision works out of the box**: `Float32` and `BigFloat` interpolants use the exact kernel coefficients rounded to their own precision
 - **Orthogonal grids assumption**: The separable kernel design requires mutually orthogonal grid axes.
 - **Use `convolution_interpolation(points, values)` for trusted scattered data**: Exact 7th-order fit with derivatives and box integrals
 - **Use `scattered_to_grid` for noisy unstructured data**: Nearest-neighbor gridding, ideal for subsequent smoothing
@@ -640,11 +629,9 @@ Benchmarks in the [Speed](#speed) section use the default `:cubic` subgrid.
 
 ## Technical Background
 
-This package introduces five main contributions:
+This package introduces four main contributions:
 
 **b-series kernel family.** A new family of high-order convolution kernels (b5, b7, b9, b11, b13) discovered through systematic analytical search using symbolic computation (SymPy), generalizing the approach of R. G. Keys (1981). All b-series kernels achieve 7th order convergence. Kernel coefficients are stored as exact rational numbers, enabling extended precision arithmetic with BigFloat.
-
-**Hermite multilevel interpolation.** Rather than evaluating kernel polynomials directly, kernels are discretized at a small number of points (default 101) and shipped with the package as a Julia artifact. Higher resolutions or non-standard precisions are computed on demand and cached to disk via Scratch.jl. During evaluation, data is convolved with these precomputed values, and the results are interpolated using cubic or quintic Hermite subgrid interpolation. This approach is both faster (`O(1)`) and more numerically stable than direct polynomial evaluation.
 
 **Polynomial boundary conditions.** A boundary handling method that computes optimal ghost point values that preserve each kernel's polynomial reproduction properties. This maintains convergence order across the entire domain rather than degrading near boundaries.
 
@@ -653,7 +640,7 @@ selects the appropriate path through the separable tensor product. Per-dimension
 
 **Antiderivative via kernel integration.** For `derivative=-1`, each kernel `K` is
 analytically integrated to produce `K̃`, the antiderivative kernel, with coefficients
-stored as exact rational numbers alongside the derivative kernel tables. The interpolant
+derived in exact rational arithmetic like those of the derivative kernels. The interpolant
 antiderivative is then `F(x) = h · Σⱼ cⱼ · [K̃((x − xⱼ)/h) − K̃((anchor − xⱼ)/h)]`,
 where `anchor` is the leftmost interior knot and the subtracted term enforces
 `F(anchor) = 0`. In the fast path, the anchor-side sum `Σⱼ cⱼ · K̃((anchor − xⱼ)/h)`
@@ -672,10 +659,9 @@ Key differences from existing interpolation packages:
 
 - `:b`-series kernels with 7th order convergence on uniform grids
 - Automatic non-uniform grid support in arbitrary dimensions
-- Persistent kernel caching for near-instant subsequent initialization
-- Hermite multilevel interpolation for combined speed and stability
+- Exact kernel evaluation in any precision, with nothing written to disk
 - Single interface from nearest-neighbor to 13th-degree kernels
-- Minimal dependencies (LinearAlgebra, Serialization, Artifacts, Scratch.jl, NearestNeighbors.jl)
+- Minimal dependencies (LinearAlgebra, SparseArrays, NearestNeighbors.jl)
 - Separable Gaussian smoothing for noisy data in any number of dimensions
 - Complete scattered-data-to-interpolant pipeline via nearest-neighbor gridding
 - Grid-to-grid resampling faster than construct+eval, with alloc count independent of grid size

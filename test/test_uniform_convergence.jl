@@ -124,3 +124,32 @@ end
         @test errs[1] / errs[2] > min_ratio
     end
 end
+
+# Densely sampled regime
+@testset "1D dense-grid rounding floor" begin
+    n = 10_000
+    r = range(-1.0, 1.0, length=n)
+    # Evaluation points across the grid, plus points just inside its far end
+    test_pts = vcat(collect(range(-1.0, 1.0, length=1001)), [1.0 - k * step(r) / 7 for k in 1:20])
+    f(x) = 3x - 1                       # the data: linear
+    F(x) = 1.5 * (x^2 - 1) - (x + 1)    # its antiderivative, anchored at the first knot x = -1
+    for kernel in (:a1, :a3, :b5, :b13)
+        println("    - 1D dense-grid rounding floor: ", kernel)
+        # Values: absolute error, |f| <= 4
+        itp = convolution_interpolation(r, f.(r); kernel=kernel, bc=:poly)
+        @test maximum(abs(itp(x) - f(x)) for x in test_pts) < 1e-13
+        # Antiderivative: absolute error, |F| <= 4.5
+        itp_int = convolution_interpolation(r, f.(r); kernel=kernel, bc=:poly, derivative=-1)
+        @test maximum(abs(itp_int(x) - F(x)) for x in test_pts) < 5e-13
+        # First derivative (exactly 3): relative error, since rounding is amplified by 1/h
+        if kernel != :a1
+            itp_d1 = convolution_interpolation(r, f.(r); kernel=kernel, bc=:poly, derivative=1)
+            @test maximum(abs(itp_d1(x) - 3) for x in test_pts) / 3 < 1e-10
+        end
+    end
+
+    # Resampling onto a different dense grid, across the full range
+    r_out = range(-1.0, 1.0, length=7001)
+    resampled = convolution_resample((r,), (r_out,), f.(r); kernel=:b5, bc=:poly)
+    @test maximum(abs.(resampled .- f.(r_out))) < 1e-13
+end

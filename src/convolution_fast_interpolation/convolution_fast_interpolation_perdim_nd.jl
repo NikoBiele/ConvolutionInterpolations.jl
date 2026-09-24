@@ -1,12 +1,12 @@
 # ==============================================================
 # ND — per-dimension kernels and derivative orders
 # ==============================================================
-function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},DG,EQ,PR,KP,KBC,
+function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},DG,EQ,KBC,
             DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,N}) where
             {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
             Axs<:NTuple{N,<:AbstractVector},
-            KA<:NTuple{N,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:NTuple{N,Int},
-            PR<:NTuple{N,<:AbstractVector},KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},
+            KA<:NTuple{N,<:Nothing},DG<:AbstractMixedConvolutionKernel,
+            EQ<:NTuple{N,Int},KBC<:NTuple{N,Tuple{Symbol,Symbol}},
             DO,FD,SD,SG}
 
     x = T.(x)

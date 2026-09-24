@@ -3,8 +3,6 @@ using CairoMakie
 using Interpolations
 using FastChebInterp
 using LaTeXStrings
-using Scratch
-# Scratch.clear_scratchspaces!()
 
 G = Float64
 runge(x) = G(1)./G(G(1)+25*x^2)

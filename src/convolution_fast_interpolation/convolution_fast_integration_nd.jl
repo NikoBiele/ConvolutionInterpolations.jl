@@ -1,9 +1,8 @@
 function (itp::FastConvolutionInterpolation{T,N,N,TCoefs,Axs,KA,HigherDimension{N},
-        DG,EQ,PR,KP,KBC,FastIntegralOrder,FD,SD,Val{SG},Val{false},HigherDimension{N}})(x::Vararg{Number,N}) where
+        DG,EQ,KBC,FastIntegralOrder,FD,SD,Val{SG},Val{false},HigherDimension{N}})(x::Vararg{Number,N}) where
         {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
         Axs<:NTuple{N,<:AbstractVector},
-        KA<:NTuple{N,<:Nothing},DG,EQ<:NTuple{N,Int},PR<:NTuple{N,<:AbstractVector},
-        KP,KBC<:NTuple{N,Tuple{Symbol,Symbol}},FD,SD,SG}    
+        KA<:NTuple{N,<:Nothing},DG,EQ<:NTuple{N,Int},KBC<:NTuple{N,Tuple{Symbol,Symbol}},FD,SD,SG}    
 
     x = T.(x)
     # Cell and position within it, per dimension

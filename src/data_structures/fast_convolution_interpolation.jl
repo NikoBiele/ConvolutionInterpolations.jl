@@ -1,48 +1,54 @@
 """
-    FastConvolutionInterpolation{T,N,TCoefs<:AbstractArray,IT<:NTuple{N,ConvolutionMethod},
-                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP,KBC,DO,FD,SD,SG} <: 
-                                AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG}
+    FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
+                                 Axs<:Tuple,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,DI,SZ} <:
+        AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,DI,SZ}
 
-A structure that implements convolution-based interpolation with precomputed kernel values for speed.
+Convolution interpolation on uniform grids with O(1) evaluation. Kernel weights are computed
+exactly from each kernel's polynomial pieces (see `_column_rows`), so evaluation is exact to
+rounding for every kernel, derivative and integral order.
 
 # Type Parameters
-- `T`: The element type of the interpolated values
-- `N`: The number of dimensions
-- `TCoefs`: The type of the coefficient array
-- `IT`: The tuple of interpolation methods for each dimension
-- `Axs`: The type of the knot points (typically a tuple of ranges)
-- `KA`: The kernel type (ConvolutionKernel{DG} or GaussianConvolutionKernel{B})
-- `DT`: The dimension type (Val{N} for N≤3, HigherDimension{N} otherwise)
-- `DG`: The kernel type (Val{degree})
-- `EQ`: The equation order type
-- `KBC`: The kernel boundary condition type
-- `DO`: The derivative order type
-- `FD`: The first derivative type
-- `SD`: The second derivative type
-- `SG`: The subgrid type
+- `T`: Element type of the interpolated values
+- `N`: Number of dimensions
+- `NI`: Number of integral dimensions (derivative order −1)
+- `TCoefs`: Type of the coefficient array
+- `Axs`: Type of the knots (typically a tuple of ranges)
+- `KA`: Kernel type per dimension (`nothing` for polynomial kernels)
+- `DT`: Dimension type for dispatch (`Val{N}` for N ≤ 3, `HigherDimension{N}` otherwise)
+- `DG`: Kernel symbol type for dispatch (e.g. `HigherOrderKernel{(:b5, :b5)}`)
+- `EQ`: Kernel stencil half-widths per dimension
+- `KBC`: Boundary condition type
+- `DOT`: Derivative order type
+- `FD`, `SD`: Unused placeholders (`Nothing`), shared with `ConvolutionInterpolation`
+- `SG`: Unused placeholder (`Val{:not_used}`), shared with `ConvolutionInterpolation`
+- `LZ`: Lazy mode flag (`Val{true}` or `Val{false}`)
+- `DI`: Integral dimension type for dispatch
+- `SZ`: Type of the data domain size
 
 # Fields
-- `coefs::TCoefs`: The coefficient array with boundary extensions
-- `knots::Axs`: The knot points for each dimension
-- `it::IT`: The tuple of interpolation methods
-- `h::NTuple{N,Float64}`: The step size in each dimension
-- `kernel::KA`: The convolution kernel
-- `dimension::DT`: Type for dimension-specific dispatch
-- `deg::DG`: The degree of the interpolation
-- `eqs::EQ`: The number of equations used in the boundary conditions
-- `pre_range::PR`: The precomputed range of positions for kernel evaluation
-- `kernel_pre::KP`: The precomputed kernel values
-- `kernel_bc::KBC`: The kernel boundary condition
-- `derivative_order::DO`: The derivative order
-- `kernel_d1_pre::FD`: The precomputed first derivative
-- `kernel_d2_pre::SD`: The precomputed second derivative
-- `subgrid::SG`: The subgrid
-- `lazy::Bool`: If `true`, no ghost points are computed, and are instead computed on the fly.
-- `boundary_fallback::Bool`: When `true`, throws an error instead of computing ghost
-  points when evaluating near boundaries in lazy mode.
-
-This implementation uses precomputed kernel values,
-offering significantly faster performance than `ConvolutionInterpolation`.
+- `coefs::TCoefs`: Coefficients, extended with ghost points (eager mode) or raw values (lazy mode)
+- `domain_size::SZ`: Size of the original data array
+- `knots::Axs`: Knots of each dimension, extended with ghost knots in eager mode
+- `h::NTuple{N,T}`: Grid spacing per dimension
+- `x0::NTuple{N,T}`: First (extended) knot per dimension
+- `kernel::KA`: Kernel type per dimension
+- `dimension::DT`: Dimension type for dispatch
+- `kernel_sym::DG`: Kernel symbols for dispatch
+- `eqs::EQ`: Kernel stencil half-widths per dimension
+- `bc::KBC`: Boundary conditions per dimension
+- `derivative_order::DOT`: Derivative orders per dimension
+- `kernel_d1_pre::FD`, `kernel_d2_pre::SD`: Unused placeholders (`nothing`)
+- `subgrid::SG`: Unused placeholder (`Val(:not_used)`)
+- `lazy::LZ`: If `Val(true)`, ghost points are computed on the fly near the boundaries
+- `boundary_fallback::Bool`: In lazy mode, use linear interpolation near the boundaries
+  instead of computing ghost points
+- `left_values::NTuple{N,Vector{T}}`: Antiderivative kernel at the anchor, per coefficient,
+  for integral dimensions
+- `anchor::NTuple{N,T}`: Point where antiderivatives are zero, per integral dimension
+- `dim_integral::DI`: Integral dimension type for dispatch
+- `lazy_workspace::LazyBoundaryWorkspace{T,N}`: Scratch buffers for lazy boundary evaluation
+- `tail1_left`, `tail1_right`, `tail2_*`, `tail3_*`: Prefix sums of the saturated
+  antiderivative contributions outside the stencil, for O(1) integral evaluation
 """
 
 struct LazyBoundaryWorkspace{T,N}
@@ -54,7 +60,7 @@ LazyBoundaryWorkspace(T::Type, ::Val{N}, eqs::Int) where N =
     LazyBoundaryWorkspace{T,N}(zeros(T, 9), zeros(T, ntuple(_ -> 2*eqs, N)...))
 
 struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
-                                Axs<:Tuple,KA,DT,DG,EQ,PR,KP,KBC,DOT,FD,SD,SG,LZ,DI,SZ} <: 
+                                Axs<:Tuple,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,DI,SZ} <:
                                 AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,DI,SZ}
     coefs::TCoefs
     domain_size::SZ
@@ -65,8 +71,6 @@ struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
     dimension::DT
     kernel_sym::DG
     eqs::EQ
-    pre_range::PR
-    kernel_pre::KP
     bc::KBC
     derivative_order::DOT
     kernel_d1_pre::FD

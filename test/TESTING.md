@@ -6,31 +6,39 @@ This document describes the test suite for ConvolutionInterpolations.jl. The sui
 
 The tests are organized into thematic files, all included from `runtests.jl`:
 
-| File | Scope |
+|| File | Scope |
 |------|-------|
+| `test_column_polynomials.jl` | Exact column polynomials equal the kernels exactly, for every kernel and derivative order from −1 up |
+| `test_nd_integral_separable.jl` | 4D integral of separable data equals the product of 1D integrals exactly |
 | `test_constructors.jl` | Low-level constructor tests for all kernels; 2D and 3D per-dim kernel combination coverage |
 | `test_uniform_interpolation.jl` | Grid point reproduction and midpoint accuracy for uniform grids in 1D–4D |
 | `test_uniform_derivatives.jl` | First derivative accuracy on uniform grids in 1D–4D |
 | `test_uniform_convergence.jl` | Error reduction under grid refinement for function values and 1st/2nd derivatives in 1D |
+| `test_uniform_lazy.jl` | Lazy vs eager agreement, construction speed, and boundary fallback on uniform grids in 1D–4D |
 | `test_nonuniform_interpolation.jl` | Grid point reproduction and midpoint accuracy on nonuniform grids in 1D–4D |
 | `test_nonuniform_derivatives.jl` | First and second derivative accuracy on nonuniform grids in 1D–2D |
 | `test_nonuniform_convergence.jl` | Convergence rates on nonuniform grids in 1D; nearly-uniform regression tests |
 | `test_nonuniform_perdim_derivatives.jl` | Per-dim b-kernel derivatives on nonuniform grids in 2D |
-| `test_nonuniform_perdim_kernels.jl`  |  Per-dim b-kernels on nonuniform grids in 2D and 3D |
-| `test_lazy.jl` | Lazy vs eager agreement, construction speed, and boundary fallback in 1D–5D |
+| `test_nonuniform_perdim_kernels.jl` | Per-dim b-kernels on nonuniform grids in 2D and 3D |
 | `test_nonuniform_a0_a1.jl` | Nearest-neighbor and linear interpolation on nonuniform grids in 1D–3D |
+| `test_nonuniform_lazy.jl` | Lazy vs eager agreement and boundary fallback for `:n3` on nonuniform grids in 1D–3D |
 | `test_antiderivative.jl` | Antiderivative convergence in 1D–3D; fast vs direct agreement; anchor correctness |
 | `test_perdim_derivatives.jl` | Per-dim derivative orders in 2D and 3D, fast and direct |
+| `test_mixed_integral_1D_2D.jl` | Mixed integral/derivative orders in 1D and 2D, fast and direct paths |
+| `test_mixed_integral_3D_4D.jl` | Mixed integral/derivative orders in 3D and 4D, fast path only |
+| `test_mixed_integral_5D.jl` | Mixed integral/derivative orders in 5D; fast vs direct agreement; anchor correctness |
 | `test_perdim_kernel_derivatives.jl` | Per-dim kernel combinations with derivatives in 2D and 3D |
 | `test_boundary_condition.jl` | BC downgrade with insufficient points in 1D–3D |
 | `test_extrapolation.jl` | `:line` and `:flat` extrapolation modes for uniform grids in 1D–4D |
-| `test_subgrid_downgrade.jl` | Subgrid mode downgrade at top smooth derivative order |
 | `test_gaussian.jl` | Gaussian kernel construction and evaluation in 1D and 2D |
 | `test_bigfloat_precision.jl` | BigFloat type preservation and machine precision for all kernels in 1D/2D |
-| `test_mixed_integral_1D_2D.jl` | Mixed integral/derivative orders in 1D and 2D, fast and direct paths |
-| `test_mixed_integral_3D_4D.jl` | Mixed integral/derivative orders in 3D and 4D, fast path only |
+| `test_float32.jl` | Float32 type preservation and accuracy: derivatives, integrals, options, N-D, lazy, nonuniform |
 | `test_allocations.jl` | Non-lazy kernel functors should all be non-allocating |
 | `test_scattered_to_grid.jl` | Covers gridding of scattered data |
+| `test_resample.jl` | `convolution_resample` accuracy, output size, derivatives, deprecated keyword handling |
+| `test_fit_scattered.jl` | Scattered-data fitting: exactness, convergence, derivatives, box integrals, solvers |
+| `test_show.jl` | `show` output for all interpolant types, kernels, derivatives and options |
+| `test_deprecations.jl` | `precompute`/`subgrid` warn when set, have no effect, and nothing warns when unset |
 
 ## Kernel Coverage Strategy
 
@@ -38,9 +46,9 @@ Not all kernels are exercised in every test. The constructor test verifies that 
 
 | Kernel | Reason for inclusion |
 |--------|---------------------|
-| `:a0` | Nearest-neighbor path, no ghost points, no table lookup |
-| `:a1` | Linear path, no ghost points, no table lookup |
-| `:a3` | Lower-order higher kernel path, C1 continuity, top derivative forces `:linear` subgrid |
+| `:a0` | Nearest-neighbor path, no ghost points, dedicated evaluators |
+| `:a1` | Linear path, no ghost points, dedicated evaluators |
+| `:a3` | Lower-order higher kernel path, C1 continuity, top derivative 1 |
 | `:b5` | b-series higher kernel path, C3 continuity, 7th-order accuracy |
 
 This covers all major dispatch paths while keeping the suite fast.
@@ -77,7 +85,7 @@ This covers all major dispatch paths while keeping the suite fast.
 Each uniform kernel is tested in two modes:
 
 - **Direct** (`fast=false`): Evaluates the piecewise polynomial kernel directly.
-- **Fast** (`fast=true`): Uses precomputed kernel tables with subgrid interpolation for O(1) evaluation.
+- **Fast** (`fast=true`): Evaluates exact column polynomials of the kernel for O(1) evaluation.
 
 Nonuniform kernels use direct evaluation (fast mode is automatically disabled for nonuniform grids).
 
@@ -189,14 +197,17 @@ Tolerance `1e-6`.
 
 Verifies that `bc=:poly` with only 4 grid points is automatically downgraded to `(:linear, :linear)` per dimension. Checked by inspecting `itp.itp.bc` directly. Tested in 1D, 2D, and 3D with `:b5`.
 
-### Subgrid downgrade at top derivative
+### Exact column polynomials
 
-Verifies that requesting `subgrid=:cubic` at the kernel's top smooth derivative is automatically downgraded to `:linear` for that dimension. Checked by inspecting `itp.itp.subgrid` directly.
+`test_column_polynomials.jl` checks the foundation of the fast path: on every column `c` of every kernel, the column polynomial evaluated at `τ` equals the kernel itself at offset `c − 1 − eqs + τ`. Both sides are evaluated in exact `Rational{BigInt}` arithmetic, so the comparison is exact equality, not a tolerance. Covers every kernel and every derivative order from −1 (antiderivative) up, at points across each column including both ends.
 
-| Kernel | Top derivative | Expected subgrid for `(d, 0)` |
-|--------|----------------|-------------------------------|
-| `:a3` | 1 | `(:linear, :cubic)` |
-| `:b5` | 3 | `(:linear, :cubic)` |
+### Separable N-D integral
+
+`test_nd_integral_separable.jl` builds a 4D antiderivative interpolant of separable data `g₁(x)·g₂(y)·g₃(z)·g₄(w)`, which must equal the product of four 1D antiderivative interpolants exactly (to rounding), since the ghost-point extension acts per dimension. Evaluation points include the far corner and points just inside the far ends, where missing coefficients in the N-D summation would show first.
+
+### Deprecated keywords
+
+`test_deprecations.jl` verifies that setting `precompute` or `subgrid` produces a deprecation warning and a result identical to not setting them, and that nothing warns when neither is set. Covers `convolution_interpolation`, `FastConvolutionInterpolation` and the scattered-data `convolution_interpolation`; `convolution_resample` is covered in `test_resample.jl`.
 
 ### Gaussian kernel
 

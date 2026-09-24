@@ -9,11 +9,10 @@
 
 # Cost: O(eqs^N) center + O(eqs^(N-1)) strips + O(eqs^(N-2)) corners.
 # """
-@inline function (itp::FastConvolutionInterpolation{T,N,2,TCoefs,Axs,KA,DIM,DG,EQ,PR,KP,KBC,
+@inline function (itp::FastConvolutionInterpolation{T,N,2,TCoefs,Axs,KA,DIM,DG,EQ,KBC,
             FastMixedIntegralOrder{DO},FD,SD,Val{SG},Val{false},Val{2}})(x::Vararg{Number,N}) where
             {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},Axs<:Tuple{Vararg{AbstractVector}},
-            KA<:Tuple{Vararg{Nothing}},DIM,DG,EQ<:Tuple{Vararg{Int}},PR<:Tuple{Vararg{AbstractVector}},
-            KP,KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
+            KA<:Tuple{Vararg{Nothing}},DIM,DG,EQ<:Tuple{Vararg{Int}},KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
 
     x = T.(x)
     # find the two integral dimensions (compile-time constants)

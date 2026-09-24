@@ -1,12 +1,11 @@
 # ==============================================================
 # 3D — per-dimension kernels and derivative orders
 # ==============================================================
-function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},DG,EQ,PR,KP,KBC,
+function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},DG,EQ,KBC,
             DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,3}) where
             {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
             Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
             KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int,Int},
-            PR<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},KP,
             KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
     x = T.(x)

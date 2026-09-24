@@ -26,7 +26,7 @@ p = plot(; size=(900, 500), dpi=300, legend=:topright,
 
 for d in 0:5
     y_dots = fk.(x, d)
-    itp = convolution_interpolation(x, y; degree=:b11, derivative=d)
+    itp = convolution_interpolation(x, y; kernel=:b11, derivative=d)
     y_itp = itp.(x_fine)
     
     scatter!(p, x, y_dots, color=colors[d+1], markersize=3, markerstrokewidth=0, label=labels[d+1])

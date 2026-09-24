@@ -25,11 +25,11 @@ end
 # ==============================================================
 # 2D
 # ==============================================================
-@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},DG,EQ,PR,KP,KBC,
+@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},DG,EQ,KBC,
             DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,2}) where
             {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
-            KA<:Tuple{<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int},
-            PR<:Tuple{<:AbstractVector,<:AbstractVector},KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
+            KA<:Tuple{<:Nothing,<:Nothing},DG<:AbstractMixedConvolutionKernel,
+            EQ<:Tuple{Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
             DO,FD,SD,SG}
 
     x = T.(x)

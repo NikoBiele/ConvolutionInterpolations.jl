@@ -1,10 +1,9 @@
 @inline function (itp::FastConvolutionInterpolation{T,3,3,TCoefs,Axs,KA,Val{3},
-                    DG,EQ,PR,KP,KBC,FastIntegralOrder,FD,SD,Val{SG},Val{false},Val{3}})(x::Vararg{Number,3}) where
+                    DG,EQ,KBC,FastIntegralOrder,FD,SD,Val{SG},Val{false},Val{3}})(x::Vararg{Number,3}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},
-                    PR<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
-                    KP,KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     FD,SD,SG}
 
     x = T.(x)

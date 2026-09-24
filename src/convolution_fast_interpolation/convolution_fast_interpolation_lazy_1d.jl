@@ -15,10 +15,9 @@ See also: FastConvolutionInterpolation, _kernel_weights.
 """
 
 @inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},LowerOrderKernel{DG},
-                    EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{true},Val{0}})(x::Vararg{Number,1}) where 
+                    EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{true},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
-                    KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},PR<:Tuple{<:AbstractVector},
-                    KP,KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+                    KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
     x = T.(x)
     if DG[1] == :a1
@@ -41,11 +40,11 @@ See also: FastConvolutionInterpolation, _kernel_weights.
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
-                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},
+                    HigherOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
                     FD,SD,Val{SG},Val{true},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},
                     Axs<:Tuple{<:AbstractVector},KA<:Tuple{<:Nothing},DG,
-                    EQ<:Tuple{Int},PR<:Tuple{<:AbstractVector},KP,
+                    EQ<:Tuple{Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
     
     x = T.(x)

@@ -16,10 +16,9 @@ See also: FastConvolutionInterpolation, _column_rows, _column_weights.
 """
 
 @inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},LowerOrderKernel{(:a0,)},
-                    EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,1}) where 
+                    EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
-                    KA<:Tuple{<:Nothing},EQ<:Tuple{Int},PR<:Tuple{<:AbstractVector},
-                    KP,KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+                    KA<:Tuple{<:Nothing},EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
     x = T.(x)
     # specialized dispatch for 1d nearest neighbor kernel
@@ -34,10 +33,9 @@ See also: FastConvolutionInterpolation, _column_rows, _column_weights.
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},LowerOrderKernel{(:a1,)},
-                    EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,1}) where 
+                    EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
-                    KA<:Tuple{<:Nothing},EQ<:Tuple{Int},PR<:Tuple{<:AbstractVector},
-                    KP,KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+                    KA<:Tuple{<:Nothing},EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
     x = T.(x)
     # specialized dispatch for 1d linear kernel
@@ -48,10 +46,9 @@ end
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
-                    HigherOrderKernel{DG},EQ,PR,KP,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,1}) where 
+                    HigherOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
-                    KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},PR<:Tuple{<:AbstractVector},
-                    KP,KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+                    KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
 
     x = T.(x)
     # Direct index calculation

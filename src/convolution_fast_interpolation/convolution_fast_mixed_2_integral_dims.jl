@@ -3,8 +3,9 @@
 # Evaluate mixed antiderivative/derivative/interpolation in N dimensions,
 # with exactly 2 integral dimensions using fast tail lookups.
 
-# Integral dimensions: K̃×K̃ center loop from exact column polynomials + strip lookups (tail1)
-# + corner lookups (tail2).
+# Integral dimensions: K̃×K̃ center loop from exact column polynomials + left strip lookups
+# (tail1) + left corner lookup (tail2). Coefficients right of the stencil in an integral
+# dimension contribute nothing (their anchored weight is exactly zero).
 # Derivative dimensions: kernel weights from exact column polynomials.
 
 # Cost: O(eqs^N) center + O(eqs^(N-1)) strips + O(eqs^(N-2)) corners.
@@ -24,11 +25,9 @@
         clamp(floor(Int, i_float), itp.eqs[d], size(itp.coefs, d) - itp.eqs[d])
     end
 
-    # tail boundary indices
-    l    = ntuple(d -> i[d] - itp.eqs[d],         N)
-    r    = ntuple(d -> i[d] + itp.eqs[d] + 1,     N)
-    l_ok = ntuple(d -> l[d] >= 1,                  N)
-    r_ok = ntuple(d -> r[d] <= size(itp.coefs, d), N)
+    # left tail boundary indices
+    l    = ntuple(d -> i[d] - itp.eqs[d], N)
+    l_ok = ntuple(d -> l[d] >= 1,          N)
 
     # ── kernel weights of every dimension (exact column polynomials) ─────
     w = _mixed_weights(itp, x, i, Val(DO))
@@ -44,7 +43,7 @@
         # product of the kernel weights of the non-integral dimensions
         kt_prod = _derivative_weight_product(w, idx_d, i, itp.eqs, Val(DO))
 
-        # ── center: K̃×K̃ + strips ─────────────────────────────────────────
+        # ── center: K̃×K̃ + left strip in int_dim1 ───────────────────────
         @inbounds for j2 in (i[int_dim2] - itp.eqs[int_dim2] + 1):(i[int_dim2] + itp.eqs[int_dim2])
             lv2    = _antiderivative_weight(w[int_dim2], i[int_dim2], itp.eqs[int_dim2], j2) -
                      itp.left_values[int_dim2][j2]
@@ -58,37 +57,28 @@
                 result  += itp.coefs[coef_idx...] * lv1 * lv2 * kt_prod
             end
 
-            # strip: tail1[int_dim1] × K̃(int_dim2)
-            idx_l1 = Base.setindex(idx_d2, l[int_dim1], int_dim1)
-            idx_r1 = Base.setindex(idx_d2, r[int_dim1], int_dim1)
-            tl1 = l_ok[int_dim1] ? itp.tail1_left[int_dim1][idx_l1...]  : zero(T)
-            tr1 = r_ok[int_dim1] ? itp.tail1_right[int_dim1][idx_r1...] : zero(T)
-            result += (tl1 + tr1) * lv2 * kt_prod
+            # left strip: tail1[int_dim1] × K̃(int_dim2)
+            if l_ok[int_dim1]
+                idx_l1 = Base.setindex(idx_d2, l[int_dim1], int_dim1)
+                result += itp.tail1_left[int_dim1][idx_l1...] * lv2 * kt_prod
+            end
         end
 
-        # strip: K̃(int_dim1) × tail1[int_dim2]
-        @inbounds for j1 in (i[int_dim1] - itp.eqs[int_dim1] + 1):(i[int_dim1] + itp.eqs[int_dim1])
-            lv1    = _antiderivative_weight(w[int_dim1], i[int_dim1], itp.eqs[int_dim1], j1) -
-                     itp.left_values[int_dim1][j1]
-            idx_d1 = Base.setindex(idx_d, j1, int_dim1)
-            idx_l2 = Base.setindex(idx_d1, l[int_dim2], int_dim2)
-            idx_r2 = Base.setindex(idx_d1, r[int_dim2], int_dim2)
-            tl2 = l_ok[int_dim2] ? itp.tail1_left[int_dim2][idx_l2...]  : zero(T)
-            tr2 = r_ok[int_dim2] ? itp.tail1_right[int_dim2][idx_r2...] : zero(T)
-            result += (tl2 + tr2) * lv1 * kt_prod
+        if l_ok[int_dim2]
+            # left strip: K̃(int_dim1) × tail1[int_dim2]
+            @inbounds for j1 in (i[int_dim1] - itp.eqs[int_dim1] + 1):(i[int_dim1] + itp.eqs[int_dim1])
+                lv1    = _antiderivative_weight(w[int_dim1], i[int_dim1], itp.eqs[int_dim1], j1) -
+                         itp.left_values[int_dim1][j1]
+                idx_l2 = Base.setindex(Base.setindex(idx_d, j1, int_dim1), l[int_dim2], int_dim2)
+                result += itp.tail1_left[int_dim2][idx_l2...] * lv1 * kt_prod
+            end
+
+            # ── left corner: tail2 lookup ─────────────────────────────────
+            if l_ok[int_dim1]
+                idx_l1l2 = Base.setindex(Base.setindex(idx_d, l[int_dim1], int_dim1), l[int_dim2], int_dim2)
+                result += itp.tail2_ll[idx_l1l2...] * kt_prod
+            end
         end
-
-        # ── corners: tail2 lookups ────────────────────────────────────────
-        idx_l1l2 = Base.setindex(Base.setindex(idx_d, l[int_dim1], int_dim1), l[int_dim2], int_dim2)
-        idx_r1l2 = Base.setindex(Base.setindex(idx_d, r[int_dim1], int_dim1), l[int_dim2], int_dim2)
-        idx_l1r2 = Base.setindex(Base.setindex(idx_d, l[int_dim1], int_dim1), r[int_dim2], int_dim2)
-        idx_r1r2 = Base.setindex(Base.setindex(idx_d, r[int_dim1], int_dim1), r[int_dim2], int_dim2)
-
-        c_ll = (l_ok[int_dim1] && l_ok[int_dim2]) ? itp.tail2_ll[idx_l1l2...] : zero(T)
-        c_rl = (r_ok[int_dim1] && l_ok[int_dim2]) ? itp.tail2_rl[idx_r1l2...] : zero(T)
-        c_lr = (l_ok[int_dim1] && r_ok[int_dim2]) ? itp.tail2_lr[idx_l1r2...] : zero(T)
-        c_rr = (r_ok[int_dim1] && r_ok[int_dim2]) ? itp.tail2_rr[idx_r1r2...] : zero(T)
-        result += (c_ll + c_rl + c_lr + c_rr) * kt_prod
     end
 
     # ── scaling ──────────────────────────────────────────────────────────

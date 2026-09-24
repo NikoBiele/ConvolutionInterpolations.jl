@@ -25,9 +25,15 @@ function (itp::FastConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,HigherDimension
     # kernel weights of every dimension (exact column polynomials)
     w = _mixed_weights(itp, x, i, Val(DO))
 
+    # Only coefficients with a nonzero weight are visited: in integral dimensions everything up to
+    # the stencil's right end (further right, the anchored weight is exactly zero); in the other
+    # dimensions the stencil itself (outside it, the kernel weight is zero)
+    ranges = ntuple(d -> DO[d] == -1 ? (1:(i[d] + itp.eqs[d])) :
+                                       ((i[d] - itp.eqs[d] + 1):(i[d] + itp.eqs[d])), N)
+
     result = zero(T)
-    @inbounds for idx in Iterators.product(ntuple(d -> 1:size(itp.coefs, d), N)...)
-        # anchored K̃ weights in integral dimensions, kernel weights (zero outside the stencil) elsewhere
+    @inbounds for idx in Iterators.product(ranges...)
+        # anchored K̃ weights in integral dimensions, kernel weights in the others
         kt_prod = _mixed_weight_product(w, idx, i, itp.eqs, itp.left_values, Val(DO))
         result += itp.coefs[idx...] * kt_prod
     end

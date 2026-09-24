@@ -47,8 +47,9 @@ rounding for every kernel, derivative and integral order.
 - `anchor::NTuple{N,T}`: Point where antiderivatives are zero, per integral dimension
 - `dim_integral::DI`: Integral dimension type for dispatch
 - `lazy_workspace::LazyBoundaryWorkspace{T,N}`: Scratch buffers for lazy boundary evaluation
-- `tail1_left`, `tail1_right`, `tail2_*`, `tail3_*`: Prefix sums of the saturated
-  antiderivative contributions outside the stencil, for O(1) integral evaluation
+- `tail1_left`, `tail2_ll`, `tail3_edge_ll`, `tail3_corner_lll`: Prefix sums of the
+  antiderivative contributions left of the stencil, for O(1) integral evaluation. Coefficients
+  right of the stencil contribute exactly zero, so there are no right tails.
 """
 
 struct LazyBoundaryWorkspace{T,N}
@@ -82,26 +83,10 @@ struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
     anchor::NTuple{N, T}
     dim_integral::DI
     lazy_workspace::LazyBoundaryWorkspace{T,N}
-    # 1d and 2d integral tails
-    tail1_left::NTuple{N, Array{T,N}}
-    tail1_right::NTuple{N, Array{T,N}}
-    tail2_ll::Array{T,N}  # or NTuple based approach
-    tail2_rl::Array{T,N}
-    tail2_lr::Array{T,N}
-    tail2_rr::Array{T,N}
-    # 3d integral tails
-    tail3_edge_ll::NTuple{3, Array{T,N}}  # free dim d, left×left in the other two
-    tail3_edge_rl::NTuple{3, Array{T,N}}
-    tail3_edge_lr::NTuple{3, Array{T,N}}
-    tail3_edge_rr::NTuple{3, Array{T,N}}
-    tail3_face_l::NTuple{3, Array{T,N}}   # tail3_face_l[d] = left-saturated in dim d
-    tail3_face_r::NTuple{3, Array{T,N}}
-    tail3_corner_lll::Array{T,N}
-    tail3_corner_rll::Array{T,N}
-    tail3_corner_lrl::Array{T,N}
-    tail3_corner_llr::Array{T,N}
-    tail3_corner_rrl::Array{T,N}
-    tail3_corner_rlr::Array{T,N}
-    tail3_corner_lrr::Array{T,N}
-    tail3_corner_rrr::Array{T,N}
+    # integral tails: prefix sums over the coefficients left of the stencil (coefficients right
+    # of it contribute exactly zero, so no right tails exist)
+    tail1_left::NTuple{N, Array{T,N}}      # left-saturated in one integral dimension
+    tail2_ll::Array{T,N}                   # left-saturated in both of 2 integral dimensions
+    tail3_edge_ll::NTuple{3, Array{T,N}}   # 3 integral dims: free in dim k, left-saturated in the other two
+    tail3_corner_lll::Array{T,N}           # 3 integral dims: left-saturated in all three
 end

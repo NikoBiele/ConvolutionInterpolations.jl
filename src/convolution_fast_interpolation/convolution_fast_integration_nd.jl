@@ -22,7 +22,9 @@ end
     quote
         coefs = itp.coefs
         result = zero(T)
-        Base.Cartesian.@nloops $N i dd -> 1:size(coefs, dd) begin
+        # Coefficients right of the stencil contribute exactly zero (anchored weight −½ − (−½)),
+        # so each dimension stops at the stencil's right end, cells[dd] + eqs[dd]
+        Base.Cartesian.@nloops $N i dd -> 1:(cells[dd] + itp.eqs[dd]) begin
             kt_prod = one(T)
             Base.Cartesian.@nexprs $N dd -> begin
                 kt_prod *= _antiderivative_weight(w[dd], cells[dd], itp.eqs[dd], i_dd) - itp.left_values[dd][i_dd]

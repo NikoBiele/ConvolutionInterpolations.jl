@@ -126,12 +126,7 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
 
     anchor = ntuple(d -> derivative[d] == -1 ? knots_new[d][eqs[d]] : zero(T), N)
 
-    left_values, tail1_left, tail1_right,
-    tail2_ll, tail2_rl, tail2_lr, tail2_rr,
-    tail3_edge_ll, tail3_edge_rl, tail3_edge_lr, tail3_edge_rr,
-    tail3_face_l, tail3_face_r,
-    tail3_corner_lll, tail3_corner_rll, tail3_corner_lrl, tail3_corner_llr,
-    tail3_corner_rrl, tail3_corner_rlr, tail3_corner_lrr, tail3_corner_rrr = 
+    left_values, tail1_left, tail2_ll, tail3_edge_ll, tail3_corner_lll =
                                     _build_tails(coefs, kernel, Val{DV}(), eqs, knots_new)
 
     kernel_type = ntuple(d -> nothing, N)
@@ -154,11 +149,7 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
         coefs, domain_size, knots_new, h, x0, kernel_type, dimension, kernels, eqs,
         bc, do_type, nothing, nothing, Val(:not_used),
         Val{LZ}(), boundary_fallback, left_values, anchor, integral_dimension, lazy_workspace,
-        tail1_left, tail1_right, tail2_ll, tail2_rl, tail2_lr, tail2_rr,
-        tail3_edge_ll, tail3_edge_rl, tail3_edge_lr, tail3_edge_rr,
-        tail3_face_l, tail3_face_r,
-        tail3_corner_lll, tail3_corner_rll, tail3_corner_lrl, tail3_corner_llr,
-        tail3_corner_rrl, tail3_corner_rlr, tail3_corner_lrr, tail3_corner_rrr,
+        tail1_left, tail2_ll, tail3_edge_ll, tail3_corner_lll,
     )
 end
 
@@ -169,183 +160,79 @@ function _build_tails(coefs::AbstractArray{T,N}, kernel, ::Val{DV}, eqs, knots_n
     return _build_tails_dispatch(coefs, kernel, derivative, eqs, knots_new, integral_type)
 end
 
+# Anchoring constants (antiderivative kernel at the anchor) of every integral dimension,
+# and a one-element placeholder in the other dimensions
+_all_left_values(coefs::AbstractArray{T,N}, kernel, derivative, eqs) where {T,N} =
+    ntuple(N) do d
+        derivative[d] == -1 ? _compute_left_values(T, kernel[d], eqs[d], size(coefs, d)) : [zero(T)]
+    end
+
+# Weights ½ − left value of the coefficients left of the stencil in dimension d, shaped to
+# broadcast along dimension d of an N-dimensional array
+_left_weights(left_values::Vector{T}, d::Int, ::Val{N}) where {T,N} =
+    T(1//2) .- reshape(left_values, ntuple(i -> i == d ? length(left_values) : 1, N))
+
+# Left tail in each integral dimension: prefix sums along that dimension
+_all_tail1_left(coefs::AbstractArray{T,N}, left_values, derivative, placeholder) where {T,N} =
+    ntuple(N) do d
+        derivative[d] == -1 ? cumsum(coefs .* _left_weights(left_values[d], d, Val(N)), dims=d) :
+                              placeholder
+    end
+
 function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::Val{0}) where {T,N}
+    # no integral dimensions: placeholders only
     placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
     left_values = ntuple(_ -> [zero(T)], N)
-    tail1_left  = ntuple(_ -> placeholder, N)
-    tail1_right = ntuple(_ -> placeholder, N)
-    tail2_ll = placeholder; tail2_rl = placeholder
-    tail2_lr = placeholder; tail2_rr = placeholder
-    ph3 = ntuple(_ -> placeholder, 3)
-    return left_values, tail1_left, tail1_right,
-           tail2_ll, tail2_rl, tail2_lr, tail2_rr,
-           ph3, ph3, ph3, ph3, ph3, ph3,
-           placeholder, placeholder, placeholder, placeholder,
-           placeholder, placeholder, placeholder, placeholder
+    return left_values, ntuple(_ -> placeholder, N), placeholder,
+           ntuple(_ -> placeholder, 3), placeholder
 end
 
 function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::Val{1}) where {T,N}
+    # one integral dimension: left tail only
     placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
-    int_dims = findall(d -> derivative[d] == -1, 1:N)
-    left_values = ntuple(N) do d
-        if derivative[d] == -1
-            _compute_left_values(T, kernel[d], eqs[d], size(coefs, d))
-        else
-            [zero(T)]
-        end
-    end
-    tail1_left = ntuple(N) do d
-        if derivative[d] == -1
-            lv = reshape(left_values[d], ntuple(i -> i == d ? length(left_values[d]) : 1, N))
-            cumsum(coefs .* (T(1//2) .- lv), dims=d)
-        else
-            placeholder
-        end
-    end
-    tail1_right = ntuple(N) do d
-        if derivative[d] == -1
-            lv = reshape(left_values[d], ntuple(i -> i == d ? length(left_values[d]) : 1, N))
-            _suffix_sum(coefs .* (-T(1//2) .- lv), d)
-        else
-            placeholder
-        end
-    end
-    tail2_ll = placeholder; tail2_rl = placeholder
-    tail2_lr = placeholder; tail2_rr = placeholder
-    ph3 = ntuple(_ -> placeholder, 3)
-    return left_values, tail1_left, tail1_right,
-           tail2_ll, tail2_rl, tail2_lr, tail2_rr,
-           ph3, ph3, ph3, ph3, ph3, ph3,
-           placeholder, placeholder, placeholder, placeholder,
-           placeholder, placeholder, placeholder, placeholder
+    left_values = _all_left_values(coefs, kernel, derivative, eqs)
+    tail1_left = _all_tail1_left(coefs, left_values, derivative, placeholder)
+    return left_values, tail1_left, placeholder,
+           ntuple(_ -> placeholder, 3), placeholder
 end
 
 function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::Val{2}) where {T,N}
+    # two integral dimensions: left tails, and the corner left in both
     placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
     int_dims = findall(d -> derivative[d] == -1, 1:N)
-    left_values = ntuple(N) do d
-        if derivative[d] == -1
-            _compute_left_values(T, kernel[d], eqs[d], size(coefs, d))
-        else
-            [zero(T)]
-        end
-    end
-    tail1_left = ntuple(N) do d
-        if derivative[d] == -1
-            lv = reshape(left_values[d], ntuple(i -> i == d ? length(left_values[d]) : 1, N))
-            cumsum(coefs .* (T(1//2) .- lv), dims=d)
-        else
-            placeholder
-        end
-    end
-    tail1_right = ntuple(N) do d
-        if derivative[d] == -1
-            lv = reshape(left_values[d], ntuple(i -> i == d ? length(left_values[d]) : 1, N))
-            _suffix_sum(coefs .* (-T(1//2) .- lv), d)
-        else
-            placeholder
-        end
-    end
-    lv1 = reshape(left_values[int_dims[1]], ntuple(i -> i == int_dims[1] ? size(coefs, int_dims[1]) : 1, N))
-    lv2 = reshape(left_values[int_dims[2]], ntuple(i -> i == int_dims[2] ? size(coefs, int_dims[2]) : 1, N))
-    wll = coefs .* (T(1//2) .- lv1) .* (T(1//2) .- lv2)
-    wrl = coefs .* (-T(1//2) .- lv1) .* (T(1//2) .- lv2)
-    wlr = coefs .* (T(1//2) .- lv1) .* (-T(1//2) .- lv2)
-    wrr = coefs .* (-T(1//2) .- lv1) .* (-T(1//2) .- lv2)
-    tail2_ll = cumsum(cumsum(wll, dims=int_dims[1]), dims=int_dims[2])
-    tail2_rl = _suffix_sum(cumsum(wrl, dims=int_dims[2]), int_dims[1])
-    tail2_lr = cumsum(_suffix_sum(wlr, int_dims[2]), dims=int_dims[1])
-    tail2_rr = _suffix_sum(_suffix_sum(wrr, int_dims[2]), int_dims[1])
-    ph3 = ntuple(_ -> placeholder, 3)
-    return left_values, tail1_left, tail1_right,
-           tail2_ll, tail2_rl, tail2_lr, tail2_rr,
-           ph3, ph3, ph3, ph3, ph3, ph3,
-           placeholder, placeholder, placeholder, placeholder,
-           placeholder, placeholder, placeholder, placeholder
+    left_values = _all_left_values(coefs, kernel, derivative, eqs)
+    tail1_left = _all_tail1_left(coefs, left_values, derivative, placeholder)
+    wl1 = _left_weights(left_values[int_dims[1]], int_dims[1], Val(N))
+    wl2 = _left_weights(left_values[int_dims[2]], int_dims[2], Val(N))
+    tail2_ll = cumsum(cumsum(coefs .* wl1 .* wl2, dims=int_dims[1]), dims=int_dims[2])
+    return left_values, tail1_left, tail2_ll,
+           ntuple(_ -> placeholder, 3), placeholder
 end
 
 function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::Val{3}) where {T,N}
+    # three integral dimensions: left tails, the three left-left edges, and the left corner
     placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
     int_dims = findall(d -> derivative[d] == -1, 1:N)
-    left_values = ntuple(N) do d
-        if derivative[d] == -1
-            _compute_left_values(T, kernel[d], eqs[d], size(coefs, d))
-        else
-            [zero(T)]
-        end
-    end
-    tail1_left = ntuple(N) do d
-        if derivative[d] == -1
-            lv = reshape(left_values[d], ntuple(i -> i == d ? length(left_values[d]) : 1, N))
-            cumsum(coefs .* (T(1//2) .- lv), dims=d)
-        else
-            placeholder
-        end
-    end
-    tail1_right = ntuple(N) do d
-        if derivative[d] == -1
-            lv = reshape(left_values[d], ntuple(i -> i == d ? length(left_values[d]) : 1, N))
-            _suffix_sum(coefs .* (-T(1//2) .- lv), d)
-        else
-            placeholder
-        end
-    end
-    lv1 = reshape(left_values[int_dims[1]], ntuple(i -> i == int_dims[1] ? size(coefs, int_dims[1]) : 1, N))
-    lv2 = reshape(left_values[int_dims[2]], ntuple(i -> i == int_dims[2] ? size(coefs, int_dims[2]) : 1, N))
-    lv3 = reshape(left_values[int_dims[3]], ntuple(i -> i == int_dims[3] ? size(coefs, int_dims[3]) : 1, N))
-    wl1 = T(1//2) .- lv1;  wr1 = -T(1//2) .- lv1
-    wl2 = T(1//2) .- lv2;  wr2 = -T(1//2) .- lv2
-    wl3 = T(1//2) .- lv3;  wr3 = -T(1//2) .- lv3
-    lv1b = reshape(left_values[int_dims[1]], ntuple(i -> i == int_dims[1] ? size(coefs, int_dims[1]) : 1, N))
-    lv2b = reshape(left_values[int_dims[2]], ntuple(i -> i == int_dims[2] ? size(coefs, int_dims[2]) : 1, N))
-    wll = coefs .* (T(1//2) .- lv1b) .* (T(1//2) .- lv2b)
-    wrl = coefs .* (-T(1//2) .- lv1b) .* (T(1//2) .- lv2b)
-    wlr = coefs .* (T(1//2) .- lv1b) .* (-T(1//2) .- lv2b)
-    wrr = coefs .* (-T(1//2) .- lv1b) .* (-T(1//2) .- lv2b)
-    tail2_ll = cumsum(cumsum(wll, dims=int_dims[1]), dims=int_dims[2])
-    tail2_rl = _suffix_sum(cumsum(wrl, dims=int_dims[2]), int_dims[1])
-    tail2_lr = cumsum(_suffix_sum(wlr, int_dims[2]), dims=int_dims[1])
-    tail2_rr = _suffix_sum(_suffix_sum(wrr, int_dims[2]), int_dims[1])
-    tail3_face_l = (cumsum(coefs .* wl1, dims=int_dims[1]), cumsum(coefs .* wl2, dims=int_dims[2]), cumsum(coefs .* wl3, dims=int_dims[3]))
-    tail3_face_r = (_suffix_sum(coefs .* wr1, int_dims[1]), _suffix_sum(coefs .* wr2, int_dims[2]), _suffix_sum(coefs .* wr3, int_dims[3]))
-    tail3_edge_ll = (cumsum(cumsum(coefs .* wl2 .* wl3, dims=int_dims[2]), dims=int_dims[3]), cumsum(cumsum(coefs .* wl1 .* wl3, dims=int_dims[1]), dims=int_dims[3]), cumsum(cumsum(coefs .* wl1 .* wl2, dims=int_dims[1]), dims=int_dims[2]))
-    tail3_edge_rl = (_suffix_sum(cumsum(coefs .* wr2 .* wl3, dims=int_dims[3]), int_dims[2]), _suffix_sum(cumsum(coefs .* wr1 .* wl3, dims=int_dims[3]), int_dims[1]), _suffix_sum(cumsum(coefs .* wr1 .* wl2, dims=int_dims[2]), int_dims[1]))
-    tail3_edge_lr = (cumsum(_suffix_sum(coefs .* wl2 .* wr3, int_dims[3]), dims=int_dims[2]), cumsum(_suffix_sum(coefs .* wl1 .* wr3, int_dims[3]), dims=int_dims[1]), cumsum(_suffix_sum(coefs .* wl1 .* wr2, int_dims[2]), dims=int_dims[1]))
-    tail3_edge_rr = (_suffix_sum(_suffix_sum(coefs .* wr2 .* wr3, int_dims[3]), int_dims[2]), _suffix_sum(_suffix_sum(coefs .* wr1 .* wr3, int_dims[3]), int_dims[1]), _suffix_sum(_suffix_sum(coefs .* wr1 .* wr2, int_dims[2]), int_dims[1]))
-    tail3_corner_lll = cumsum(cumsum(cumsum(coefs .* wl1 .* wl2 .* wl3, dims=int_dims[1]), dims=int_dims[2]), dims=int_dims[3])
-    tail3_corner_rll = _suffix_sum(cumsum(cumsum(coefs .* wr1 .* wl2 .* wl3, dims=int_dims[2]), dims=int_dims[3]), int_dims[1])
-    tail3_corner_lrl = cumsum(_suffix_sum(cumsum(coefs .* wl1 .* wr2 .* wl3, dims=int_dims[3]), int_dims[2]), dims=int_dims[1])
-    tail3_corner_llr = cumsum(cumsum(_suffix_sum(coefs .* wl1 .* wl2 .* wr3, int_dims[3]), dims=int_dims[1]), dims=int_dims[2])
-    tail3_corner_rrl = _suffix_sum(_suffix_sum(cumsum(coefs .* wr1 .* wr2 .* wl3, dims=int_dims[3]), int_dims[2]), int_dims[1])
-    tail3_corner_rlr = _suffix_sum(cumsum(_suffix_sum(coefs .* wr1 .* wl2 .* wr3, int_dims[2]), dims=int_dims[1]), int_dims[3])
-    tail3_corner_lrr = cumsum(_suffix_sum(_suffix_sum(coefs .* wl1 .* wr2 .* wr3, int_dims[3]), int_dims[2]), dims=int_dims[1])
-    tail3_corner_rrr = _suffix_sum(_suffix_sum(_suffix_sum(coefs .* wr1 .* wr2 .* wr3, int_dims[3]), int_dims[2]), int_dims[1])
-    return left_values, tail1_left, tail1_right,
-           tail2_ll, tail2_rl, tail2_lr, tail2_rr,
-           tail3_edge_ll, tail3_edge_rl, tail3_edge_lr, tail3_edge_rr,
-           tail3_face_l, tail3_face_r,
-           tail3_corner_lll, tail3_corner_rll, tail3_corner_lrl, tail3_corner_llr,
-           tail3_corner_rrl, tail3_corner_rlr, tail3_corner_lrr, tail3_corner_rrr
+    left_values = _all_left_values(coefs, kernel, derivative, eqs)
+    tail1_left = _all_tail1_left(coefs, left_values, derivative, placeholder)
+    wl1 = _left_weights(left_values[int_dims[1]], int_dims[1], Val(N))
+    wl2 = _left_weights(left_values[int_dims[2]], int_dims[2], Val(N))
+    wl3 = _left_weights(left_values[int_dims[3]], int_dims[3], Val(N))
+    # edge k is free in the k-th integral dimension and left-saturated in the other two
+    tail3_edge_ll = (cumsum(cumsum(coefs .* wl2 .* wl3, dims=int_dims[2]), dims=int_dims[3]),
+                     cumsum(cumsum(coefs .* wl1 .* wl3, dims=int_dims[1]), dims=int_dims[3]),
+                     cumsum(cumsum(coefs .* wl1 .* wl2, dims=int_dims[1]), dims=int_dims[2]))
+    tail3_corner_lll = cumsum(cumsum(cumsum(coefs .* wl1 .* wl2 .* wl3, dims=int_dims[1]),
+                                     dims=int_dims[2]), dims=int_dims[3])
+    return left_values, tail1_left, placeholder, tail3_edge_ll, tail3_corner_lll
 end
 
 function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::HigherDimension{NI}) where {T,N,NI}
-    # n_integral > 3: HigherDimension path, no tail arrays needed
+    # more than 3 integral dimensions: evaluated by direct summation, no tail arrays needed
     placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
-    left_values = ntuple(N) do d
-        if derivative[d] == -1
-            _compute_left_values(T, kernel[d], eqs[d], size(coefs, d))
-        else
-            [zero(T)]
-        end
-    end
-    tail1_left  = ntuple(_ -> placeholder, N)
-    tail1_right = ntuple(_ -> placeholder, N)
-    ph3 = ntuple(_ -> placeholder, 3)
-    return left_values, tail1_left, tail1_right,
-           placeholder, placeholder, placeholder, placeholder,
-           ph3, ph3, ph3, ph3, ph3, ph3,
-           placeholder, placeholder, placeholder, placeholder,
-           placeholder, placeholder, placeholder, placeholder
+    left_values = _all_left_values(coefs, kernel, derivative, eqs)
+    return left_values, ntuple(_ -> placeholder, N), placeholder,
+           ntuple(_ -> placeholder, 3), placeholder
 end
 
 @generated function _build_fast_do_type(::Val{D}) where D
@@ -399,10 +286,4 @@ function _compute_left_values(T, kernel::Symbol, eqs::Int, n_coefs_d::Int)
         end
     end
     return lv
-end
-
-# Computes the suffix (reverse cumulative) sum of A along dimension `dims`.
-# suffix_sum[i] = sum of A[i], A[i+1], ..., A[end] along that dimension.
-function _suffix_sum(A::AbstractArray, dims::Int)
-    reverse(cumsum(reverse(A, dims=dims), dims=dims), dims=dims)
 end

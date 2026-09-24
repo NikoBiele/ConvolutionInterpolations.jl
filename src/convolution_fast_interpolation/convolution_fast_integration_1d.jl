@@ -2,14 +2,17 @@
 (itp::FastConvolutionInterpolation{T,1,...})(x::Number) — IntegralOrder
 Evaluate 1D fast antiderivative at coordinate x.
 
-Evaluation decomposes into three parts:
+Evaluation decomposes into two parts:
   local stencil — K̃ weights of all 2·eqs columns from exact column polynomials
                   (see `_kernel_weights`), anchored by `left_values`
   left tail     — O(1) prefix sum lookup (tail1_left)
-  right tail    — O(1) suffix sum lookup (tail1_right)
 
-Result is (local + left_tail + right_tail) * h, anchored to zero at the
-leftmost interior knot. O(1) in grid size, allocation-free, exact to rounding.
+Coefficients right of the stencil contribute nothing: they lie right of the anchor's stencil
+too, where K̃ is saturated at −½ both at x and at the anchor, so their anchored weight is
+exactly zero.
+
+Result is (local + left_tail) * h, anchored to zero at the leftmost interior knot.
+O(1) in grid size, allocation-free, exact to rounding.
 See also: FastConvolutionInterpolation, convolution_fast_integration_2d.
 """
 
@@ -34,8 +37,7 @@ See also: FastConvolutionInterpolation, convolution_fast_integration_2d.
         result += itp.coefs[j] * (w[c] - itp.left_values[1][j])
     end
 
-    left_tail  = (i - eqs_int) >= 1                      ? itp.tail1_left[1][i - eqs_int]      : zero(T)
-    right_tail = (i + eqs_int + 1) <= length(itp.coefs)  ? itp.tail1_right[1][i + eqs_int + 1] : zero(T)
+    left_tail = (i - eqs_int) >= 1 ? itp.tail1_left[1][i - eqs_int] : zero(T)
 
-    return (result + left_tail + right_tail) * itp.h[1]
+    return (result + left_tail) * itp.h[1]
 end

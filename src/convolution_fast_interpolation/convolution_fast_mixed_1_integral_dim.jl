@@ -1,13 +1,14 @@
-# """
-# (itp::FastConvolutionInterpolation{T,N,...})(x...) — FastMixedIntegralOrder, n_integral=1
-# Evaluate mixed antiderivative/derivative/interpolation in N dimensions,
-# with exactly 1 integral dimension using fast tail lookups.
+"""
+(itp::FastConvolutionInterpolation{T,N,...})(x...) — FastMixedIntegralOrder, n_integral=1
+Evaluate mixed antiderivative/derivative/interpolation in N dimensions,
+with exactly 1 integral dimension using fast tail lookups.
 
-# Integral dimension: K̃ center loop with subgrid (linear/cubic/quintic) + O(1) tail1 lookups.
-# Derivative dimensions: linear subgrid kernel evaluation.
+Integral dimension: K̃ center loop from exact column polynomials + O(1) left tail lookup.
+Coefficients right of the stencil contribute nothing (their anchored weight is exactly zero).
+Derivative dimensions: kernel weights from exact column polynomials.
 
-# Cost: O(eqs^N) center + O(eqs^(N-1)) tails.
-# """
+Cost: O(eqs^N) center + O(eqs^(N-1)) tails.
+"""
 @inline function (itp::FastConvolutionInterpolation{T,N,1,TCoefs,Axs,KA,DIM,DG,EQ,KBC,
             FastMixedIntegralOrder{DO},FD,SD,Val{SG},Val{false},Val{1}})(x::Vararg{Number,N}) where
             {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},Axs<:Tuple{Vararg{AbstractVector}},
@@ -23,11 +24,9 @@
         clamp(floor(Int, i_float), itp.eqs[d], size(itp.coefs, d) - itp.eqs[d])
     end
 
-    # tail boundary indices
-    l    = ntuple(d -> i[d] - itp.eqs[d],         N)
-    r    = ntuple(d -> i[d] + itp.eqs[d] + 1,     N)
-    l_ok = ntuple(d -> l[d] >= 1,                  N)
-    r_ok = ntuple(d -> r[d] <= size(itp.coefs, d), N)
+    # left tail boundary indices
+    l    = ntuple(d -> i[d] - itp.eqs[d], N)
+    l_ok = ntuple(d -> l[d] >= 1,          N)
 
     # ── kernel weights of every dimension (exact column polynomials) ─────
     w = _mixed_weights(itp, x, i, Val(DO))   
@@ -51,12 +50,11 @@
             result  += itp.coefs[coef_idx...] * lv * kt_prod
         end
 
-        # ── tails: O(1) lookups in integral dimension ────────────────────
-        idx_l = Base.setindex(idx_d, l[int_dim], int_dim)
-        idx_r = Base.setindex(idx_d, r[int_dim], int_dim)
-        tl = l_ok[int_dim] ? itp.tail1_left[int_dim][idx_l...]  : zero(T)
-        tr = r_ok[int_dim] ? itp.tail1_right[int_dim][idx_r...] : zero(T)
-        result += (tl + tr) * kt_prod
+        # ── left tail: O(1) lookup in integral dimension ─────────────────
+        if l_ok[int_dim]
+            idx_l = Base.setindex(idx_d, l[int_dim], int_dim)
+            result += itp.tail1_left[int_dim][idx_l...] * kt_prod
+        end
     end
 
     # ── scaling ──────────────────────────────────────────────────────────

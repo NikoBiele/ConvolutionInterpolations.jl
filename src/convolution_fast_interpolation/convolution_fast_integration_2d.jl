@@ -2,15 +2,19 @@
 (itp::FastConvolutionInterpolation{T,2,...})(x::Number, y::Number) — IntegralOrder
 Evaluate 2D fast antiderivative at coordinates (x, y).
 
-The 2D domain decomposes into 9 quadrants around the local stencil box:
-  center (K̃×K̃)         — O(eqs²) double loop over local stencil
-  edge strips (K̃×tail)  — O(eqs) per strip via 1D prefix sum lookup
-  corners (tail×tail)    — O(1) via precomputed 2D cross-sum arrays
+The 2D domain decomposes into regions around the local stencil box:
+  center (K̃×K̃)       — O(eqs²) double loop over local stencil
+  left strips (K̃×tail) — O(eqs) per strip via 1D prefix sum lookup
+  left corner (tail×tail) — O(1) via precomputed 2D cross-sum array
+
+Regions right of the stencil in either dimension contribute nothing: those coefficients lie
+right of the anchor's stencil too, where K̃ is saturated at −½ both at x and at the anchor, so
+their anchored weight is exactly zero.
 
 K̃ weights come from exact column polynomials, evaluated once per dimension
 (see `_kernel_weights`, `_antiderivative_weight`).
 
-Result is (center + strips + corners) * h[1] * h[2], anchored to zero at the
+Result is (center + strips + corner) * h[1] * h[2], anchored to zero at the
 leftmost interior knot in each dimension. O(1) in grid size, allocation-free.
 See also: FastConvolutionInterpolation, convolution_fast_integration_1d.
 """
@@ -36,13 +40,11 @@ See also: FastConvolutionInterpolation, convolution_fast_integration_1d.
     w1, w2 = _column_weights_per_dim(Val(_kernel_sym(itp.kernel_sym)), Val((-1, -1)),
                                      (i1_float - T(i1), i2_float - T(i2)))
 
-    # tail boundary indices
+    # left tail boundary indices
     l1 = i1 - eqs_1;      l1_ok = l1 >= 1
-    r1 = i1 + eqs_1 + 1;  r1_ok = r1 <= size(itp.coefs, 1)
     l2 = i2 - eqs_2;      l2_ok = l2 >= 1
-    r2 = i2 + eqs_2 + 1;  r2_ok = r2 <= size(itp.coefs, 2)
 
-    # ── center: K̃×K̃, and side strips: cumcoefs×K̃ ──────────────────
+    # ── center: K̃×K̃, and left strip in dim 1: tail×K̃ ───────────────
     @inbounds for j2 in (i2 - eqs_2 + 1):(i2 + eqs_2)
         kt2 = _antiderivative_weight(w2, i2, eqs_2, j2)
         lv2 = kt2 - itp.left_values[2][j2]
@@ -53,31 +55,17 @@ See also: FastConvolutionInterpolation, convolution_fast_integration_1d.
             result += itp.coefs[j1, j2] * (kt1 - itp.left_values[1][j1]) * lv2
         end
 
-        # left strip: (-½)×K̃ — O(1) lookup weighted by lv2
-        tl1 = l1_ok ? itp.tail1_left[1][l1,  j2] : zero(T)
-        # right strip: (+½)×K̃ — O(1) lookup weighted by lv2
-        tr1 = r1_ok ? itp.tail1_right[1][r1, j2] : zero(T)
-        result += (tl1 + tr1) * lv2
+        # left strip in dim 1: O(1) lookup weighted by lv2
+        result += (l1_ok ? itp.tail1_left[1][l1, j2] : zero(T)) * lv2
     end
 
-    # ── top strip: K̃×(-½) ────────────────────────────────────────────
+    # ── left strip in dim 2: K̃×tail, and the left corner: tail×tail ──
     if l2_ok
         @inbounds for j1 in (i1 - eqs_1 + 1):(i1 + eqs_1)
             kt1 = _antiderivative_weight(w1, i1, eqs_1, j1)
             result += itp.tail1_left[2][j1, l2] * (kt1 - itp.left_values[1][j1])
         end
         result += l1_ok ? itp.tail2_ll[l1, l2] : zero(T)
-        result += r1_ok ? itp.tail2_rl[r1, l2] : zero(T)
-    end
-
-    # ── bottom strip: K̃×(+½) ─────────────────────────────────────────
-    if r2_ok
-        @inbounds for j1 in (i1 - eqs_1 + 1):(i1 + eqs_1)
-            kt1 = _antiderivative_weight(w1, i1, eqs_1, j1)
-            result += itp.tail1_right[2][j1, r2] * (kt1 - itp.left_values[1][j1])
-        end
-        result += l1_ok ? itp.tail2_lr[l1, r2] : zero(T)
-        result += r1_ok ? itp.tail2_rr[r1, r2] : zero(T)
     end
 
     return result * itp.h[1] * itp.h[2]

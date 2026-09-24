@@ -26,8 +26,11 @@ Create a convolution-based interpolation object with automatic optimization and 
   Options: `:throw`, `:flat`, `:line` or `:natural`.
 - `bc=:detect`: Boundary condition for kernel evaluation at domain edges.
   Options: `:detect`, `:poly`, `:linear`, `:quadratic`.
-- `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
-  kernels. Negative values evaluate antiderivatives (uniform grids, fast path).
+- `derivative::Union{Int,NTuple{N,Int}}=0`: Derivative order to evaluate, one value for all
+  dimensions or one per dimension. Supported up to 6 for `b`-series kernels. `derivative=-m`
+  evaluates the m-fold antiderivative, anchored at zero at the leftmost interior knot (uniform
+  grids, fast path), up to order 2 for `:a0`/`:a1`, 4 for the other `a`-series kernels, 6 for
+  `:b5` and 8 for `:b7`–`:b13`. Orders may be mixed per dimension, e.g. `(-2, 0)` or `(-1, 1)`.
 - `subgrid`: Deprecated, has no effect, and will be removed in a future release. Kernels
   are evaluated exactly, so there is no subgrid interpolation.
 - `lazy::Bool=false`: When `true`, skip ghost point expansion at construction time.

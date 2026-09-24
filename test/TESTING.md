@@ -4,41 +4,69 @@ This document describes the test suite for ConvolutionInterpolations.jl. The sui
 
 ## Test Structure
 
-The tests are organized into thematic files, all included from `runtests.jl`:
+The tests are organized into thematic files, all included from `runtests.jl`, grouped here by topic.
 
-|| File | Scope |
+### Exact kernels
+
+| File | Scope |
 |------|-------|
-| `test_column_polynomials.jl` | Exact column polynomials equal the kernels exactly, for every kernel and derivative order from −1 up |
-| `test_nd_integral_separable.jl` | 4D integral of separable data equals the product of 1D integrals exactly |
-| `test_constructors.jl` | Low-level constructor tests for all kernels; 2D and 3D per-dim kernel combination coverage |
-| `test_uniform_interpolation.jl` | Grid point reproduction and midpoint accuracy for uniform grids in 1D–4D |
-| `test_uniform_derivatives.jl` | First derivative accuracy on uniform grids in 1D–4D |
-| `test_uniform_convergence.jl` | Error reduction under grid refinement for function values and 1st/2nd derivatives in 1D |
-| `test_uniform_lazy.jl` | Lazy vs eager agreement, construction speed, and boundary fallback on uniform grids in 1D–4D |
-| `test_nonuniform_interpolation.jl` | Grid point reproduction and midpoint accuracy on nonuniform grids in 1D–4D |
-| `test_nonuniform_derivatives.jl` | First and second derivative accuracy on nonuniform grids in 1D–2D |
-| `test_nonuniform_convergence.jl` | Convergence rates on nonuniform grids in 1D; nearly-uniform regression tests |
-| `test_nonuniform_perdim_derivatives.jl` | Per-dim b-kernel derivatives on nonuniform grids in 2D |
-| `test_nonuniform_perdim_kernels.jl` | Per-dim b-kernels on nonuniform grids in 2D and 3D |
-| `test_nonuniform_a0_a1.jl` | Nearest-neighbor and linear interpolation on nonuniform grids in 1D–3D |
-| `test_nonuniform_lazy.jl` | Lazy vs eager agreement and boundary fallback for `:n3` on nonuniform grids in 1D–3D |
-| `test_antiderivative.jl` | Antiderivative convergence in 1D–3D; fast vs direct agreement; anchor correctness |
-| `test_perdim_derivatives.jl` | Per-dim derivative orders in 2D and 3D, fast and direct |
-| `test_mixed_integral_1D_2D.jl` | Mixed integral/derivative orders in 1D and 2D, fast and direct paths |
-| `test_mixed_integral_3D_4D.jl` | Mixed integral/derivative orders in 3D and 4D, fast path only |
-| `test_mixed_integral_5D.jl` | Mixed integral/derivative orders in 5D; fast vs direct agreement; anchor correctness |
-| `test_perdim_kernel_derivatives.jl` | Per-dim kernel combinations with derivatives in 2D and 3D |
-| `test_boundary_condition.jl` | BC downgrade with insufficient points in 1D–3D |
-| `test_extrapolation.jl` | `:line` and `:flat` extrapolation modes for uniform grids in 1D–4D |
-| `test_gaussian.jl` | Gaussian kernel construction and evaluation in 1D and 2D |
-| `test_bigfloat_precision.jl` | BigFloat type preservation and machine precision for all kernels in 1D/2D |
-| `test_float32.jl` | Float32 type preservation and accuracy: derivatives, integrals, options, N-D, lazy, nonuniform |
-| `test_allocations.jl` | Non-lazy kernel functors should all be non-allocating |
-| `test_scattered_to_grid.jl` | Covers gridding of scattered data |
-| `test_resample.jl` | `convolution_resample` accuracy, output size, derivatives, deprecated keyword handling |
-| `test_fit_scattered.jl` | Scattered-data fitting: exactness, convergence, derivatives, box integrals, solvers |
-| `test_show.jl` | `show` output for all interpolant types, kernels, derivatives and options |
-| `test_deprecations.jl` | `precompute`/`subgrid` warn when set, have no effect, and nothing warns when unset |
+| `test_column_polynomials.jl` | Column polynomials equal the kernels exactly for every kernel and order; exact integral kernel values at integer offsets |
+| `test_constructors.jl` | Constructors for all kernels; 2D and 3D per-dimension kernel combinations |
+
+### Uniform grids
+
+| File | Scope |
+|------|-------|
+| `test_uniform_interpolation.jl` | Grid point reproduction and midpoint accuracy, 1D–4D |
+| `test_uniform_derivatives.jl` | First derivatives, 1D–4D |
+| `test_uniform_convergence.jl` | Convergence of values and 1st/2nd derivatives in 1D; dense-grid rounding floor |
+| `test_perdim_derivatives.jl` | Per-dimension derivative orders in 2D and 3D, fast and direct |
+| `test_perdim_kernel_derivatives.jl` | Per-dimension kernels combined with derivatives in 2D and 3D |
+| `test_uniform_lazy.jl` | Lazy vs eager agreement, construction speed, boundary fallback, 1D–4D |
+
+### Nonuniform grids
+
+| File | Scope |
+|------|-------|
+| `test_nonuniform_interpolation.jl` | Grid point reproduction and midpoint accuracy, 1D–4D |
+| `test_nonuniform_derivatives.jl` | First and second derivatives, 1D–2D |
+| `test_nonuniform_convergence.jl` | Convergence rates in 1D; nearly-uniform regression |
+| `test_nonuniform_perdim_derivatives.jl` | Per-dimension b-kernel derivatives in 2D |
+| `test_nonuniform_perdim_kernels.jl` | Per-dimension b-kernels in 2D and 3D |
+| `test_nonuniform_a0_a1.jl` | Nearest-neighbor and linear interpolation, 1D–3D |
+| `test_nonuniform_lazy.jl` | Lazy vs eager agreement and boundary fallback for `:n3`, 1D–3D |
+
+### Integrals
+
+| File | Scope |
+|------|-------|
+| `test_antiderivative.jl` | First-order antiderivatives, 1D–3D: convergence, fast vs direct, anchoring |
+| `test_nd_integral_separable.jl` | 4D integral of separable data equals the product of 1D integrals |
+| `test_higher_integrals.jl` | Orders 2 and higher: exactness, consistency between orders, convergence, precision, N-D separability, errors |
+| `test_mixed_integral_1D_2D.jl` | Integrals mixed with derivatives in 1D and 2D, fast and direct |
+| `test_mixed_integral_3D_4D.jl` | Integrals mixed with derivatives in 3D and 4D |
+| `test_mixed_integral_5D.jl` | Integrals mixed with derivatives in 5D; fast vs direct; anchoring |
+
+### Boundaries, precision and options
+
+| File | Scope |
+|------|-------|
+| `test_boundary_condition.jl` | Boundary condition downgrade with too few points, 1D–3D |
+| `test_extrapolation.jl` | `:line` and `:flat` extrapolation, 1D–4D |
+| `test_bigfloat_precision.jl` | BigFloat type preservation and machine precision |
+| `test_float32.jl` | Float32 type preservation and accuracy across features |
+| `test_allocations.jl` | Non-lazy evaluation is allocation-free |
+
+### Further features
+
+| File | Scope |
+|------|-------|
+| `test_gaussian.jl` | Gaussian smoothing kernel and `convolution_smooth` |
+| `test_scattered_to_grid.jl` | Nearest-neighbor gridding of scattered data |
+| `test_fit_scattered.jl` | Scattered-data fitting: exactness, convergence, derivatives, box integrals |
+| `test_resample.jl` | `convolution_resample` accuracy, output size, derivatives |
+| `test_show.jl` | `show` output for all interpolant types and options |
+| `test_deprecations.jl` | Deprecated `precompute`/`subgrid` keywords warn and have no effect |
 
 ## Kernel Coverage Strategy
 
@@ -137,11 +165,21 @@ Tests `derivative=-1` for kernels `:a3` and `:b5`. Grid sizes `n = 24, 48, 96` (
 
 Expected convergence orders: `:a3` → 3rd order, `:b5` → 7th order.
 
+### Higher-order integrals
+
+`test_higher_integrals.jl` covers `derivative = -m` for m ≥ 2, evaluated by the generic integral evaluator:
+
+- **Exactness on reproduced data**: every kernel reproduces linear data (`:a0` constants), so every order up to each kernel's cap must match the closed-form m-fold integral to rounding (tolerance `1e-13`).
+- **Consistency between orders**: F_m(x) must equal ∫ₐˣ F_(m−1)(t) dt, computed by 12-point Gauss–Legendre quadrature of the package's own order-(m−1) interpolant on every half grid step, where it is a polynomial. Checks anchoring and tails on smooth, non-polynomial data (tolerance `1e-12`).
+- **Convergence**: on `sin` data against its analytic m-fold integral, each order converges at the kernel's rate (with a margin of one order).
+- **Precision**: Float32 in gives Float32 out; BigFloat is exact on linear data far beyond Float64 precision.
+- **N-D**: separable data, where the result must equal the product of 1D results.
+- **Errors**: orders beyond a kernel's cap, lazy mode (for all integral orders), the direct path, and nonuniform grids.
+- **Construction links to order 1**: for order 1, the polynomial left tails, the region tails and the anchored stencil weights must reproduce the existing order-1 construction.
+
 ### Mixed integral/derivative orders
 
-`test_mixed_integral_1D_2D.jl` tests `MixedIntegralOrder` in 2D for `derivative` combinations `(-1,0)`, `(0,-1)`, `(-1,1)`, `(1,-1)` with `:b5`. Tests both fast and direct paths for convergence and exact anchor-is-zero property. Grid sizes `n = 20, 40, 80`.
-
-`test_mixed_integral_3D_4D.jl` extends coverage to 3D and 4D. All tests use `lazy=true` for fast construction, with evaluation points well inside the domain (at least 5 grid spacings from boundaries to stay clear of the b5 stencil width of 10). Convergence is verified on grids `n = 20, 40` for all combinations of 1, 2, and 3 integral dimensions in 3D, including mixed cases with derivatives such as `(-1,1,0)` and `(1,-1,0)`. A small set of eager (`lazy=false`) near-boundary tests verify correct behavior close to domain edges. 4D tests verify construction and callability for all supported derivative combinations, plus numerical correctness for `(-1,-1,-1,0)` and `(-1,0,0,1)`.
+`test_mixed_integral_3D_4D.jl` extends coverage to 3D and 4D. All tests construct in eager mode (`lazy=false`, which integrals require), with most evaluation points well inside the domain (at least 5 grid spacings from boundaries to stay clear of the b5 stencil width of 10). Convergence is verified on grids `n = 20, 40` for all combinations of 1, 2, and 3 integral dimensions in 3D, including mixed cases with derivatives such as `(-1,1,0)` and `(1,-1,0)`. A small set of near-boundary tests verify correct behavior close to domain edges. 4D tests verify construction and callability for all supported derivative combinations, plus numerical correctness for `(-1,-1,-1,0)` and `(-1,0,0,1)`.
 
 ### Per-dim derivative orders
 

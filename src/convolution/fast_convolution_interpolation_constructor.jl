@@ -21,9 +21,12 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
   Forces eager mode.
 - `bc=:detect`: Boundary condition for kernel evaluation at domain edges.
   Options: `:detect`, `:poly`, `:linear`, `:quadratic`.
-- `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
-  kernels. Negative values evaluate antiderivatives.
-- `subgrid`: Deprecated, has no effect, and will be removed in a future release. Kernels
+- `derivative::Union{Int,NTuple{N,Int}}=0`: Derivative order to evaluate, one value for all
+  dimensions or one per dimension. Supported up to 6 for `b`-series kernels. `derivative=-m`
+  evaluates the m-fold antiderivative, anchored at zero at the leftmost interior knot, up to
+  order 2 for `:a0`/`:a1`, 4 for the other `a`-series kernels, 6 for `:b5` and 8 for
+  `:b7`–`:b13`. Orders may be mixed per dimension, e.g. `(-2, 0)` or `(-1, 1)`.
+  - `subgrid`: Deprecated, has no effect, and will be removed in a future release. Kernels
   are evaluated exactly, so there is no subgrid interpolation.
 - `lazy::Bool=false`: When `true`, skip ghost point expansion at construction time.
   The raw values are stored directly and ghost points are computed on the fly during

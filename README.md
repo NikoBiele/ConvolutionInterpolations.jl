@@ -15,7 +15,7 @@ ConvolutionInterpolations.jl uses a new family of high-order convolution kernels
 - **N-dimensional**: Separable kernel design scales naturally from 1D to arbitrary dimensions
 - **Simple API**: A single interface covers nearest-neighbor through 13th-degree polynomial kernels
 - **Derivatives up to 7th order**: Analytically differentiated kernels, stable and allocation-free
-- **Antiderivative support (uniform)**: Compute 7th order accurate smooth indefinite integrals
+- **Antiderivative support (uniform)**: Compute 7th order accurate smooth indefinite integrals, including repeated integrals up to 8th order, in any dimension
 - **Scattered data interpolation**: Exact 7th-order interpolation of fully scattered data via `convolution_interpolation(points, values)`, with derivatives and near machine-precision box integrals
 - **Scattered data gridding**: Nearest-neighbor gridding of noisy unstructured data with `scattered_to_grid`
 - **Gaussian smoothing**: Recover clean signals from noisy data with `convolution_smooth`
@@ -456,9 +456,38 @@ itp(1.0)   # ≈ 0.4597  (= 1 - cos(1), anchored at x=0)
 
 The result is zero-anchored at the leftmost interior knot: `F(anchor) = 0` exactly.
 The fast path (default) precomputes the anchor-side contribution at construction time.
-In 1D, 2D and 3D, prefix sums further reduce evaluation to O(stencil), O(stencil²) and and O(stencil³)
-respectively, independent of grid size after construction. In higher dimensions, evaluation falls back to
-a general path that sums over the full coefficient array — accurate but slower for large grids.
+With up to three integral dimensions, prefix sums reduce evaluation to O(stencil), O(stencil²) and
+O(stencil³) respectively, independent of grid size after construction. With more integral dimensions,
+evaluation sums over the coefficients up to the evaluation point: accurate, but slower for large grids.
+
+**Repeated antiderivatives.** `derivative=-m` gives the m-fold integral of the interpolant, anchored so
+that it and all lower integrals vanish at the leftmost interior knot:
+
+```julia
+x = range(0.0, 2π, length=100)    # uniform grid
+y = sin.(x)                       # data to integrate twice
+
+# second antiderivative: ∫₀ˣ ∫₀ˢ sin(t) dt ds = x − sin(x)
+itp = convolution_interpolation(x, y; derivative=-2);
+itp(1.0)   # ≈ 0.1585  (= 1 - sin(1))
+```
+
+Orders can be chosen per dimension, and combined with interpolation or derivatives in other dimensions:
+
+```julia
+xs = range(0.0, 2π, length=100)            # uniform grid in x
+ys = range(0.0, 1.0, length=50)            # uniform grid in y
+vs = [sin(x) * y for x in xs, y in ys]     # data on the grid
+
+# second antiderivative in x, plain interpolation in y: (x − sin(x)) · y
+itp = convolution_interpolation((xs, ys), vs; derivative=(-2, 0));
+itp(1.0, 0.5)   # ≈ 0.0793  (= (1 - sin(1)) · 0.5)
+```
+
+Every order is computed exactly from the kernels' m-fold antiderivatives, and converges at the kernel's
+full rate. The highest order depends on the kernel: 2 for `:a0` and `:a1`, 4 for the other `:a` kernels,
+6 for `:b5`, and 8 for `:b7` through `:b13`. Memory grows with the orders: with up to three integral
+dimensions, construction stores one grid-sized array per combination of powers in each tail region.
 
 In N dimensions the result is the iterated antiderivative:
 

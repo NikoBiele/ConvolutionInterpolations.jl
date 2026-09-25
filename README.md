@@ -21,6 +21,9 @@ ConvolutionInterpolations.jl uses a new family of high-order convolution kernels
 - **Gaussian smoothing**: Recover clean signals from noisy data with `convolution_smooth`
 - **Grid resampling**: High-order separable resampling with `convolution_resample`
 
+A Python port with a Rust core, by the same author, is available as
+[convinterp](https://github.com/NikoBiele/convinterp).
+
 ## Installation
 
 ```julia

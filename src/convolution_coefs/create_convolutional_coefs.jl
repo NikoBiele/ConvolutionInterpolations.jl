@@ -430,33 +430,37 @@ end
 """
     fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex, 
                                   c_offset::AbstractVector{CartesianIndex{N}},
-                                  coef::Matrix, y_offset::T, y_centered::Vector{T},
+                                  coef::Matrix, y_offset::T, y_centered::AbstractVector{T},
                                   side::Symbol, eqs::Int,
                                   workspace::BoundaryWorkspace{T,N}) where {T,N}
 
 Fill ghost points using polynomial boundary conditions (non-recursive, direct computation).
 
 # Arguments
-- `c::AbstractArray{T}`: Coefficient array to modify
+- `c::AbstractArray{T}`: Coefficient array to modify; the interior values along the line are read from it
 - `idx::CartesianIndex`: Index of the boundary point (interior grid point nearest to boundary)
 - `c_offset::AbstractVector{CartesianIndex{N}}`: Precomputed offsets for ghost point positions
 - `coef::Matrix`: Coefficient matrix where row j gives coefficients for ghost point g_{-j}
-- `y_offset::T`: Mean offset of the signal
-- `y_centered::Vector{T}`: Mean-centered signal values
+- `y_offset::T`: Mean offset of the signal (not used, see Details)
+- `y_centered::AbstractVector{T}`: Mean-centered signal values (only its length is used, see Details)
 - `side::Symbol`: `:left` or `:right` boundary
 - `eqs::Int`: Number of equations (determines number of ghost points: eqs-1)
-- `workspace::BoundaryWorkspace{T,N}`: Workspace for temporary arrays
+- `workspace::BoundaryWorkspace{T,N}`: Workspace; `workspace.slice_offset` locates the interior values
 
 # Details
 Polynomial boundary conditions compute ghost points directly from interior values using
-optimal kernel-specific coefficient matrices. This method:
+optimal kernel-specific coefficient matrices:
 
-- Preserves the polynomial reproduction property of the kernel
-- Uses matrix-vector multiplication for efficiency
-- Handles signal reversal automatically for right boundaries
-- Adds back the mean offset to get final ghost point values
+    ghost[j] = sum(coef[j, d] * y[d] for d in 1:size(coef, 2))
 
-The computation is: `ghost[j] = y_offset + coef[j,:] ⋅ y_centered`
+where `y[1], y[2], …` are the interior values along the line, nearest to the boundary first.
+
+The sum is computed from the values themselves, not the mean-centered ones, by a compensated
+dot product (Dot2, Ogita, Rump & Oishi 2005): as accurate as if computed in twice the working
+precision and then rounded, and the same on every machine (no BLAS). Mean-centering would round
+every value before the sum, an error the matrix amplifies by its row sums (up to ~1e6 for `:b13`);
+the rows sum to 1, so no offset is needed. The accuracy matters most on N-D edges and in corners,
+where ghost values are extrapolated again from ghost values.
 
 This is the recommended boundary condition method for most use cases.
 
@@ -470,32 +474,51 @@ function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex,
                                       workspace::BoundaryWorkspace{T,N}) where {T,N}
     num_interior = size(coef, 2)
     num_ghost = eqs - 1  # Always use exactly eqs-1, not the full matrix
-    
-    if side == :left
-        y_view = view(y_centered, 1:num_interior)
-        ghost_vals_view = view(workspace.ghost_vals, 1:num_ghost)
-        coef_view = view(coef, 1:num_ghost, :)  # Only use first eqs-1 rows
-        
-        mul!(ghost_vals_view, coef_view, y_view)
+    # workspace.slice_offset is set for the length(y_centered) values read along this line
+    num_interior <= length(y_centered) ||
+        throw(ArgumentError("boundary condition needs $num_interior values along the line, " *
+                            "got $(length(y_centered))"))
 
-        for j in 1:num_ghost
-            c[idx - c_offset[j]] = y_offset + workspace.ghost_vals[j]
-        end
-    else  # :right
-        # Reverse into workspace
-        for k in 1:num_interior
-            workspace.y_temp[k] = y_centered[end - k + 1]
-        end
-        y_temp_view = view(workspace.y_temp, 1:num_interior)
-        ghost_vals_view = view(workspace.ghost_vals, 1:num_ghost)
-        coef_view = view(coef, 1:num_ghost, :)  # Only use first eqs-1 rows
-        
-        mul!(ghost_vals_view, coef_view, y_temp_view)
-        
-        for j in 1:num_ghost
-            c[idx + c_offset[j]] = y_offset + workspace.ghost_vals[j]
+    @inbounds for j in 1:num_ghost
+        if side == :left
+            # interior value d lies d-1 steps inward (to the right) of the boundary point idx
+            ghost = _compensated_row_dot(coef, j, d -> c[idx + workspace.slice_offset[d]],
+                                         num_interior, T)
+            c[idx - c_offset[j]] = ghost
+        else  # :right
+            # interior value d lies d-1 steps inward (to the left) of the boundary point idx
+            ghost = _compensated_row_dot(coef, j, d -> c[idx - workspace.slice_offset[d]],
+                                         num_interior, T)
+            c[idx + c_offset[j]] = ghost
         end
     end
+end
+
+# Error-free transformation of a product: a*b == p + e exactly
+@inline function _two_prod(a::T, b::T) where {T}
+    p = a * b
+    return p, fma(a, b, -p)
+end
+
+# Error-free transformation of a sum: a + b == s + e exactly
+@inline function _two_sum(a::T, b::T) where {T}
+    s = a + b
+    z = s - a
+    return s, (a - (s - z)) + (b - z)
+end
+
+# Σ_{d=1}^{n} coef[j, d] · y(d) in type T, by the compensated dot product Dot2 (Ogita, Rump &
+# Oishi 2005): as accurate as twice the working precision, then rounded. The terms are added in
+# the fixed order d = 1, 2, …, n, so the result is reproducible (the Rust port uses the same sequence).
+@inline function _compensated_row_dot(coef::AbstractMatrix, j::Int, y, n::Int, ::Type{T}) where {T}
+    s = zero(T)   # running sum of the products
+    e = zero(T)   # running sum of the rounding errors of the products and additions
+    @inbounds for d in 1:n
+        p, ep = _two_prod(T(coef[j, d]), y(d))   # product, and its exact rounding error
+        s, es = _two_sum(s, p)                   # new sum, and its exact rounding error
+        e += ep + es
+    end
+    return s + e
 end
 
 function fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mean, eqs, workspace, vs_side)

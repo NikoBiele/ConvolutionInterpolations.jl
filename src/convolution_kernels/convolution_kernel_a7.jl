@@ -2,7 +2,8 @@
     (::ConvolutionKernel{:a7,DO})(s)
 
 Septic a-series kernel. Support [-4, 4], 4 pieces.
-C1 continuous. Wider support than `:a5` with 7th-degree piecewise polynomials.
+C5 continuous, 3rd-order accuracy. Wider support than `:a5` with 7th-degree piecewise
+polynomials, which add smoothness but not accuracy (it reproduces polynomials up to degree 2).
 """
 
 const a7_coefs = Dict(

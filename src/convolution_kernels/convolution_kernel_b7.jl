@@ -2,8 +2,8 @@
     (::ConvolutionKernel{:b7,DO})(s)
 
 Septic b-series kernel. Support [-6, 6], 6 pieces.
-C4 continuous, 7th-order accuracy. Higher smoothness than `:b5` with derivatives up
-to order 4.
+C5 continuous, 7th-order accuracy. Higher smoothness than `:b5` with derivatives up
+to order 5.
 """
 
 const b7_coefs = Dict(

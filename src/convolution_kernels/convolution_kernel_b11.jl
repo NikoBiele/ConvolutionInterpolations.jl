@@ -2,7 +2,7 @@
     (::ConvolutionKernel{:b11,DO})(s)
 
 11th-degree b-series kernel. Support [-8, 8], 8 pieces.
-C6 continuous, 7th-order accuracy. Derivatives up to order 6.
+C9 continuous, 7th-order accuracy. Derivatives up to order 7.
 """
 
 const b11_coefs = Dict(

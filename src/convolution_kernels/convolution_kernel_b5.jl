@@ -2,8 +2,9 @@
     (::ConvolutionKernel{:b5,DO})(s)
 
 Quintic b-series kernel. Support [-5, 5], 5 pieces.
-C3 continuous, 7th-order accuracy. Derived by optimizing frequency response closeness
-to the ideal sinc function. Supports derivatives up to order 3 with smooth evaluation.
+C3 continuous, 6th-order accuracy (it reproduces polynomials up to degree 5). Derived by
+optimizing frequency response closeness to the ideal sinc function. Supports derivatives up to
+order 3 with smooth evaluation.
 """
 
 const b5_coefs = Dict(

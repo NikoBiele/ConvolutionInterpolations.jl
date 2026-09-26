@@ -2,8 +2,8 @@
     (::ConvolutionKernel{:b13,DO})(s)
 
 13th-degree b-series kernel. Support [-9, 9], 9 pieces.
-C6 continuous, 7th-order accuracy. The widest and smoothest kernel in the family.
-Derivatives up to order 6.
+C11 continuous, 7th-order accuracy. The widest and smoothest kernel in the family.
+Derivatives up to order 7.
 """
 
 const b13_coefs = Dict(

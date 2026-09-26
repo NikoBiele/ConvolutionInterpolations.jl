@@ -288,8 +288,8 @@ The 1D Runge function demonstrates convergence behavior across kernel families:
 
 [![Runge function convergence](fig/convergence_interpolation_1d_runge.png)](fig/convergence_interpolation_1d_runge.png)
 
-- `:b` kernels reach machine precision (~10⁻¹⁴) by 1000 sample points
-- `:b`-series kernels show 7th order convergence (slope ≈ -7 on the log-log plot)
+- `:b` kernels reach 10⁻¹⁴ at about 900–1300 sample points, and level off at the rounding floor of ~10⁻¹⁵ by about 1100–1900, the wider kernels first
+- `:b7` to `:b13` show 7th order convergence (slope ≈ -7 on the log-log plot), `:b5` 6th order
 - The `:a4` kernel show 4th order convergence, and is similar to cubic splines
 - The fast path evaluates each kernel's polynomial pieces in a local coordinate within the grid cell, which is both fast and numerically stable
 - Chebyshev interpolation shown for reference (requires non-uniform grid points)
@@ -336,11 +336,11 @@ Uniform grid kernels
 |--------|--------|------------|------------------|-------------|-----|
 | `:a0`  | 0      | —          | -1..0            | 1st order   | 2ᴺ   |
 | `:a1`  | 1      | C⁰         | -1..0            | 2nd order   | 2ᴺ   |
-| `:a3`  | 3      | C¹         | -1..1            | ~3rd order  | 4ᴺ   |
-| `:a4`  | 3      | C¹         | -1..1            | ~4th order  | 6ᴺ   |
-| `:a5`  | 5      | C¹         | -1..1            | ~3rd order  | 6ᴺ   |
-| `:a7`  | 7      | C¹         | -1..1            | ~3rd order  | 8ᴺ   |
-| `:b5`  | 5      | C³         | -1..3            | 7th order   | 10ᴺ   |
+| `:a3`  | 3      | C¹         | -1..1            | 3rd order   | 4ᴺ   |
+| `:a4`  | 3      | C¹         | -1..1            | 4th order   | 6ᴺ   |
+| `:a5`  | 5      | C³         | -1..1            | 3rd order   | 6ᴺ   |
+| `:a7`  | 7      | C⁵         | -1..1            | 3rd order   | 8ᴺ   |
+| `:b5`  | 5      | C³         | -1..3            | 6th order   | 10ᴺ   |
 | `:b7`  | 7      | C⁵         | -1..5            | 7th order   | 12ᴺ   |
 | `:b9`  | 9      | C⁷         | -1..6            | 7th order   | 14ᴺ   |
 | `:b11` | 11     | C⁹         | -1..7            | 7th order   | 16ᴺ   |
@@ -367,7 +367,7 @@ non-uniform Catmull-Rom splines with ~3rd order convergence.
 The non-uniform b-kernels converge at order degree+1 rather than the uniform design order of 7: 
 the per-interval construction enforces polynomial reproduction up to each kernel's full degree, 
 so convergence order tracks degree directly. For :b7 and above this exceeds the uniform rate; 
-:b5 is the one kernel that converges slightly slower non-uniformly (6th vs 7th order).
+for :b5 both are 6th order, since the uniform :b5 reproduces polynomials up to degree 5.
 
 ### Boundary Conditions
 
@@ -663,7 +663,7 @@ They are still accepted, with a deprecation warning, and will be removed in a fu
 
 This package introduces four main contributions:
 
-**b-series kernel family.** A new family of high-order convolution kernels (b5, b7, b9, b11, b13) discovered through systematic analytical search using symbolic computation (SymPy), generalizing the approach of R. G. Keys (1981). All b-series kernels achieve 7th order convergence. Kernel coefficients are stored as exact rational numbers, enabling extended precision arithmetic with BigFloat.
+**b-series kernel family.** A new family of high-order convolution kernels (b5, b7, b9, b11, b13) discovered through systematic analytical search using symbolic computation (SymPy), generalizing the approach of R. G. Keys (1981). :b7 through :b13 achieve 7th order convergence, and :b5 6th order. Kernel coefficients are stored as exact rational numbers, enabling extended precision arithmetic with BigFloat.
 
 **Polynomial boundary conditions.** A boundary handling method that computes optimal ghost point values that preserve each kernel's polynomial reproduction properties. This maintains convergence order across the entire domain rather than degrading near boundaries.
 

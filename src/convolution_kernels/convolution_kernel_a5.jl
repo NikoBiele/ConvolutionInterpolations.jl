@@ -2,7 +2,8 @@
     (::ConvolutionKernel{:a5,DO})(s)
 
 Quintic a-series kernel. Support [-3, 3], 3 pieces.
-C1 continuous. Same support as `:a4` but higher polynomial degree.
+C3 continuous, 3rd-order accuracy. Same support as `:a4` but higher polynomial degree, which
+adds smoothness but not accuracy (it reproduces polynomials up to degree 2).
 """
 
 const a = 3//64

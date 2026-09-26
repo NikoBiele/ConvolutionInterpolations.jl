@@ -2,7 +2,7 @@
     (::ConvolutionKernel{:b9,DO})(s)
 
 Nonic b-series kernel. Support [-7, 7], 7 pieces.
-C5 continuous, 7th-order accuracy. Derivatives up to order 5.
+C7 continuous, 7th-order accuracy. Derivatives up to order 6.
 """
 
 const b9_coefs = Dict(

@@ -221,19 +221,49 @@ function _kernel_value_exact(kernel::Symbol, q::Int, σ::Integer)
 end
 
 """
+    _anchor_tables_rounded(T, kernel, m)
+
+The exact anchoring data of integral order m for the near-anchor coefficients j = 1 … 2·eqs − 1,
+each entry rounded once to T: `taylor` (row j holds K_{m−r}(eqs − j) for r = 0 … m−1) and
+`entries` (row j holds the entry polynomial of `_near_anchor_tail_entry`, the coefficients of
+t^0 … t^(m−1)). Derived in Rational{BigInt}; see `_anchor_tables` for the cached version.
+"""
+function _anchor_tables_rounded(::Type{T}, kernel::Symbol, m::Int) where {T}
+    eqs = get_equations_for_degree(kernel)
+    taylor = Matrix{T}(undef, 2eqs - 1, m)
+    entries = Matrix{T}(undef, 2eqs - 1, m)
+    for j in 1:2eqs-1
+        for r in 0:m-1
+            taylor[j, r+1] = T(_kernel_value_exact(kernel, m - r, eqs - j))
+        end
+        entries[j, :] .= T.(_near_anchor_tail_entry(kernel, m, eqs, j))
+    end
+    return taylor, entries
+end
+
+"""
+    _anchor_tables(Val(kernel), Val(m), T)
+
+`_anchor_tables_rounded` derived once per (kernel, m, T): for bits types such as Float64 and
+Float32 the tables are compile-time constants, shared by all interpolants, so callers must copy
+before storing them. Non-bits types such as BigFloat derive them at run time instead, at the
+precision in effect at construction.
+"""
+@generated function _anchor_tables(::Val{kernel}, ::Val{m}, ::Type{T}) where {kernel,m,T}
+    isbitstype(T) || return :(_anchor_tables_rounded(T, kernel, m))
+    tables = _anchor_tables_rounded(T, kernel, m)
+    return :($tables)
+end
+
+"""
     _anchor_taylor_table(T, kernel, m, eqs)
 
 Anchoring data for integral order m: row j (1 ≤ j ≤ 2·eqs − 1, the coefficients within reach
 of the anchor) holds K_{m−r}(eqs − j) for r = 0 … m−1, exact and rounded once to T. The anchored
 weight of such a coefficient at index position u is K_m(u − j) − Σ_r K_{m−r}(eqs − j)·(u − eqs)^r / r!.
 """
-function _anchor_taylor_table(::Type{T}, kernel::Symbol, m::Int, eqs::Int) where {T}
-    table = Matrix{T}(undef, 2eqs - 1, m)
-    for j in 1:2eqs-1, r in 0:m-1
-        table[j, r+1] = T(_kernel_value_exact(kernel, m - r, eqs - j))
-    end
-    return table
-end
+_anchor_taylor_table(::Type{T}, kernel::Symbol, m::Int, eqs::Int) where {T} =
+    copy(_anchor_tables(Val(kernel), Val(m), T)[1])
 
 """
     _near_anchor_tail_entry(kernel, m, eqs, j)
@@ -275,30 +305,52 @@ around the next cell (p(t) ↦ p(t + 1)). For m = 1 this is the plain prefix sum
 """
 function _left_tail_polynomial(coefs::AbstractArray{T,N}, kernel::Symbol, m::Int, eqs::Int,
                                d::Int) where {T,N}
-    n = size(coefs, d)
+    sz = size(coefs)
+    n = sz[d]                                            # length along dimension d
+    pre = prod(i -> sz[i], 1:d-1; init=1)                # elements before d (contiguous in memory)
+    post = prod(i -> sz[i], d+1:N; init=1)               # elements after d
     fac = factorial(big(m - 1))
     # entry polynomial of a coefficient far from the anchor: (t + eqs)^(m−1) / (m−1)!
-    far_entry = [T(binomial(big(m - 1), big(k)) * big(eqs)^(m - 1 - k) // fac) for k in 0:m-1]
+    far_entry = T[T(binomial(big(m - 1), big(k)) * big(eqs)^(m - 1 - k) // fac) for k in 0:m-1]
     # entry polynomials of the coefficients near the anchor, exact and rounded once
-    near_entry = [T.(_near_anchor_tail_entry(kernel, m, eqs, j)) for j in 1:min(2eqs - 1, n)]
+    entries = _anchor_tables(Val(kernel), Val(m), T)[2]
+    near_entry = Vector{T}[entries[j, :] for j in 1:min(2eqs - 1, n)]
     # Taylor shift by one cell: new coefficient k = Σ_{q ≥ k} binomial(q, k)·old coefficient q
-    shift = [T(binomial(q, k)) for k in 0:m-1, q in 0:m-1]
+    shift = T[T(binomial(q, k)) for k in 0:m-1, q in 0:m-1]
 
-    tails = [similar(coefs) for _ in 1:m]
-    for l in 1:n
+    tails = Array{T,N}[Array{T,N}(undef, sz) for _ in 1:m]
+    # the same three-index view of the coefficients and of every tail array: (before d, along d,
+    # after d), so the recursion along d runs over plain loops with the contiguous index innermost
+    A = reshape(coefs, pre, n, post)
+    R = Array{T,3}[reshape(tails[k], pre, n, post) for k in 1:m]
+    _left_tail_recursion!(R, A, near_entry, far_entry, shift)   # function barrier: concrete types
+    return tails
+end
+
+# The shifted prefix sum of `_left_tail_polynomial` along the middle index of A and of every
+# tail array in R (R[k] holds the coefficient of t^(k−1)): R(l) = S·R(l−1) + A(l)·entry(l).
+# A separate function, so the loops are compiled for the concrete array types.
+function _left_tail_recursion!(R::Vector{Array{T,3}}, A::AbstractArray{T,3},
+                               near_entry::Vector{Vector{T}}, far_entry::Vector{T},
+                               shift::Matrix{T}) where {T}
+    pre, n, post = size(A)                               # (before d, along d, after d)
+    m = length(R)                                        # number of powers of t
+    @inbounds for c in 1:post, l in 1:n
         entry = l <= length(near_entry) ? near_entry[l] : far_entry
-        c_l = selectdim(coefs, d, l)
         for k in 1:m
-            acc = entry[k] .* c_l
-            if l > 1
-                for q in k:m
-                    acc = acc .+ shift[k, q] .* selectdim(tails[q], d, l - 1)
+            Rk = R[k]                                    # tail array of the coefficient of t^(k−1)
+            for a in 1:pre
+                acc = entry[k] * A[a, l, c]              # new coefficient c_l entering the tail
+                if l > 1
+                    for q in k:m                         # shifted tail of the previous position
+                        acc = acc + shift[k, q] * R[q][a, l - 1, c]
+                    end
                 end
+                Rk[a, l, c] = acc
             end
-            selectdim(tails[k], d, l) .= acc
         end
     end
-    return tails
+    return R
 end
 
 """
@@ -312,7 +364,9 @@ is set (bit b ↔ the b-th integral dimension), and within the stencil in all ot
 Each region is a vector of arrays of the size of `coefs`, one per combination of powers of the
 positions within the cell: for the region's dimensions d₁ < d₂ < …, array index
 1 + Σ kᵢ·Π_{i' > i} m_{d_i'} holds the coefficient of Π t_{dᵢ}^{kᵢ} (the last dimension's power
-varying fastest). Built separably, one dimension of the region at a time.
+varying fastest). Built separably: each region extends the region without its highest
+dimension (a smaller mask, built earlier; the coefficients themselves for single-dimension
+regions) by the left tail along that dimension.
 """
 function _build_region_tails(coefs::AbstractArray{T,N}, kernels::NTuple{N,Symbol},
                              orders::NTuple{N,Int}, eqs::NTuple{N,Int}) where {T,N}
@@ -320,17 +374,16 @@ function _build_region_tails(coefs::AbstractArray{T,N}, kernels::NTuple{N,Symbol
     n = length(int_dims)
     tails = Vector{Vector{Array{T,N}}}(undef, 2^n - 1)
     for mask in 1:2^n-1
-        arrays = Array{T,N}[copy(coefs)]
-        for (b, d) in enumerate(int_dims)
-            (mask >> (b - 1)) & 1 == 1 || continue
-            m = -orders[d]
-            expanded = Array{T,N}[]
-            for array in arrays
-                append!(expanded, _left_tail_polynomial(array, kernels[d], m, eqs[d], d))
-            end
-            arrays = expanded
+        b = 8 * sizeof(mask) - leading_zeros(mask)      # position of the highest set bit
+        low = mask & ~(1 << (b - 1))                    # the region without that dimension
+        d = int_dims[b]                                  # the dimension added in this region
+        m = -orders[d]                                   # its integral order
+        base = low == 0 ? Array{T,N}[coefs] : tails[low] # read only, never modified
+        expanded = Array{T,N}[]
+        for array in base
+            append!(expanded, _left_tail_polynomial(array, kernels[d], m, eqs[d], d))
         end
-        tails[mask] = arrays
+        tails[mask] = expanded
     end
     return tails
 end
@@ -423,10 +476,5 @@ j = 1 … 2·eqs − 1, rounded once to T: row j holds the coefficients of t^0 �
 evaluate left-of-stencil weights directly where no tails are stored (more than 3 integral
 dimensions).
 """
-function _near_anchor_entries(::Type{T}, kernel::Symbol, m::Int, eqs::Int) where {T}
-    entries = Matrix{T}(undef, 2eqs - 1, m)
-    for j in 1:2eqs-1
-        entries[j, :] .= T.(_near_anchor_tail_entry(kernel, m, eqs, j))
-    end
-    return entries
-end
+_near_anchor_entries(::Type{T}, kernel::Symbol, m::Int, eqs::Int) where {T} =
+    copy(_anchor_tables(Val(kernel), Val(m), T)[2])

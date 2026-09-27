@@ -52,23 +52,23 @@ function _lazy_detect(slice::Vector{T}, inward, m::Int, left::Bool, poly::Abstra
 end
 
 """
-    _lazy_patch_sum(itp, pos, w)
+    _lazy_fill_patch(itp, pos)
 
-Stencil sum of a lazy interpolant in a boundary cell: the sum over the stencil offsets k (per axis
-1 … 2·eqs[d], coefficient index pos[d] + k − eqs[d]) of coefficient · Π_d w[d][k_d]. Coefficients
-outside the domain are the ghost values eager stores there, formed the same way on a small local
-patch: the data values are copied into the patch, then the ghosts are filled axis by axis (1 to N)
-with `_compensated_row_dot` in eager's term order, so each ghost is computed once, and a value
-outside the domain in several axes is formed from the rounded ghosts of the lower axes, bit for
-bit as in `create_convolutional_coefs`. Each line takes eager's ghost rule (`_lazy_side_rule`),
-including the per-line :detect decision (`_lazy_detect`) and the linear matrix on short axes. Only
-the lines the stencil needs are filled: in the pass of axis d, the lower axes range over the
-stencil, the higher axes over the patch inside the domain.
+The ghost values of a lazy interpolant around the boundary cell `pos`, exactly as eager stores
+them. The data values the cell's stencil and ghost rules need are copied into a small local patch,
+then the ghosts are filled axis by axis (1 to N) with `_compensated_row_dot` in eager's term order,
+so each ghost is computed once, and a value outside the domain in several axes is formed from the
+rounded ghosts of the lower axes, bit for bit as in `create_convolutional_coefs`. Each line takes
+eager's ghost rule (`_lazy_side_rule`), including the per-line :detect decision (`_lazy_detect`)
+and the linear rule on short axes. Only the lines the stencil needs are filled: in the pass of
+axis d, the lower axes range over the stencil, the higher axes over the patch inside the domain.
 
-The patch is a scratch vector in task-local storage, one per task and element type, grown on first
-use: tasks never share it, so a lazy interpolant can be evaluated from several threads at once.
+Returns `(buf, lo, stride)`: the patch, stored column-major in `buf`, holds data index I at position
+1 + Σ_d (I[d] − lo[d])·stride[d]. The patch is a scratch vector in task-local storage, one per task
+and element type, grown on first use: tasks never share it, so a lazy interpolant can be evaluated
+from several threads at once, and each call overwrites the task's previous patch.
 """
-function _lazy_patch_sum(itp::FastConvolutionInterpolation{T,N}, pos::NTuple{N,Int}, w) where {T,N}
+function _lazy_fill_patch(itp::FastConvolutionInterpolation{T,N}, pos::NTuple{N,Int}) where {T,N}
     n = itp.domain_size                                   # data points per axis
     eqs = itp.eqs                                         # stencil half-width per axis
     ksym = _kernel_sym(itp.kernel_sym)                    # kernel per axis
@@ -124,14 +124,62 @@ function _lazy_patch_sum(itp::FastConvolutionInterpolation{T,N}, pos::NTuple{N,I
             end
         end
     end
+    return buf, lo, stride
+end
 
-    # the stencil sum over the patch
-    result = zero(T)
-    @inbounds for K in CartesianIndices(ntuple(d -> 1:2eqs[d], Val(N)))
-        weight = prod(ntuple(d -> w[d][K[d]], Val(N)))    # product of the per-axis weights
-        result += buf[lin(ntuple(d -> pos[d] + K[d] - eqs[d], Val(N)))] * weight
+# Σ over the stencil of the patch values times Π_d w[d][k_d], contracted one axis at a time as in
+# the eager evaluators: a vectorised inner loop along axis 1 (contiguous in the patch), then one
+# multiplication per partial sum on each further axis. `base` is the patch position of the first
+# stencil entry, `stride` the patch strides (stride[1] = 1), `len[d]` the stencil length along
+# axis d. Each axis's weights are handled at compile time, so their tuples may differ in length.
+@generated function _patch_contract(buf::Vector{T}, w::Tuple, base::Int, stride::NTuple{N,Int},
+                                    len::NTuple{N,Int}) where {T,N}
+    k = [Symbol(:k, d) for d in 1:N]                     # loop index per axis
+    s = [Symbol(:s, d) for d in 1:N]                     # partial sum over axes 1 … d
+    # patch position before the first entry of the current axis-1 run
+    offset = N == 1 ? :(base - 1) :
+             :(base - 1 + $(Expr(:call, :+, [:(($(k[d]) - 1) * stride[$d]) for d in 2:N]...)))
+    # innermost: axis 1, contiguous in the patch
+    body = quote
+        $(s[1]) = zero(T)
+        o = $offset
+        @simd for $(k[1]) in 1:len[1]
+            $(s[1]) += buf[o + $(k[1])] * w[1][$(k[1])]
+        end
     end
-    return result
+    # every further axis wraps the previous level and weights its partial sum
+    for d in 2:N
+        body = quote
+            $(s[d]) = zero(T)
+            for $(k[d]) in 1:len[$d]
+                $body
+                $(s[d]) += $(s[d-1]) * w[$d][$(k[d])]
+            end
+        end
+    end
+    return quote
+        @inbounds begin
+            $body
+        end
+        return $(s[N])
+    end
+end
+
+"""
+    _lazy_patch_sum(itp, pos, w)
+
+Stencil sum of a lazy interpolant in a boundary cell: the sum over the stencil offsets k (per axis
+1 … 2·eqs[d], coefficient index pos[d] + k − eqs[d]) of coefficient · Π_d w[d][k_d], where the
+coefficients outside the domain are eager's ghost values. The patch of `_lazy_fill_patch`,
+contracted with the per-axis weights `w` by `_patch_contract`.
+"""
+function _lazy_patch_sum(itp::FastConvolutionInterpolation{T,N}, pos::NTuple{N,Int}, w) where {T,N}
+    buf, lo, stride = _lazy_fill_patch(itp, pos)
+    eqs = itp.eqs                                         # stencil half-width per axis
+    # patch position of the first stencil entry (data index pos − eqs + 1 on every axis)
+    base = 1 + sum(ntuple(d -> (pos[d] - eqs[d] + 1 - lo[d]) * stride[d], Val(N)))
+    len = ntuple(d -> 2eqs[d], Val(N))                    # stencil length per axis
+    return _patch_contract(buf, w, base, stride, len)
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},

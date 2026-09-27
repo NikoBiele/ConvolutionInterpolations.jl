@@ -2,25 +2,26 @@ println("\n" * "-"^60)
 println("Testing uniform lazy mode...")
 println("-"^60)
 
-# The stencil sum over eager's stored coefficients, in the order `_lazy_patch_sum` sums, at the
-# cell and position the lazy evaluator computes for the point P. In a boundary cell, lazy must
-# equal it exactly, since its ghost values equal eager's bit for bit. Returns (cell, reference).
-function lazy_patch_reference(eager, lazy, kernel::Symbol, P)
-    dims = length(P)                                     # number of dimensions
-    eqs = lazy.eqs                                       # stencil half-widths
-    # cell and position within the cell, exactly as the lazy evaluator computes them
+# Largest |lazy patch value − eager coefficient| over the stencil of the boundary cell holding the
+# point P: the patch `_lazy_fill_patch` builds must hold eager's stored coefficients exactly, the
+# ghosts as well as the copied data. Returns -1.0 for an interior cell, which builds no patch.
+function lazy_patch_mismatch(eager, lazy, P)
+    CI = ConvolutionInterpolations
+    dims = length(P)                                      # number of dimensions
+    eqs = lazy.eqs                                        # stencil half-widths
+    # cell exactly as the lazy evaluator computes it
     pos = ntuple(d -> clamp(floor(Int, (P[d] - lazy.knots[d][1]) / lazy.h[d] + 1), 1,
                             length(lazy.knots[d]) - 1), dims)
-    τ = ntuple(d -> 1.0 - (P[d] - lazy.knots[d][pos[d]]) / lazy.h[d], dims)
-    w = ConvolutionInterpolations._column_weights_per_dim(Val(ntuple(_ -> kernel, dims)),
-                                                          Val(ntuple(_ -> 0, dims)), τ)
-    ref = 0.0
+    any(d -> CI.is_boundary_stencil(pos[d], lazy.domain_size[d], eqs[d]), 1:dims) || return -1.0
+    buf, lo, stride = CI._lazy_fill_patch(lazy, pos)
+    worst = 0.0
     for K in CartesianIndices(ntuple(d -> 1:2eqs[d], dims))
-        # eager stores eqs − 1 ghosts before the data along every axis
-        J = ntuple(d -> pos[d] + K[d] - eqs[d] + (eqs[d] - 1), dims)
-        ref += eager.coefs[J...] * prod(ntuple(d -> w[d][K[d]], dims))
+        J = ntuple(d -> pos[d] + K[d] - eqs[d], dims)             # data index of stencil entry K
+        p = 1 + sum(ntuple(d -> (J[d] - lo[d]) * stride[d], dims)) # its position in the patch
+        E = ntuple(d -> J[d] + eqs[d] - 1, dims)                  # its index in eager's array
+        worst = max(worst, abs(buf[p] - eager.coefs[E...]))
     end
-    return pos, ref
+    return worst
 end
 
 @testset "Lazy mode — uniform" begin
@@ -96,14 +97,7 @@ end
             eager = convolution_interpolation(knots, data; kernel=kernel, bc=bc, lazy=false).itp
             lazy  = convolution_interpolation(knots, data; kernel=kernel, bc=bc, lazy=true).itp
             pts = ntuple(d -> range(first(knots[d]), last(knots[d]), length=41), 2)
-            worst = 0.0
-            for P in Iterators.product(pts...)
-                pos, ref = lazy_patch_reference(eager, lazy, kernel, P)
-                # boundary cells only: the interior uses eager's own summation order
-                any(d -> ConvolutionInterpolations.is_boundary_stencil(pos[d], lazy.domain_size[d],
-                                                                       lazy.eqs[d]), 1:2) || continue
-                worst = max(worst, abs(lazy(P...) - ref))
-            end
+            worst = maximum(lazy_patch_mismatch(eager, lazy, P) for P in Iterators.product(pts...))
             @test worst == 0.0
         end
         # 3D: edges and corners, where ghosts are formed from the ghosts of lower axes
@@ -112,13 +106,7 @@ end
         eager3 = convolution_interpolation((k3, k3, k3), data3; kernel=:a3, lazy=false).itp
         lazy3  = convolution_interpolation((k3, k3, k3), data3; kernel=:a3, lazy=true).itp
         p3 = range(0.0, 1.0, length=13)
-        worst3 = 0.0
-        for P in Iterators.product(p3, p3, p3)
-            pos, ref = lazy_patch_reference(eager3, lazy3, :a3, P)
-            any(d -> ConvolutionInterpolations.is_boundary_stencil(pos[d], lazy3.domain_size[d],
-                                                                   lazy3.eqs[d]), 1:3) || continue
-            worst3 = max(worst3, abs(lazy3(P...) - ref))
-        end
+        worst3 = maximum(lazy_patch_mismatch(eager3, lazy3, P) for P in Iterators.product(p3, p3, p3))
         @test worst3 == 0.0
     end
 

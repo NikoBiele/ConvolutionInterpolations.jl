@@ -1,16 +1,25 @@
+# The polynomial ghost matrix of a kernel as a compile-time constant, so evaluation does no Dict
+# lookup. Kernels without ghost points (:a0, :a1, eqs = 1) get the linear matrix, which is never
+# read: their stencil never reaches past the domain.
+@generated function _poly_ghost_matrix(::Val{kernel}) where {kernel}
+    g = haskey(POLYNOMIAL_GHOST_COEFFS, kernel) ? POLYNOMIAL_GHOST_COEFFS[kernel] : LINEAR_GHOST_MATRIX
+    return :($g)
+end
+
 # Eager's ghost rule for one side of one axis (see `create_convolutional_coefs`), always as
 # (matrix, detect, reach) so that tuples of rules have one concrete type: the ghost matrix, or for
 # :detect the polynomial matrix with detect = true (then decided per line between it and the linear
 # matrix); and how many interior values along the axis, from the boundary inward, the rule reads.
-function _lazy_side_rule(bc::Symbol, kernel::Symbol, n::Int, eqs::Int)
-    poly = get_polynomial_ghost_coeffs(:poly, kernel)     # the kernel's polynomial ghost matrix
+# `poly` is the kernel's polynomial ghost matrix (`_poly_ghost_matrix`).
+function _lazy_side_rule(bc::Symbol, poly::Matrix{Float64}, n::Int, eqs::Int)
+    eqs == 1 && return LINEAR_GHOST_MATRIX, false, 0      # no ghost points on this axis: never used
     few_points = n < size(poly, 2)                        # too few values for the polynomial matrix
-    if bc === :linear || bc === :quadratic
-        g = get_polynomial_ghost_coeffs(bc, kernel)
-        return g, false, size(g, 2)
+    if bc === :linear
+        return LINEAR_GHOST_MATRIX, false, size(LINEAR_GHOST_MATRIX, 2)
+    elseif bc === :quadratic
+        return QUADRATIC_GHOST_MATRIX, false, size(QUADRATIC_GHOST_MATRIX, 2)
     elseif few_points                                     # eager falls back to the linear matrix
-        g = get_polynomial_ghost_coeffs(:linear, kernel)
-        return g, false, size(g, 2)
+        return LINEAR_GHOST_MATRIX, false, size(LINEAR_GHOST_MATRIX, 2)
     elseif bc === :poly
         return poly, false, size(poly, 2)
     elseif bc === :detect                                 # decided per line; eager reads m values
@@ -66,18 +75,19 @@ function _lazy_patch_sum(itp::FastConvolutionInterpolation{T,N}, pos::NTuple{N,I
     s_lo = ntuple(d -> pos[d] - eqs[d] + 1, Val(N))       # first stencil index per axis
     s_hi = ntuple(d -> pos[d] + eqs[d], Val(N))           # last stencil index per axis
     # eager's ghost rule of both boundaries of every axis (a side the stencil doesn't reach is never used)
-    rule_left  = ntuple(d -> _lazy_side_rule(itp.bc[d][1], ksym[d], n[d], eqs[d]), Val(N))
-    rule_right = ntuple(d -> _lazy_side_rule(itp.bc[d][2], ksym[d], n[d], eqs[d]), Val(N))
+    rule_left  = ntuple(d -> _lazy_side_rule(itp.bc[d][1], _poly_ghost_matrix(Val(ksym[d])), n[d], eqs[d]), Val(N))
+    rule_right = ntuple(d -> _lazy_side_rule(itp.bc[d][2], _poly_ghost_matrix(Val(ksym[d])), n[d], eqs[d]), Val(N))
 
     # patch box per axis: the stencil, widened to the interior values the ghost rules read
     lo = ntuple(d -> s_hi[d] > n[d] ? min(s_lo[d], n[d] - rule_right[d][3] + 1) : s_lo[d], Val(N))
     hi = ntuple(d -> s_lo[d] < 1 ? max(s_hi[d], rule_left[d][3]) : s_hi[d], Val(N))
     len = ntuple(d -> hi[d] - lo[d] + 1, Val(N))          # patch length per axis
     stride = ntuple(d -> prod(e -> len[e], 1:d-1; init=1), Val(N))   # column-major strides
-    # the patch, stored column-major, and the :detect slice: scratch vectors of this task
-    buf = get!(() -> T[], task_local_storage(), (:ConvolutionInterpolations_patch, T))::Vector{T}
+    # the patch, stored column-major, and the :detect slice: scratch vectors of this task, found
+    # with a single lookup (never shared between tasks)
+    buf, slice = get!(() -> (T[], T[]), task_local_storage(),
+                      (:ConvolutionInterpolations_scratch, T))::Tuple{Vector{T},Vector{T}}
     length(buf) < prod(len) && resize!(buf, prod(len))    # grown on first use only
-    slice = get!(() -> T[], task_local_storage(), (:ConvolutionInterpolations_slice, T))::Vector{T}
     lin(I) = 1 + sum(ntuple(d -> (I[d] - lo[d]) * stride[d], Val(N)))   # patch position of data index I
 
     # data values: every position of the patch box inside the domain
@@ -90,7 +100,7 @@ function _lazy_patch_sum(itp::FastConvolutionInterpolation{T,N}, pos::NTuple{N,I
         left = side == 1                                  # left or right boundary of axis d
         (left ? s_lo[d] < 1 : s_hi[d] > n[d]) || continue # the stencil doesn't reach this side
         matrix, detect, reach = left ? rule_left[d] : rule_right[d]   # the side's ghost rule
-        linear = get_polynomial_ghost_coeffs(:linear, ksym[d])   # :detect's rejection matrix
+        linear = LINEAR_GHOST_MATRIX                      # :detect's rejection matrix
         ghosts = left ? (s_lo[d]:0) : ((n[d] + 1):s_hi[d])   # ghost positions along d in the stencil
         sd = stride[d]                                    # patch step along d
         # lines along d: lower axes over the stencil, higher axes over the patch inside the domain

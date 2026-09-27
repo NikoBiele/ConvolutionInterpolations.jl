@@ -35,10 +35,11 @@ Create a convolution-based interpolation object with automatic optimization and 
   are evaluated exactly, so there is no subgrid interpolation.
 - `lazy::Union{Nothing,Bool}=nothing`: When `true`, skip ghost point expansion at construction
   time. Ghost values are computed on the fly only when evaluating near boundaries, with exactly
-  the values eager expansion would store, saving memory and construction time — especially in
-  high dimensions. When `false`, all ghost points are expanded at construction. The default,
-  `nothing`, chooses lazy for 5 or more dimensions on uniform grids (fast path, no
-  antiderivatives) and eager otherwise.
+  the values eager expansion would store, saving memory and construction time. When `false`, all
+  ghost points are expanded at construction. The default, `nothing`, chooses lazy mode on uniform
+  grids (fast path, no antiderivatives) when eager expansion would build more than 2²⁷
+  coefficients (1 GiB in `Float64`) or compute more than 2²⁴ ghost points (roughly a second of
+  construction), and eager mode otherwise.
 - `boundary_fallback`: Deprecated, has no effect; will be removed in v1.0. Lazy interpolants
   compute the same boundary ghost values as eager ones, in every dimension.
 
@@ -117,10 +118,10 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
     is_integral = any(d -> derivatives_tuple[d] < 0, 1:N)
     is_nonuniform = any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || any(d -> kernels_tuple[d] == :n3, 1:N)
 
-    # lazy by default from 5 dimensions on uniform grids (fast path, no antiderivatives): eager
-    # expansion adds ghost layers on every axis, which in high dimensions costs far more memory
-    # and construction time than computing the ghosts on the fly near the boundaries
-    lazy = lazy === nothing ? (N >= 5 && fast && !is_integral && !is_nonuniform) : lazy
+    # lazy by default when eager expansion would build a large coefficient array (uniform grids,
+    # fast path, no antiderivatives; see `_default_lazy`)
+    lazy = lazy === nothing ? (fast && !is_nonuniform &&
+                               _default_lazy(size(values), kernels_tuple, derivatives_tuple)) : lazy
 
     if is_integral && is_nonuniform
       error("Antiderivatives (derivative < 0) are not supported on nonuniform grids.")

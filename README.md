@@ -586,10 +586,22 @@ The `Natural()` boundary condition is most useful in lower dimensions, as double
 ### High-Dimensional Interpolation
 
 The separable kernel design scales to arbitrary dimensions.
-From five dimensions on, interpolants are built in lazy mode by default (`lazy=nothing`): ghost points
-are not expanded at construction but computed on the fly in boundary cells, so construction is nearly
-constant-time regardless of grid size, and no enlarged copy of the data is made. For large three- and
-four-dimensional grids, `lazy=true` is worth choosing explicitly; `lazy=false` always forces eager expansion.
+In lazy mode, ghost points are not expanded at construction but computed on the fly in boundary cells,
+so construction is nearly constant-time regardless of grid size, and no enlarged copy of the data is
+made. Eager mode evaluates faster near the boundaries; its costs are memory (a copy of the data plus
+the ghost points) and construction time (mostly the ghost points). By default (`lazy=nothing`), a
+uniform grid is therefore built lazily when eager expansion would exceed either limit: more than 2²⁷
+coefficients in total (1 GiB in `Float64`) or more than 2²⁴ ghost points (roughly a second of
+construction). Antiderivatives always build eagerly. `lazy=true` or `lazy=false` always wins.
+
+| grid (kernel) | eager total | ghost points | default |
+|---|---:|---:|---|
+| 3D 500³ (`:b7`) | 1.33·10⁸ | 7.7·10⁶ | eager |
+| 3D 600³ (`:b7`) | 2.27·10⁸ | 1.1·10⁷ | lazy (memory) |
+| 4D 99⁴ (`:a4`) | 1.13·10⁸ | 1.65·10⁷ | eager |
+| 4D 100⁴ (`:a4`) | 1.17·10⁸ | 1.70·10⁷ | lazy (construction) |
+| 5D 12⁵ (`:a4`) | 1.0·10⁶ | 8.0·10⁵ | eager |
+| 5D 30⁵ (`:a4`) | 4.5·10⁷ | 2.1·10⁷ | lazy (construction) |
 
 #### Construction timings with `lazy=true` (kernel `:b7`, warm start)
 
@@ -650,7 +662,7 @@ They are still accepted, with a deprecation warning, and will be removed in a fu
 ## Performance Guidelines
 
 - **Default `:b7` works everywhere**: 7th-order accuracy on uniform grids, non-uniform grids, high-order derivatives
-- **Lazy mode in high dimensions**: The default from 5D, skips ghost point expansion, reducing construction time and memory
+- **Lazy mode for large grids**: Chosen automatically when eager expansion would be costly; saves memory and construction time
 - **Use `:a0`, `:a1` or `:a3` in high dimensions**: Evaluation time of narrower kernels scale better with dimensions
 - **Any precision works out of the box**: `Float32` and `BigFloat` interpolants use the exact kernel coefficients rounded to their own precision
 - **Orthogonal grids assumption**: The separable kernel design requires mutually orthogonal grid axes.

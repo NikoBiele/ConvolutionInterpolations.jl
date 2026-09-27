@@ -31,9 +31,10 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
 - `lazy::Union{Nothing,Bool}=nothing`: When `true`, skip ghost point expansion at construction
   time. The raw values are stored directly and ghost points are computed on the fly during
   evaluation near boundaries, with exactly the values eager expansion would store. When `false`,
-  all ghost points are expanded at construction. The default, `nothing`, chooses lazy for 5 or
-  more dimensions without antiderivatives and eager otherwise. Automatically disabled for
-  `:a0`, `:a1`, and Gaussian kernels.
+  all ghost points are expanded at construction. The default, `nothing`, chooses lazy mode when
+  eager expansion would build more than 2²⁷ coefficients (1 GiB in `Float64`) or compute more
+  than 2²⁴ ghost points (roughly a second of construction) and there are no antiderivatives, and
+  eager mode otherwise. Automatically disabled for `:a0`, `:a1`, and Gaussian kernels.
 - `boundary_fallback`: Deprecated, has no effect; will be removed in v1.0. Lazy interpolants
   compute the same boundary ghost values as eager ones, in every dimension.
 
@@ -93,10 +94,9 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
               "whose kernels adjust their weights to nonuniform spacing.")
     end
 
-    # lazy by default from 5 dimensions (without antiderivatives): eager expansion adds ghost
-    # layers on every axis, which in high dimensions costs far more memory and construction time
-    # than computing the ghosts on the fly near the boundaries
-    lazy = lazy === nothing ? (N >= 5 && !any(d -> derivatives_tuple[d] < 0, 1:N)) : lazy
+    # lazy by default when eager expansion would build a large coefficient array (no
+    # antiderivatives; see `_default_lazy`)
+    lazy = lazy === nothing ? _default_lazy(size(vs), kernels_tuple, derivatives_tuple) : lazy
     
     # lazy mode deliberately skips, so the two cannot be combined
     if lazy && any(d -> derivatives_tuple[d] < 0, 1:N)

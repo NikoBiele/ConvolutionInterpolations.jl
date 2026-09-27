@@ -22,7 +22,7 @@ The tests are organized into thematic files, all included from `runtests.jl`, gr
 | `test_uniform_convergence.jl` | Convergence of values and 1st/2nd derivatives in 1D; dense-grid rounding floor |
 | `test_perdim_derivatives.jl` | Per-dimension derivative orders in 2D and 3D, fast and direct |
 | `test_perdim_kernel_derivatives.jl` | Per-dimension kernels combined with derivatives in 2D and 3D |
-| `test_uniform_lazy.jl` | Lazy vs eager agreement 1D–4D, exact ghost equality, lazy default from 5D, thread safety, construction speed |
+| `test_uniform_lazy.jl` | Lazy vs eager agreement 1D–4D, exact ghost equality, lazy default by eager's memory and construction cost, thread safety, construction speed |
 
 ### Nonuniform grids
 
@@ -212,7 +212,7 @@ Tests per-dim b-kernel selection on nonuniform grids in 2D and 3D.
 
 - **Lazy vs eager agreement**: Constructs both lazy and eager interpolators and verifies agreement at interior, boundary, and near-boundary points for uniform grids in 1D–4D (`:a3`, `:b5`, values and derivatives), and nonuniform grids in 1D–3D (`:a3`).
 - **Exact ghost equality**: In boundary cells, lazy must equal the stencil sum over eager's stored coefficients exactly (`== 0.0`), since lazy forms its ghosts on a local patch the way eager forms them: axis by axis, with compensated sums, eager's per-line `:detect` decision and the linear rule on short axes. Covers smooth and rough data, `:detect` and `:poly`, a short axis (2D, `:a3`, `:b7`), and edges and corners in 3D.
-- **Lazy default**: `lazy=nothing` resolves to lazy for 5 or more dimensions (uniform, no antiderivatives) and to eager otherwise; an explicit `lazy` always wins.
+- **Lazy default**: `lazy=nothing` resolves to lazy when eager expansion would exceed `LAZY_MAX_EAGER_COEFFICIENTS` = 2²⁷ coefficients in total or `LAZY_MAX_EAGER_GHOSTS` = 2²⁴ ghost points (uniform, no antiderivatives), and to eager otherwise. Tested exactly at the memory limit, with grid pairs straddling each limit alone (the README's examples), for antiderivatives, and on small 5D data through `convolution_interpolation` (with and without keywords) and `FastConvolutionInterpolation`; an explicit `lazy` always wins.
 - **Thread safety**: Boundary-heavy evaluation with `Threads.@threads` must equal serial evaluation exactly (meaningful when the tests run with several threads).
 - **Structural checks**: Verifies `itp.lazy == Val{true}()` and `itp.coefs === vs` (lazy stores a reference, not a copy).
 - **Construction speed**: 50³ `:b5` (3D) and 20⁴ `:b5` (4D) lazy constructions must each complete in under 1 second.

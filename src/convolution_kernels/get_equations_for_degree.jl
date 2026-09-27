@@ -57,3 +57,40 @@ function _default_kernel(N::Int)
         return :a3
     end
 end
+
+"""
+    LAZY_MAX_EAGER_COEFFICIENTS
+
+Size of eager mode's coefficient array (the data copied, plus `eqs − 1` ghost points on each side of
+every axis) above which `lazy=nothing` chooses lazy mode, to save memory: 2²⁷ coefficients, 1 GiB in
+`Float64`.
+"""
+const LAZY_MAX_EAGER_COEFFICIENTS = 2^27
+
+"""
+    LAZY_MAX_EAGER_GHOSTS
+
+Number of ghost points eager mode would compute above which `lazy=nothing` chooses lazy mode, to save
+construction time: 2²⁴ ghost points, roughly a second of construction (each ghost point is a
+compensated sum over the interior values, plus the `:detect` test of its line).
+"""
+const LAZY_MAX_EAGER_GHOSTS = 2^24
+
+"""
+    _default_lazy(sizes, kernels, derivatives)
+
+The choice `lazy=nothing` makes on the uniform fast path: lazy when eager expansion would use too
+much memory (more than `LAZY_MAX_EAGER_COEFFICIENTS` coefficients in total) or take too long to
+build (more than `LAZY_MAX_EAGER_GHOSTS` ghost points), since that then outweighs lazy mode's slower
+boundary cells; eager otherwise, and always eager with antiderivatives, which lazy mode does not
+support.
+"""
+function _default_lazy(sizes::NTuple{N,Int}, kernels::NTuple{N,Symbol},
+                       derivatives::NTuple{N,Int}) where {N}
+    any(d -> derivatives[d] < 0, 1:N) && return false    # antiderivatives need eager mode
+    # counts in Float64, so that no product of axis lengths can overflow
+    data = prod(d -> Float64(sizes[d]), 1:N)             # the data values, copied by eager
+    total = prod(d -> Float64(sizes[d] + 2 * (get(DEGREE_TO_EQUATIONS, kernels[d], 1) - 1)), 1:N)
+    ghosts = total - data                                # the ghost points eager computes
+    return total > LAZY_MAX_EAGER_COEFFICIENTS || ghosts > LAZY_MAX_EAGER_GHOSTS
+end

@@ -122,17 +122,35 @@ end
         @test worst3 == 0.0
     end
 
-    @testset "Lazy by default from 5 dimensions" begin
-        println("    - Lazy by default from 5 dimensions...")
+    @testset "Lazy default depends on eager's memory and construction cost" begin
+        println("    - Lazy default depends on eager's memory and construction cost...")
+        CI = ConvolutionInterpolations
+        max_total = CI.LAZY_MAX_EAGER_COEFFICIENTS          # memory limit: eager's total coefficients
+        ng = CI.get_equations_for_degree(:a3) - 1           # eager's ghosts per side for :a3
+        # memory limit exactly (1D has only 2ng ghosts): at the limit eager, one more lazy
+        @test CI._default_lazy((max_total - 2ng,), (:a3,), (0,)) == false
+        @test CI._default_lazy((max_total - 2ng + 1,), (:a3,), (0,)) == true
+        # memory limit alone: 3D :b7, ghosts below their limit on both sides
+        @test CI._default_lazy((500, 500, 500), (:b7, :b7, :b7), (0, 0, 0)) == false
+        @test CI._default_lazy((600, 600, 600), (:b7, :b7, :b7), (0, 0, 0)) == true
+        # construction limit alone: 4D :a4, totals below the memory limit on both sides
+        @test CI._default_lazy(ntuple(_ -> 99, 4), ntuple(_ -> :a4, 4), ntuple(_ -> 0, 4)) == false
+        @test CI._default_lazy(ntuple(_ -> 100, 4), ntuple(_ -> :a4, 4), ntuple(_ -> 0, 4)) == true
+        # 5D :a4: small eager, large lazy
+        @test CI._default_lazy(ntuple(_ -> 12, 5), ntuple(_ -> :a4, 5), ntuple(_ -> 0, 5)) == false
+        @test CI._default_lazy(ntuple(_ -> 30, 5), ntuple(_ -> :a4, 5), ntuple(_ -> 0, 5)) == true
+        # antiderivatives always build eagerly, however large
+        @test CI._default_lazy((2max_total,), (:a3,), (-1,)) == false
+        # small data builds eagerly by default in any dimension, with and without keywords;
+        # an explicit choice always wins
         k = range(0.0, 1.0, length=8)
-        v4 = [sum(x) for x in Iterators.product(k, k, k, k)]
-        v5 = [sum(x) for x in Iterators.product(k, k, k, k, k)]
-        k4 = ntuple(_ -> k, 4)
         k5 = ntuple(_ -> k, 5)
-        @test convolution_interpolation(k4, v4; kernel=:a3).itp.lazy isa Val{false}
-        @test convolution_interpolation(k5, v5; kernel=:a3).itp.lazy isa Val{true}
-        @test convolution_interpolation(k5, v5; kernel=:a3, lazy=false).itp.lazy isa Val{false}
-        @test convolution_interpolation(k5, v5; kernel=:a3, derivative=-1).itp.lazy isa Val{false}
+        v5 = [sum(x) for x in Iterators.product(k5...)]
+        @test convolution_interpolation(k5, v5).itp.lazy isa Val{false}
+        @test convolution_interpolation(k5, v5; kernel=:a3).itp.lazy isa Val{false}
+        @test convolution_interpolation(k5, v5; kernel=:a3, lazy=true).itp.lazy isa Val{true}
+        @test FastConvolutionInterpolation(k5, v5; kernel=:a3).lazy isa Val{false}
+        @test FastConvolutionInterpolation(k5, v5; kernel=:a3, lazy=true).lazy isa Val{true}
     end
 
     @testset "Lazy evaluation is thread-safe" begin

@@ -115,8 +115,7 @@ xg4 = range(0, 1, 8);  z4 = [a+b+c+d for a in xg4, b in xg4, c in xg4, d in xg4]
         println("    - Lazy mode")
         check_show(ci((xg, yg, zg), z3; kernel=:b5, lazy=true))                       # N≤3 full
         check_show(ci((xg, yg, zg), z3; kernel=:b5, lazy=true, derivative=(1, 0, 2))) # N≤3 + deriv
-        check_show(ci((xg4, xg4, xg4, xg4), z4; kernel=(:b5, :b5, :b5, :b5),
-                      lazy=true, boundary_fallback=true))                             # N≥4 fallback
+        check_show(ci((xg4, xg4, xg4, xg4), z4; kernel=(:b5, :b5, :b5, :b5), lazy=true))
     end
 
     @testset "bigfloat types" begin

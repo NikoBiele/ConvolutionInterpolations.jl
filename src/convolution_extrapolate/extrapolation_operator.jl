@@ -7,9 +7,8 @@ For points inside the interpolation domain, delegates directly to the underlying
 interpolation object. For points outside, applies the extrapolation boundary condition
 (`:throw`, `:flat`, `:line`, `:natural`).
 
-Domain bounds are determined by `_domain_bounds`, which accounts for lazy mode and
-boundary fallback settings — in lazy mode with `boundary_fallback=true`, the valid
-domain is narrowed to avoid expensive ghost point computation near boundaries.
+Domain bounds are determined by `_domain_bounds`: the first and last data knot in every
+dimension, in eager and lazy mode alike.
 
 Supports broadcasting over arrays of coordinates for vectorized evaluation,
 adapted from [Interpolations.jl](https://github.com/JuliaMath/Interpolations.jl).

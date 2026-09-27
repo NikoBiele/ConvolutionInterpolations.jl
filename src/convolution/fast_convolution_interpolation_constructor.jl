@@ -113,8 +113,7 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                                 "$max_order (derivative = -$max_order). Got derivative = -$M.")
     end
 
-    # no linear boundary fallback: lazy boundary cells compute eager's ghost values
-    return _build_fast_uniform_convolution(knots_tuple, vs, bcs_tuple, false,
+    return _build_fast_uniform_convolution(knots_tuple, vs, bcs_tuple,
                                            Val(kernels_tuple), Val(lazy),
                                            Val(derivatives_tuple))
 end
@@ -122,7 +121,6 @@ end
 function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
                                          vs::AbstractArray{T,N},
                                          bc::BCT,
-                                         boundary_fallback::Bool,
                                          ::Val{KS},
                                          ::Val{LZ},
                                          ::Val{DV}) where {T,N,BCT<:Tuple,KS,LZ,DV}
@@ -154,7 +152,6 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
     kernels = _build_kernel_sym(Val{KS}(), Val{DV}())
 
     domain_size = ntuple(d -> size(vs, d), N)
-    lazy_workspace = LazyBoundaryWorkspace(T, Val(N), maximum(eqs))
 
     # integrals of any order in any dimension: exact anchoring and entry tables per integral
     # dimension, and the left tails of every region (tails only for at most 3 integral dimensions)
@@ -181,7 +178,7 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
                                         typeof(Val{LZ}()),typeof(integral_dimension),typeof(domain_size)}(
         coefs, domain_size, knots_new, h, x0, kernel_type, dimension, kernels, eqs,
         bc, do_type, nothing, nothing, Val(:not_used),
-        Val{LZ}(), boundary_fallback, anchor, integral_dimension, lazy_workspace,
+        Val{LZ}(), anchor, integral_dimension,
         integral_taylor, integral_entries, integral_tails,
     )
 end

@@ -158,58 +158,26 @@ end
 
     is_boundary = ntuple(d -> is_boundary_stencil(pos_ids[d], size(itp.coefs, d), itp.eqs[d]), N)
 
-    if any(is_boundary) && itp.boundary_fallback
+    # Normalized positions within the cell, τ = diff_right per dimension
+    diff_right = ntuple(d -> one(T) - (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
 
-        # Compute normalized left distances - recompute from actual knot positions
-        weights = ntuple(d -> (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
+    # Kernel weights per dimension, each with its own kernel and derivative order
+    w = _column_weights_per_dim(Val(_kernel_sym(itp.kernel_sym)), Val(DO), diff_right)
 
-        # Build up: for each "slice" in remaining dimensions,
-        # accumulate the interpolated result
-        result = zero(T)
-
-        # Iterate over all 2^(N-1) combinations of the last N-1 dimensions
-        @inbounds for corner in 0:(2^(N-1) - 1)
-            # Build indices for dimensions 2:N
-            tail_indices = ntuple(d -> (corner >> (d-1)) & 1 == 0 ? pos_ids[d+1] : pos_ids[d+1]+1, N-1)
-
-            # Get the two values along dimension 1
-            idx0 = (pos_ids[1], tail_indices...)
-            idx1 = (pos_ids[1]+1, tail_indices...)
-
-            # Interpolate along dimension 1
-            interp_val = (one(T) - weights[1]) * itp.coefs[idx0...] + weights[1] * itp.coefs[idx1...]
-
-            # Weight by all the other dimensions
-            tail_weight = prod(ntuple(d -> (corner >> (d-1)) & 1 == 0 ? (one(T) - weights[d+1]) : weights[d+1], N-1))
-
-            result += tail_weight * interp_val
-        end
-
-        return @inbounds @fastmath result * prod((-one(T)/itp.h[d])^DO[d] for d in 1:N)
-
+    result = if any(is_boundary)
+        # the stencil reaches past the domain: ghosts formed on a local patch, as eager forms them
+        _lazy_patch_sum(itp, pos_ids, w)
     else
-
-        # Normalized positions within the cell, τ = diff_right per dimension
-        diff_right = ntuple(d -> one(T) - (x[d] - itp.knots[d][pos_ids[d]]) / itp.h[d], N)
-
-        # Kernel weights per dimension, each with its own kernel and derivative order
-        w = _column_weights_per_dim(Val(_kernel_sym(itp.kernel_sym)), Val(DO), diff_right)
-
-        result = if any(is_boundary)
-            # the stencil reaches past the domain: ghosts formed on a local patch, as eager forms them
-            _lazy_patch_sum(itp, pos_ids, w)
-        else
-            # the whole stencil lies inside the domain: the stencil sum over the data
-            acc = zero(T)
-            @inbounds for offsets in Iterators.product(ntuple(d -> -(itp.eqs[d]-1):itp.eqs[d], N)...)
-                idxs = ntuple(d -> pos_ids[d] + offsets[d], N)
-                coef = itp.coefs[idxs...]
-                kernel_val = prod(ntuple(d -> w[d][offsets[d] + itp.eqs[d]], Val(N)))
-                acc += coef * kernel_val
-            end
-            acc
+        # the whole stencil lies inside the domain: the stencil sum over the data
+        acc = zero(T)
+        @inbounds for offsets in Iterators.product(ntuple(d -> -(itp.eqs[d]-1):itp.eqs[d], N)...)
+            idxs = ntuple(d -> pos_ids[d] + offsets[d], N)
+            coef = itp.coefs[idxs...]
+            kernel_val = prod(ntuple(d -> w[d][offsets[d] + itp.eqs[d]], Val(N)))
+            acc += coef * kernel_val
         end
-
-        return @inbounds @fastmath result * prod((-one(T)/itp.h[d])^DO[d] for d in 1:N)
+        acc
     end
+
+    return @inbounds @fastmath result * prod((-one(T)/itp.h[d])^DO[d] for d in 1:N)
 end

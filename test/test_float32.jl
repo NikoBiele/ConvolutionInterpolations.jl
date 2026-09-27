@@ -61,11 +61,11 @@ end
 end
 
 @testset "Float32 lazy mode" begin
-    println("    - 2D lazy, 4D lazy boundary_fallback")
+    println("    - 2D lazy, 4D lazy")
     @test convolution_interpolation((xs32_f, xs32_f), z32_2d; lazy=true)(1.5f0, 2.0f0) isa Float32
     xs4 = range(0.0f0, Float32(2π), length=10)
     z4 = [sin(a)*cos(b)*sin(c)*cos(d) for a in xs4, b in xs4, c in xs4, d in xs4]
-    itp4 = convolution_interpolation((xs4, xs4, xs4, xs4), z4; lazy=true, boundary_fallback=true)
+    itp4 = convolution_interpolation((xs4, xs4, xs4, xs4), z4; lazy=true)
     @test itp4(1.5f0, 2.0f0, 1.0f0, 2.5f0) isa Float32
 end
 

@@ -90,7 +90,7 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
 
     if all(uniform_dims)
         return _build_uniform_convolution(knots_tuple, vs, bcs_tuple,
-                            false, Val(kernels_tuple), Val(false), Val(derivatives_tuple))
+                            Val(kernels_tuple), Val(false), Val(derivatives_tuple))
     else
         all_b_kernels = all(d -> kernels_tuple[d] in (:b5, :b7, :b9, :b11, :b13), 1:N)
         all_n3_kernels = allequal(kernels_tuple) && (kernels_tuple[1] == :n3 || kernels_tuple[1] == :a3)
@@ -114,11 +114,10 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
         end
 
         if all_b_kernels
-            return _build_nonuniform_b_convolution(knots_tuple, vs, bcs_tuple, false, uniform_dims,
-                                    Val(kernels_tuple), Val(derivatives_tuple))
+            return _build_nonuniform_b_convolution(knots_tuple, vs, bcs_tuple, uniform_dims,
+                                                Val(kernels_tuple), Val(derivatives_tuple))
         else
-            # no linear boundary fallback: lazy boundary cells compute their ghost values
-            return _build_nonuniform_n3_convolution(knots_tuple, vs, bcs_tuple, false,
+            return _build_nonuniform_n3_convolution(knots_tuple, vs, bcs_tuple,
                 Val(kernels_tuple), Val(lazy), Val(derivatives_tuple), Val(all_a0_kernels), Val(all_a1_kernels))
         end
     end
@@ -127,7 +126,6 @@ end
 function _build_uniform_convolution(knots::Tuple{Vararg{AbstractVector}},
                                     vs::AbstractArray{T,N},
                                     bc::BCT,
-                                    boundary_fallback::Bool,
                                     ::Val{KS},
                                     ::Val{LZ},
                                     ::Val{DV}) where {T,N,BCT<:Tuple,KS,LZ,DV}
@@ -175,7 +173,7 @@ function _build_uniform_convolution(knots::Tuple{Vararg{AbstractVector}},
                             typeof(Val(subgrid)),typeof(nb_wc),typeof(Val{LZ}()),
                             typeof(integral_dimension),typeof(domain_size)}(
         coefs, domain_size, knots_new, h, kernel_type, dimension, Val{KS}(), eqs, bc, do_type,
-        kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val{LZ}(), boundary_fallback,
+        kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val{LZ}(),
         anchor, integral_dimension
     )
 end
@@ -183,7 +181,6 @@ end
 function _build_nonuniform_b_convolution(knots::Tuple{Vararg{AbstractVector}},
                                          vs::AbstractArray{T,N},
                                          bc::BCT,
-                                         boundary_fallback::Bool,
                                          uniform_dims::NTuple{N,Bool},
                                          ::Val{KS},
                                          ::Val{DV}) where {T,N,BCT<:Tuple,KS,DV}
@@ -221,7 +218,7 @@ function _build_nonuniform_b_convolution(knots::Tuple{Vararg{AbstractVector}},
                             typeof(Val(subgrid)),typeof(nb_wc),typeof(Val(false)),
                             typeof(integral_dimension),typeof(domain_size)}(
         coefs, domain_size, knots_expanded, h, kernel_type, dimension, kernel_sym, M_eqs, bc, do_type,
-        kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val(false), boundary_fallback,
+        kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val(false),
         anchor, integral_dimension
     )
 end
@@ -229,7 +226,6 @@ end
 function _build_nonuniform_n3_convolution(knots::Tuple{Vararg{AbstractVector}},
                                           vs::AbstractArray{T,N},
                                           bc::BCT,
-                                          boundary_fallback::Bool,
                                           ::Val{KS},
                                           ::Val{LZ},
                                           ::Val{DV},
@@ -271,7 +267,7 @@ function _build_nonuniform_n3_convolution(knots::Tuple{Vararg{AbstractVector}},
                             typeof(Val(subgrid)),typeof(nb_wc),typeof(Val(lazy_final)),
                             typeof(integral_dimension),typeof(domain_size)}(
         coefs, domain_size, knots_expanded, h, kernel_type, dimension, kernel_sym, eqs, bc, do_type,
-        kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val(lazy_final), boundary_fallback,
+        kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val(lazy_final),
         anchor, integral_dimension
     )
 end

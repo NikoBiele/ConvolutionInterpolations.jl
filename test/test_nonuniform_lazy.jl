@@ -52,63 +52,6 @@ println("-"^60)
         end
     end
 
-    @testset "1D n3 lazy boundary_fallback" begin
-        println("    - 1D n3 lazy boundary_fallback...")
-        knots = [0.0, 0.3, 0.7, 1.2, 1.5, 2.0]
-        vs = sin.(knots)
-        itp_bf = convolution_interpolation(knots, vs; kernel=:a3, lazy=true, boundary_fallback=true)
-        itp_no = convolution_interpolation(knots, vs; kernel=:a3, lazy=true, boundary_fallback=false)
-
-        # interior should match exactly
-        for x in [0.5, 1.0, 1.3]
-            @test itp_bf(x) ≈ itp_no(x) atol=1e-10
-        end
-
-        # near boundary — boundary_fallback uses linear, should still be close
-        for x in [0.05, 1.95]
-            @test itp_bf(x) ≈ itp_no(x) atol=0.1
-        end
-    end
-
-    @testset "2D n3 lazy boundary_fallback" begin
-        println("    - 2D n3 lazy boundary_fallback...")
-        kx = [0.0, 0.4, 0.9, 1.5, 2.0]
-        ky = [0.0, 0.3, 0.8, 1.2, 1.7, 2.0]
-        vs = Float64[sin(x + y) for x in kx, y in ky]
-        itp_bf = convolution_interpolation((kx, ky), vs; kernel=:a3, lazy=true, boundary_fallback=true)
-        itp_no = convolution_interpolation((kx, ky), vs; kernel=:a3, lazy=true, boundary_fallback=false)
-
-        # interior should match exactly
-        for (x, y) in [(1.0, 1.0), (0.8, 1.5)]
-            @test itp_bf(x, y) ≈ itp_no(x, y) atol=1e-10
-        end
-
-        # near boundary — fallback uses linear, should still be close
-        for (x, y) in [(0.05, 0.5), (1.95, 1.95), (0.05, 1.95)]
-            @test itp_bf(x, y) ≈ itp_no(x, y) atol=0.1
-        end
-    end
-
-    @testset "3D n3 lazy boundary_fallback" begin
-        println("    - 3D n3 lazy boundary_fallback...")
-        kx = [0.0, 0.4, 0.9, 1.5, 2.0]
-        ky = [0.0, 0.3, 0.8, 1.2, 1.7, 2.0]
-        kz = [0.0, 0.5, 1.0, 1.6, 2.0]
-        vs = Float64[sin(x + y + z) for x in kx, y in ky, z in kz]
-        itp_bf = convolution_interpolation((kx, ky, kz), vs; kernel=:a3, lazy=true, boundary_fallback=true)
-        itp_no = convolution_interpolation((kx, ky, kz), vs; kernel=:a3, lazy=true, boundary_fallback=false)
-
-        # interior should match exactly
-        for (x, y, z) in [(0.5, 0.5, 0.5), (1.0, 1.0, 1.0)]
-            @test itp_bf(x, y, z) ≈ itp_no(x, y, z) atol=1e-10
-        end
-
-        # near boundary — both should agree reasonably
-        for (x, y, z) in [(0.05, 0.5, 0.5), (1.95, 1.95, 1.95)]
-            @test itp_bf(x, y, z) ≈ itp_no(x, y, z) atol=0.1
-        end
-    end
-
     @testset "Nonuniform n3 lazy stores raw values" begin
         println("    - Nonuniform n3 lazy stores raw values...")
         xs = [0.0, 0.3, 0.7, 1.2, 1.5, 2.0]

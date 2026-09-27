@@ -163,10 +163,9 @@ end
 """
     _domain_bounds(itp, d) -> (lo, hi)
 
-Return the valid interpolation bounds for dimension `d`, accounting for ghost points.
-In lazy mode with `boundary_fallback=true`, the domain is narrowed by `eqs-1` knots
-on each side to avoid boundary ghost computation. In eager mode, bounds correspond
-to the first and last non-ghost knot positions.
+Return the valid interpolation bounds for dimension `d`, accounting for ghost points: the
+first and last data knot. In eager mode these are found inside the extended knots, past the
+ghost knots; in lazy mode the knots carry no ghosts, so they are the ends of the knots.
 """
 
 @inline function _domain_bounds(itp::AbstractConvolutionInterpolation{T,N,NI,TCoefs,

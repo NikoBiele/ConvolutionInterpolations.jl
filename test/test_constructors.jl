@@ -30,7 +30,7 @@ println("-"^60)
         @test_throws ErrorException etp_throw(-0.5)
 
         # Lazy variant (only fast path)
-        itp_fast_lazy = FastConvolutionInterpolation((x,), vs, kernel=(kernel,), lazy=true, boundary_fallback=false)
+        itp_fast_lazy = FastConvolutionInterpolation((x,), vs, kernel=(kernel,), lazy=true)
         @test itp_fast_lazy(1.0) ≈ itp_fast(1.0) atol=1e-6
 
         # 2D
@@ -85,4 +85,24 @@ vs3 = [sin(x)*cos(y)*sin(z) for x in xs, y in ys, z in zs]
         @test isfinite(itp_fast(1.5, 1.0, 2.0))
         @test isfinite(itp_direct(1.5, 1.0, 2.0))
     end
+end
+
+@testset "Keyword-free calls on nonuniform knots" begin
+    println("    - Keyword-free calls on nonuniform knots...")
+    rng = Random.MersenneTwister(11)                      # reproducible nonuniform knots
+    xn = sort([0.0; 2π .* rand(rng, 38); 2π])             # nonuniform knots on [0, 2π]
+    xu = range(0.0, 2π, length=40)                        # uniform knots
+    # uniform: the keyword-free call takes the fast path
+    @test convolution_interpolation(xu, sin.(xu)).itp isa FastConvolutionInterpolation
+    # nonuniform: the keyword-free call equals the call with default keywords
+    nf = convolution_interpolation(xn, sin.(xn))
+    nk = convolution_interpolation(xn, sin.(xn); kernel=:auto)
+    @test nf.itp isa ConvolutionInterpolation
+    for x in (0.05, 1.3, 3.7, 2π - 0.05)
+        @test nf(x) == nk(x)
+    end
+    # 2D, nonuniform along one axis only
+    yn = sort([0.0; 2π .* rand(rng, 28); 2π])             # nonuniform second axis
+    z = [sin(a) * cos(b) for a in xu, b in yn]
+    @test convolution_interpolation((xu, yn), z)(1.3, 2.1) == convolution_interpolation((xu, yn), z; kernel=:auto)(1.3, 2.1)
 end

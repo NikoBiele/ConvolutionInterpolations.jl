@@ -40,11 +40,8 @@ rounding for every kernel, derivative and integral order.
 - `kernel_d1_pre::FD`, `kernel_d2_pre::SD`: Unused placeholders (`nothing`)
 - `subgrid::SG`: Unused placeholder (`Val(:not_used)`)
 - `lazy::LZ`: If `Val(true)`, ghost points are computed on the fly near the boundaries
-- `boundary_fallback::Bool`: In lazy mode, use linear interpolation near the boundaries
-  instead of computing ghost points
 - `anchor::NTuple{N,T}`: Point where antiderivatives are zero, per integral dimension
 - `dim_integral::DI`: Integral dimension type for dispatch
-- `lazy_workspace::LazyBoundaryWorkspace{T,N}`: Scratch buffers for lazy boundary evaluation
 - `integral_taylor::NTuple{N,Matrix{T}}`: For each integral dimension of order m, the exact values
   K_{m−r}(eqs − j) of the coefficients near the anchor (see `_anchor_taylor_table`)
 - `integral_entries::NTuple{N,Matrix{T}}`: For each integral dimension, the exact polynomials
@@ -53,14 +50,6 @@ rounding for every kernel, derivative and integral order.
   of every region: entry `mask` holds one array per combination of powers of the positions within
   the cell (see `_build_region_tails`)
 """
-
-struct LazyBoundaryWorkspace{T,N}
-    ghost_buf::Vector{T}      # length 9, scratch for mul!
-    stencil_buf::Array{T,N}   # size (2*eqs, 2*eqs, ...) for ND stencil
-end
-
-LazyBoundaryWorkspace(T::Type, ::Val{N}, eqs::Int) where N = 
-    LazyBoundaryWorkspace{T,N}(zeros(T, 9), zeros(T, ntuple(_ -> 2*eqs, N)...))
 
 struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
                                 Axs<:Tuple,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,DI,SZ} <:
@@ -80,10 +69,8 @@ struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
     kernel_d2_pre::SD
     subgrid::SG
     lazy::LZ
-    boundary_fallback::Bool
     anchor::NTuple{N, T}
     dim_integral::DI
-    lazy_workspace::LazyBoundaryWorkspace{T,N}
     # integrals of any order in any dimension (see FastIntegralOrders)
     integral_taylor::NTuple{N, Matrix{T}}      # per integral dimension: exact anchoring table
     integral_entries::NTuple{N, Matrix{T}}     # per integral dimension: near-anchor entry polynomials

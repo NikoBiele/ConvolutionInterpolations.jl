@@ -235,7 +235,7 @@ Tuple `(coefs, knots_expanded)` where:
 """
 
 function create_nonuniform_b_coefs_perdim(vs::AbstractArray{T,N},
-                                           knots::NTuple{N},
+                                           knots::NTuple{N,AbstractVector},
                                            degrees::NTuple{N,Symbol}) where {T,N}
     params  = ntuple(d -> nonuniform_b_params(degrees[d]), N)
     M_eqs_d = ntuple(d -> params[d][1], N)

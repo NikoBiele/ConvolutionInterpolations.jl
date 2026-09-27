@@ -30,8 +30,6 @@ A structure that implements convolution-based interpolation on N-dimensional dat
   When active, is an `NTuple{N, Vector{Matrix{Float64}}}` where each element holds
   per-interval polynomial coefficients for one dimension.
 - `lazy::Bool`: If `true`, no ghost points are computed, and are instead computed on the fly.
-- `boundary_fallback::Bool`: When `true`, throws an error instead of computing ghost
-  points when evaluating near boundaries in lazy mode.
 
 This implementation evaluates the convolution kernel at each point directly,
 providing accurate results but potentially slower performance than `FastConvolutionInterpolation`.
@@ -56,7 +54,6 @@ struct ConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
     subgrid::SG
     nb_weight_coeffs::NB
     lazy::LZ
-    boundary_fallback::Bool
     anchor::NTuple{N, T}
     dim_integral::DI
 end

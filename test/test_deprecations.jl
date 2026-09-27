@@ -1,9 +1,10 @@
 println("\n" * "-"^60)
-println("Testing deprecated keywords (precompute, subgrid)...")
+println("Testing deprecated keywords (precompute, subgrid, boundary_fallback)...")
 println("-"^60)
 
-# `precompute` and `subgrid` no longer have any effect. Setting them must produce a warning
-# and exactly the same result as not setting them; not setting them must produce no warnings.
+# `precompute`, `subgrid` and `boundary_fallback` no longer have any effect. Setting them must
+# produce a warning and exactly the same result as not setting them; not setting them must
+# produce no warnings.
 @testset "Deprecated keywords" begin
     x = range(0.0, 2π, length=40)
     y = sin.(x)
@@ -41,5 +42,31 @@ println("-"^60)
         # Deprecated precompute keyword: a warning, and an identical fit
         s_dep = @test_logs (:warn, r"`precompute` no longer has any effect") convolution_interpolation(points, vals; precompute=101)
         @test s_dep(xc, yc) == s_ref(xc, yc)
+    end
+
+    println("    - boundary_fallback")
+    @testset "boundary_fallback" begin
+        warning = (:warn, r"`boundary_fallback` no longer has any effect")
+        # uniform lazy 2D data: the keyword used to switch boundary cells to bilinear interpolation
+        xs = range(0.0, 2π, length=30)
+        z = [sin(a) * cos(b) for a in xs, b in xs]
+        ref = @test_logs convolution_interpolation((xs, xs), z; kernel=:b5, lazy=true)
+        for bf in (true, false)
+            dep = @test_logs warning convolution_interpolation((xs, xs), z; kernel=:b5, lazy=true,
+                                                               boundary_fallback=bf)
+            @test dep(0.05, 0.05) == ref(0.05, 0.05)          # a boundary cell
+            @test dep(3.0, 2.0) == ref(3.0, 2.0)              # an interior cell
+        end
+        # the fast constructor directly
+        fi_ref = FastConvolutionInterpolation((xs, xs), z; kernel=:b5, lazy=true)
+        fi_dep = @test_logs warning FastConvolutionInterpolation((xs, xs), z; kernel=:b5, lazy=true,
+                                                                 boundary_fallback=true)
+        @test fi_dep(0.05, 0.05) == fi_ref(0.05, 0.05)
+        # the direct constructor, on a nonuniform grid (the :n3 lazy path)
+        xn = [0.0, 0.3, 0.7, 1.2, 1.5, 2.0]
+        cn_ref = ConvolutionInterpolation(xn, sin.(xn); kernel=:n3, lazy=true)
+        cn_dep = @test_logs warning ConvolutionInterpolation(xn, sin.(xn); kernel=:n3, lazy=true,
+                                                             boundary_fallback=true)
+        @test cn_dep(0.05) == cn_ref(0.05)
     end
 end

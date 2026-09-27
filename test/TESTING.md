@@ -22,7 +22,7 @@ The tests are organized into thematic files, all included from `runtests.jl`, gr
 | `test_uniform_convergence.jl` | Convergence of values and 1st/2nd derivatives in 1D; dense-grid rounding floor |
 | `test_perdim_derivatives.jl` | Per-dimension derivative orders in 2D and 3D, fast and direct |
 | `test_perdim_kernel_derivatives.jl` | Per-dimension kernels combined with derivatives in 2D and 3D |
-| `test_uniform_lazy.jl` | Lazy vs eager agreement, construction speed, boundary fallback, 1D–4D |
+| `test_uniform_lazy.jl` | Lazy vs eager agreement 1D–4D, exact ghost equality, lazy default from 5D, thread safety, construction speed |
 
 ### Nonuniform grids
 
@@ -34,7 +34,7 @@ The tests are organized into thematic files, all included from `runtests.jl`, gr
 | `test_nonuniform_perdim_derivatives.jl` | Per-dimension b-kernel derivatives in 2D |
 | `test_nonuniform_perdim_kernels.jl` | Per-dimension b-kernels in 2D and 3D |
 | `test_nonuniform_a0_a1.jl` | Nearest-neighbor and linear interpolation, 1D–3D |
-| `test_nonuniform_lazy.jl` | Lazy vs eager agreement and boundary fallback for `:n3`, 1D–3D |
+| `test_nonuniform_lazy.jl` | Lazy vs eager agreement for `:n3`, 1D–3D |
 
 ### Integrals
 
@@ -55,7 +55,7 @@ The tests are organized into thematic files, all included from `runtests.jl`, gr
 | `test_extrapolation.jl` | `:line` and `:flat` extrapolation, 1D–4D |
 | `test_bigfloat_precision.jl` | BigFloat type preservation and machine precision |
 | `test_float32.jl` | Float32 type preservation and accuracy across features |
-| `test_allocations.jl` | Non-lazy evaluation is allocation-free |
+| `test_allocations.jl` | Eager and lazy evaluation is allocation-free |
 
 ### Further features
 
@@ -66,7 +66,7 @@ The tests are organized into thematic files, all included from `runtests.jl`, gr
 | `test_fit_scattered.jl` | Scattered-data fitting: exactness, convergence, derivatives, box integrals |
 | `test_resample.jl` | `convolution_resample` accuracy, output size, derivatives |
 | `test_show.jl` | `show` output for all interpolant types and options |
-| `test_deprecations.jl` | Deprecated `precompute`/`subgrid` keywords warn and have no effect |
+| `test_deprecations.jl` | Deprecated `precompute`/`subgrid`/`boundary_fallback` keywords warn and have no effect |
 
 ## Kernel Coverage Strategy
 
@@ -121,7 +121,7 @@ Nonuniform kernels use direct evaluation (fast mode is automatically disabled fo
 
 ### Constructor tests
 
-Verifies that all 11 kernels (`:a0` through `:b13`) construct correctly in 1D via both `ConvolutionInterpolation` and `FastConvolutionInterpolation`, and that direct and fast paths agree within `1e-6`. Also tests lazy construction variants and `ConvolutionExtrapolation` wrapping.
+Verifies that all 11 kernels (`:a0` through `:b13`) construct correctly in 1D via both `ConvolutionInterpolation` and `FastConvolutionInterpolation`, and that direct and fast paths agree within `1e-6`. Also tests lazy construction variants and `ConvolutionExtrapolation` wrapping, and that keyword-free calls on nonuniform knots give exactly the same interpolant as calls with default keywords (they used to build a uniform interpolant silently).
 
 In addition, all 16 per-dim kernel combinations in 2D and all 64 in 3D are constructed and evaluated at a single point to verify dispatch is callable. The kernels tested per-dim are `:a0`, `:a1`, `:a3`, `:b5`.
 
@@ -210,10 +210,12 @@ Tests per-dim b-kernel selection on nonuniform grids in 2D and 3D.
 
 ### Lazy mode
 
-- **Lazy vs eager agreement**: Constructs both lazy and eager interpolators and verifies agreement at interior, boundary, and near-boundary points for uniform grids in 1D and 2D (`:a3`, `:b5`), and nonuniform grids in 1D–3D (`:a3`).
+- **Lazy vs eager agreement**: Constructs both lazy and eager interpolators and verifies agreement at interior, boundary, and near-boundary points for uniform grids in 1D–4D (`:a3`, `:b5`, values and derivatives), and nonuniform grids in 1D–3D (`:a3`).
+- **Exact ghost equality**: In boundary cells, lazy must equal the stencil sum over eager's stored coefficients exactly (`== 0.0`), since lazy forms its ghosts on a local patch the way eager forms them: axis by axis, with compensated sums, eager's per-line `:detect` decision and the linear rule on short axes. Covers smooth and rough data, `:detect` and `:poly`, a short axis (2D, `:a3`, `:b7`), and edges and corners in 3D.
+- **Lazy default**: `lazy=nothing` resolves to lazy for 5 or more dimensions (uniform, no antiderivatives) and to eager otherwise; an explicit `lazy` always wins.
+- **Thread safety**: Boundary-heavy evaluation with `Threads.@threads` must equal serial evaluation exactly (meaningful when the tests run with several threads).
 - **Structural checks**: Verifies `itp.lazy == Val{true}()` and `itp.coefs === vs` (lazy stores a reference, not a copy).
-- **Construction speed**: A 50×50×50 `:b5` lazy construction must complete in under 2 seconds.
-- **Boundary fallback in high dimensions**: 4D lazy evaluates correctly near boundaries; 5D with `boundary_fallback=true` returns a finite value without throwing.
+- **Construction speed**: 50³ `:b5` (3D) and 20⁴ `:b5` (4D) lazy constructions must each complete in under 1 second.
 - **Nonuniform b-kernels force eager**: Constructing with `kernel=:b5, lazy=true` on a nonuniform grid silently sets `lazy=false`.
 
 ### Nonuniform `:a0`/`:a1`
@@ -244,7 +246,7 @@ Verifies that `bc=:poly` with only 4 grid points is automatically downgraded to 
 
 ### Deprecated keywords
 
-`test_deprecations.jl` verifies that setting `precompute` or `subgrid` produces a deprecation warning and a result identical to not setting them, and that nothing warns when neither is set. Covers `convolution_interpolation`, `FastConvolutionInterpolation` and the scattered-data `convolution_interpolation`; `convolution_resample` is covered in `test_resample.jl`.
+`test_deprecations.jl` verifies that setting `precompute`, `subgrid` or `boundary_fallback` produces a deprecation warning and a result identical to not setting them, and that nothing warns when none is set. Covers `convolution_interpolation`, `FastConvolutionInterpolation`, the scattered-data `convolution_interpolation`, and for `boundary_fallback` also `ConvolutionInterpolation` (nonuniform lazy) with both `true` and `false`, in boundary and interior cells; `convolution_resample` is covered in `test_resample.jl`.
 
 ### Gaussian kernel
 
@@ -259,7 +261,7 @@ Verifies construction and evaluation for `B ∈ (1.0, 2.0, 5.0)` in 1D and `B=2.
 
 ### Allocations
 
-Non-lazy kernels should all be non-allocating.
+Evaluation must be allocation-free for every kernel, in eager and lazy mode, including lazy boundary cells (whose patch lives in task-local scratch buffers, grown on first use only).
 
 ## Test Parameters
 

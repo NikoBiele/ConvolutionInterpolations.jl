@@ -238,7 +238,7 @@ function convolution_gaussian_itp(knots::NTuple{N,AbstractVector}, values::Abstr
                             typeof(Val(subgrid)),typeof(nb_wc),typeof(Val{false}()),
                             typeof(integral_dimension),typeof(domain_size)}(
         coefs, domain_size, knots_new, h, kernel_type, dimension, Val{KS}(), eqs, bc, do_type,
-        kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val{false}(), false,
+        kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val{false}(),
         anchor, integral_dimension
     )
 end

@@ -458,10 +458,10 @@ itp(1.0)   # ≈ 0.4597  (= 1 - cos(1), anchored at x=0)
 ```
 
 The result is zero-anchored at the leftmost interior knot: `F(anchor) = 0` exactly.
-The fast path (default) precomputes the anchor-side contribution at construction time.
-With up to three integral dimensions, prefix sums reduce evaluation to O(stencil), O(stencil²) and
-O(stencil³) respectively, independent of grid size after construction. With more integral dimensions,
-evaluation sums over the coefficients up to the evaluation point: accurate, but slower for large grids.
+With up to three integral dimensions, the contribution of all coefficients left of the stencil is
+precomputed at construction, so evaluation costs about as much as interpolation, independent of grid
+size. With more integral dimensions, evaluation sums over the coefficients up to the evaluation point:
+accurate, but slower for large grids.
 
 **Repeated antiderivatives.** `derivative=-m` gives the m-fold integral of the interpolant, anchored so
 that it and all lower integrals vanish at the leftmost interior knot:
@@ -586,8 +586,10 @@ The `Natural()` boundary condition is most useful in lower dimensions, as double
 ### High-Dimensional Interpolation
 
 The separable kernel design scales to arbitrary dimensions.
-For large three-dimensional grids or any four-dimensional and higher data, `lazy=true` is recommended,
-as construction is constant-time (~0.12 ms) regardless of grid size; eager scales with the number of boundary points.
+From five dimensions on, interpolants are built in lazy mode by default (`lazy=nothing`): ghost points
+are not expanded at construction but computed on the fly in boundary cells, so construction is nearly
+constant-time regardless of grid size, and no enlarged copy of the data is made. For large three- and
+four-dimensional grids, `lazy=true` is worth choosing explicitly; `lazy=false` always forces eager expansion.
 
 #### Construction timings with `lazy=true` (kernel `:b7`, warm start)
 
@@ -604,32 +606,30 @@ while eager scales with the number of ghost points, which grows
 explosively with dimension and kernel width. For wider kernels than `:b7` the eager cost is even more
 extreme, making `lazy=true` increasingly attractive.
 
-#### Lazy mode constraints
+#### Lazy mode
 
-`lazy=true` has two boundary modes controlled by `boundary_fallback`:
+Lazy mode computes exactly the same ghost values as eager mode, in every dimension: boundary cells form
+them on a small local patch the way eager construction forms them, including the `:detect` boundary check,
+so lazy and eager interpolants agree to rounding everywhere. Interior evaluation is as fast as eager.
+Boundary cells cost more, since their ghosts are computed at every evaluation; if near-boundary or corner
+evaluations dominate, prefer `lazy=false`, whose construction cost is quickly amortized.
 
-**`boundary_fallback=false` (default, N≤3 only)**: full ghost point resolution at boundaries,
-identical accuracy and derivative support to eager mode. If near-boundary or corner evaluations are frequent, prefer `lazy=false` (eager
-mode) instead, construction cost is quickly amortized.
-
-**`boundary_fallback=true` (required for N≥4)**: near-boundary evaluation uses a linear
-kernel — fast, allocation-free, and correct throughout the domain, at the cost of reduced
-smoothness in the boundary stencil region. Per-dimension mixed kernels are supported;
-derivatives are not.
-
-The `:n3` kernel additionally supports lazy evaluation on nonuniform grids.
-
-Interior evaluation is identical in speed and accuracy to eager mode in both boundary modes.
+- Derivatives and per-dimension kernels are supported in any dimension.
+- Antiderivatives (`derivative < 0`) require eager mode; the default resolves to eager for them.
+- A lazy interpolant can be evaluated from several threads at once.
+- The `:n3` kernel additionally supports lazy evaluation on nonuniform grids.
 
 ```julia
-# boundary_fallback=false (default): full accuracy, derivatives supported (N≤3)
-itp = convolution_interpolation((x, y, z), data; kernel=:b7, derivative=(1, 0, 2), lazy=true)
-
-# boundary_fallback=true: per-dim kernels, no derivatives, required for N≥4
-itp = convolution_interpolation((x, y, z, t), data; kernel=(:a3,:a3,:b5,:b7), lazy=true, boundary_fallback=true)
+x = range(0.0, 1.0, length=40)                        # knots along each axis
+data = rand(40, 40, 40)                               # 3D data on the grid
+# lazy 3D interpolant, with the second derivative along the third axis
+itp = convolution_interpolation((x, x, x), data; kernel=:b7, derivative=(0, 0, 2), lazy=true)
+itp(0.01, 0.5, 0.99)                                  # a boundary cell: agrees with eager mode to rounding
 ```
 
-For full boundary accuracy with mixed kernels in any dimension, use `lazy=false` (eager mode).
+The `boundary_fallback` keyword of earlier versions, which switched lazy boundary cells to linear
+interpolation, no longer has any effect. It is still accepted, with a deprecation warning, and will be
+removed in v1.0.
 
 ### Exact Kernel Evaluation
 
@@ -650,7 +650,7 @@ They are still accepted, with a deprecation warning, and will be removed in a fu
 ## Performance Guidelines
 
 - **Default `:b7` works everywhere**: 7th-order accuracy on uniform grids, non-uniform grids, high-order derivatives
-- **Use `lazy=true` in high dimensions**: Skips ghost point expansion, reducing construction time and memory
+- **Lazy mode in high dimensions**: The default from 5D, skips ghost point expansion, reducing construction time and memory
 - **Use `:a0`, `:a1` or `:a3` in high dimensions**: Evaluation time of narrower kernels scale better with dimensions
 - **Any precision works out of the box**: `Float32` and `BigFloat` interpolants use the exact kernel coefficients rounded to their own precision
 - **Orthogonal grids assumption**: The separable kernel design requires mutually orthogonal grid axes.
@@ -670,20 +670,17 @@ This package introduces four main contributions:
 **Non-uniform b-kernel extension.** On non-uniform grids, each interval requires its own weights adapted to the local grid geometry. This is achieved by expanding the kernel in a binomial series around each interval's local coordinate, then projecting through a Vandermonde system to enforce polynomial reproduction up to the kernel's design order. The result is a compact set of polynomial coefficients per interval, evaluated via Horner's method at query time. All weight generation uses exact `Rational{BigInt}` arithmetic to avoid floating-point contamination, with conversion to `Float64` only at the final storage step. The same framework extends to derivatives by applying the binomial expansion to analytically differentiated kernel coefficients. On mixed grids (some dimensions uniform, some not), each dimension independently
 selects the appropriate path through the separable tensor product. Per-dimension kernels are supported on both uniform and non-uniform grids: ghost point arrays are padded per-dimension by each kernel's own stencil radius, and derivative scaling factors are applied independently per axis.
 
-**Antiderivative via kernel integration.** For `derivative=-1`, each kernel `K` is
-analytically integrated to produce `K̃`, the antiderivative kernel, with coefficients
-derived in exact rational arithmetic like those of the derivative kernels. The interpolant
-antiderivative is then `F(x) = h · Σⱼ cⱼ · [K̃((x − xⱼ)/h) − K̃((anchor − xⱼ)/h)]`,
-where `anchor` is the leftmost interior knot and the subtracted term enforces
-`F(anchor) = 0`. In the fast path, the anchor-side sum `Σⱼ cⱼ · K̃((anchor − xⱼ)/h)`
-is computed once at construction (using exact arithmetic for b-series kernels, converted
-to Float64 on completion) and stored as `left_values`.
-At evaluation time only the `K̃(x)` half is computed per dimension. In 1D, 2D, and 3D,
-additional prefix sums reduce the tail contributions to O(1) lookups, giving O(stencil),
-O(stencil²) and O(stencil³) total evaluation independent of grid size. In higher dimensions (4D+) the tail
-contributions are summed directly over the full coefficient array, accurate but slower
-for large grids. In N dimensions the antiderivative is the tensor product of
-per-dimension antiderivatives, with `left_values` stored per dimension.
+**Antiderivative via kernel integration.** For `derivative=-m`, each kernel `K` is integrated m times
+analytically, with coefficients derived in exact rational arithmetic like those of the derivative
+kernels. The interpolant's antiderivative is the sum of the coefficients times these integrated kernels,
+minus its Taylor polynomial at the anchor (the leftmost interior knot), so that it and all lower integrals
+vanish there. Far from the anchor this correction is a simple polynomial, folded exactly into the column
+tables at construction, so each stencil weight costs one Horner evaluation. Coefficients left of the
+stencil contribute a polynomial in the position within the cell; with up to three integral dimensions,
+these contributions are precomputed at construction for every region left of the stencil, so evaluation
+costs about as much as interpolation, independent of grid size. With more integral dimensions they are
+summed directly, accurate but slower for large grids. In N dimensions the antiderivative is the tensor
+product of per-dimension antiderivatives.
 
 ## Comparison with Other Packages
 

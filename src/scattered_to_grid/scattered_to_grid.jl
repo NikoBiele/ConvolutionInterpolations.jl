@@ -1,6 +1,12 @@
 """
     scattered_to_grid(points, values, knots; k=1) -> Array
 
+!!! warning "Deprecated"
+    `scattered_to_grid` is deprecated and will be removed in v1.0. For noisy
+    scattered data use `fit_scattered(points, values; mode = :smooth)` or
+    `convolution_interpolation(points, values; mode = :smooth)`, which fit and
+    smooth the data in one step, with the smoothing chosen automatically.
+
 Grid scattered data onto a regular grid by nearest-neighbor assignment.
 
 - `points`: d×n matrix of scattered point coordinates
@@ -11,8 +17,7 @@ Grid scattered data onto a regular grid by nearest-neighbor assignment.
 Each grid node takes the value of its nearest scattered point (`k=1`),
 or the unweighted mean of its `k` nearest points. Small `k` (3–5) can
 mildly reduce noise; large `k` blurs the signal and introduces boundary
-bias. Intended as a gridding step before `convolution_smooth` or
-`convolution_interpolation` for noisy scattered data.
+bias.
 
 # Example
 ```julia
@@ -23,6 +28,10 @@ itp = convolution_interpolation((xs, ys), smooth)
 """
 function scattered_to_grid(points::AbstractMatrix, values::AbstractVector{T},
                            knots::Tuple; k::Int=1) where T
+    @warn "`scattered_to_grid` is deprecated and will be removed in v1.0. For noisy scattered " *
+          "data use `fit_scattered(points, values; mode = :smooth)` or " *
+          "`convolution_interpolation(points, values; mode = :smooth)`, which fit and smooth " *
+          "in one step with the smoothing chosen automatically." maxlog=1
     size(points, 2) == length(values) ||
         throw(ArgumentError("number of points ($(size(points,2))) must match number of values ($(length(values)))"))
     size(points, 1) == length(knots) ||

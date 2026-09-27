@@ -69,4 +69,17 @@ println("-"^60)
                                                              boundary_fallback=true)
         @test cn_dep(0.05) == cn_ref(0.05)
     end
+
+    println("    - scattered_to_grid")
+    @testset "scattered_to_grid" begin
+        # Scattered 2D points (one per column), their values, and a target grid
+        rng = Random.MersenneTwister(4)
+        points = rand(rng, 2, 50)
+        vals = vec(sum(points; dims = 1))
+        xs = range(0.0, 1.0, length = 11)
+        # The deprecated function warns and still grids the data
+        grid = @test_logs (:warn, r"`scattered_to_grid` is deprecated") scattered_to_grid(points, vals, (xs, xs))
+        @test size(grid) == (11, 11)
+        @test all(isfinite, grid)
+    end
 end

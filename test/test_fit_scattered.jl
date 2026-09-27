@@ -115,19 +115,66 @@ end
         end
     end
 
-    @testset ":lsq regime behaves as regression" begin
-        println("    - Testing scattered fit least-squares regression")
+    @testset ":smooth fits noisy data" begin
+        println("    - Testing scattered fit with smoothing (:smooth)")
         rng = MersenneTwister(9)
         pts = jittered_pts(40, 0.35, rng)
         clean = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
         sigma = 0.05
         noisy = clean .+ sigma .* randn(rng, length(clean))
-        knots, gvals, _ = fit_scattered(pts, noisy; kernel = :b5, mode = :lsq,
-                                        gridsize = 14)
-        itp = FastConvolutionInterpolation(knots, gvals; kernel = :b5, bc = :poly)
         ev = range(0.1, 0.9, length = 31)
+
+        # noise reduction and noise estimate
+        knots, gvals, info = fit_scattered(pts, noisy; kernel = :b5, mode = :smooth)
+        itp = FastConvolutionInterpolation(knots, gvals; kernel = :b5, bc = :poly)
         rms = sqrt(mean((itp(x, y) - g2(x, y))^2 for x in ev, y in ev))
-        @test rms < 0.5 * sigma      # must beat raw noise decisively
+        @test rms < 0.5 * sigma                      # must beat raw noise decisively
+        @test keys(info) == (:lambda, :noise)
+        @test info.lambda > 0
+        @test abs(info.noise - sigma) < 0.2 * sigma  # estimated noise level
+
+        # the returned lambda reproduces the fit on the same grid
+        _, gvals2, info2 = fit_scattered(pts, noisy; kernel = :b5, mode = :smooth,
+                                         lambda = info.lambda, gridsize = length(knots[1]))
+        @test maximum(abs, gvals2 .- gvals) < 1e-10
+        @test info2.lambda ≈ info.lambda
+
+        # a given gridsize is used as is
+        knots3, gvals3, _ = fit_scattered(pts, noisy; kernel = :b5, mode = :smooth, gridsize = 20)
+        @test length.(knots3) == (20, 20)
+        @test size(gvals3) == (20, 20)
+
+        # noise-free data: the fit approaches interpolation
+        knots4, gvals4, info4 = fit_scattered(pts, clean; kernel = :b5, mode = :smooth)
+        itp4 = FastConvolutionInterpolation(knots4, gvals4; kernel = :b5, bc = :poly)
+        rms4 = sqrt(mean((itp4(x, y) - g2(x, y))^2 for x in ev, y in ev))
+        @test rms4 < 1e-3
+        @test info4.noise < 1e-3
+
+        # the convenience constructor uses the same fit
+        itp5 = convolution_interpolation(pts, noisy; kernel = :b5, mode = :smooth)
+        @test maximum(abs(itp5(x, y) - itp(x, y)) for x in ev, y in ev) < 1e-10
+
+        # 1D: noise reduction with grid refinement
+        xs = sort(rand(rng, 400))
+        clean1 = g1.(xs)
+        noisy1 = clean1 .+ sigma .* randn(rng, length(xs))
+        knots1, gvals1, info1 = fit_scattered(reshape(xs, 1, :), noisy1; mode = :smooth)
+        itp1 = FastConvolutionInterpolation(knots1, gvals1; kernel = :b5, bc = :poly)
+        ev1 = range(0.1, 0.9, length = 201)
+        rms1 = sqrt(mean((itp1(x) - g1(x))^2 for x in ev1))
+        @test rms1 < 0.5 * sigma
+        @test abs(info1.noise - sigma) < 0.2 * sigma
+
+        # element type: Float32 data give a Float32 grid
+        _, gvals32, _ = fit_scattered(Float32.(pts), Float32.(noisy); kernel = :b5, mode = :smooth)
+        @test eltype(gvals32) == Float32
+
+        # errors: the removed :lsq mode and invalid smoothing parameters
+        @test_throws ArgumentError fit_scattered(pts, noisy; mode = :lsq)
+        @test_throws ArgumentError fit_scattered(pts, noisy; mode = :smooth, lambda = -1.0)
+        @test_throws ArgumentError fit_scattered(pts, noisy; mode = :smooth, lambda = 0)
+        @test_throws ArgumentError fit_scattered(pts, noisy; mode = :smooth, lambda = :auto)
     end
 
     @testset "per-dimension kernels" begin

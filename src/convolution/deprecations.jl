@@ -24,3 +24,18 @@ function _warn_deprecated_table_keywords(precompute, subgrid)
     end
     return nothing
 end
+
+"""
+    _warn_deprecated_boundary_fallback(boundary_fallback)
+
+Warn once if the deprecated `boundary_fallback` keyword is set: it no longer has any effect and
+will be removed in v1.0.
+"""
+function _warn_deprecated_boundary_fallback(boundary_fallback)
+    if boundary_fallback !== nothing
+        @warn "`boundary_fallback` no longer has any effect and will be removed in v1.0. " *
+              "Lazy interpolants now compute the same boundary ghost values as eager ones, in " *
+              "every dimension, so there is no linear boundary fallback." maxlog=1
+    end
+    return nothing
+end

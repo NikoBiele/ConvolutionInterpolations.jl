@@ -28,14 +28,14 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
   `:b7`–`:b13`. Orders may be mixed per dimension, e.g. `(-2, 0)` or `(-1, 1)`.
   - `subgrid`: Deprecated, has no effect, and will be removed in a future release. Kernels
   are evaluated exactly, so there is no subgrid interpolation.
-- `lazy::Bool=false`: When `true`, skip ghost point expansion at construction time.
-  The raw values are stored directly and ghost points are computed on the fly during
-  evaluation near boundaries. Interior evaluation has zero overhead compared to eager mode.
-  Automatically disabled for `:a0`, `:a1`, and Gaussian kernels.
-- `boundary_fallback::Bool=false`: When `true`, near-boundary evaluations use a linear
-  kernel rather than computing full ghost point stencils — correct throughout the domain
-  at the cost of reduced smoothness in the boundary stencil region. Derivatives are not
-  supported in this mode. Required for `N≥4`; only active when `lazy=true`.
+- `lazy::Union{Nothing,Bool}=nothing`: When `true`, skip ghost point expansion at construction
+  time. The raw values are stored directly and ghost points are computed on the fly during
+  evaluation near boundaries, with exactly the values eager expansion would store. When `false`,
+  all ghost points are expanded at construction. The default, `nothing`, chooses lazy for 5 or
+  more dimensions without antiderivatives and eager otherwise. Automatically disabled for
+  `:a0`, `:a1`, and Gaussian kernels.
+- `boundary_fallback`: Deprecated, has no effect; will be removed in v1.0. Lazy interpolants
+  compute the same boundary ghost values as eager ones, in every dimension.
 
 # Returns
 A `FastConvolutionInterpolation` object callable at arbitrary points within the grid domain.
@@ -52,10 +52,11 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                                       bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect,
                                       derivative::Union{Int,NTuple{N,Int}}=0,
                                       subgrid=nothing,
-                                      lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
+                                      lazy::Union{Nothing,Bool}=nothing, boundary_fallback=nothing) where {T,N}
 
     # deprecated keywords: warn if set, then ignore
     _warn_deprecated_table_keywords(precompute, subgrid)
+    _warn_deprecated_boundary_fallback(boundary_fallback)
 
     # check and normalize inputs
     knots_tuple = knots isa AbstractVector ?
@@ -91,14 +92,12 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
               "       - ConvolutionInterpolation(knots, values; ...), the slow constructor, " *
               "whose kernels adjust their weights to nonuniform spacing.")
     end
-    if lazy && N >= 4 && !boundary_fallback
-        error("Lazy mode requires 'boundary_fallback=true' for dimensions >= 4.")
-    end
-    if lazy && boundary_fallback && any(d -> derivatives_tuple[d] != 0, 1:N)
-        error("Derivatives not supported in lazy mode with 'boundary_fallback=true'.")
-    end
 
-    # antiderivatives (derivative < 0) build their tails from the full coefficient array, which
+    # lazy by default from 5 dimensions (without antiderivatives): eager expansion adds ghost
+    # layers on every axis, which in high dimensions costs far more memory and construction time
+    # than computing the ghosts on the fly near the boundaries
+    lazy = lazy === nothing ? (N >= 5 && !any(d -> derivatives_tuple[d] < 0, 1:N)) : lazy
+    
     # lazy mode deliberately skips, so the two cannot be combined
     if lazy && any(d -> derivatives_tuple[d] < 0, 1:N)
         error("Antiderivatives (derivative < 0) are not supported in lazy mode.")
@@ -114,7 +113,8 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                                 "$max_order (derivative = -$max_order). Got derivative = -$M.")
     end
 
-    return _build_fast_uniform_convolution(knots_tuple, vs, bcs_tuple, boundary_fallback,
+    # no linear boundary fallback: lazy boundary cells compute eager's ghost values
+    return _build_fast_uniform_convolution(knots_tuple, vs, bcs_tuple, false,
                                            Val(kernels_tuple), Val(lazy),
                                            Val(derivatives_tuple))
 end

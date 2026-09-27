@@ -29,10 +29,8 @@ wraps this with extrapolation handling.
   evaluation near boundaries. This saves memory and speeds up construction, especially
   in high dimensions. Automatically disabled for `:a0`, `:a1`, Gaussian kernels, and
   nonuniform `b`-series paths.
-- `boundary_fallback::Bool=false`: When `true`, near-boundary evaluations use a linear
-  kernel rather than computing full ghost point stencils — correct throughout the domain
-  at the cost of reduced smoothness in the boundary stencil region. Derivatives are not
-  supported in this mode. Required for `N≥4`; only active when `lazy=true`.
+- `boundary_fallback`: Deprecated, has no effect; will be removed in v1.0. Lazy interpolants
+  compute their boundary ghost values in every dimension.
   
 # Grid handling
 Uniform and nonuniform grids are detected automatically per dimension. On nonuniform grids:
@@ -53,7 +51,10 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
                                   kernel::Union{Symbol,NTuple{N,Symbol}}=:auto,
                                   bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect,
                                   derivative::Union{Int,NTuple{N,Int}}=0,
-                                  lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
+                                  lazy::Bool=false, boundary_fallback=nothing) where {T,N}
+
+    # deprecated keyword: warn if set, then ignore
+    _warn_deprecated_boundary_fallback(boundary_fallback)
 
     # check and normalize inputs
     knots_tuple = knots isa AbstractVector ?
@@ -116,7 +117,8 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
             return _build_nonuniform_b_convolution(knots_tuple, vs, bcs_tuple, false, uniform_dims,
                                     Val(kernels_tuple), Val(derivatives_tuple))
         else
-            return _build_nonuniform_n3_convolution(knots_tuple, vs, bcs_tuple, boundary_fallback,
+            # no linear boundary fallback: lazy boundary cells compute their ghost values
+            return _build_nonuniform_n3_convolution(knots_tuple, vs, bcs_tuple, false,
                 Val(kernels_tuple), Val(lazy), Val(derivatives_tuple), Val(all_a0_kernels), Val(all_a1_kernels))
         end
     end

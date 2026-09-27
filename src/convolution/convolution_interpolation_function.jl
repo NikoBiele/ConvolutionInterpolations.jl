@@ -33,14 +33,14 @@ Create a convolution-based interpolation object with automatic optimization and 
   `:b5` and 8 for `:b7`–`:b13`. Orders may be mixed per dimension, e.g. `(-2, 0)` or `(-1, 1)`.
 - `subgrid`: Deprecated, has no effect, and will be removed in a future release. Kernels
   are evaluated exactly, so there is no subgrid interpolation.
-- `lazy::Bool=false`: When `true`, skip ghost point expansion at construction time.
-  Ghost values are computed on the fly only when evaluating near boundaries, saving memory
-  and speeding up construction — especially in high dimensions. Interior evaluation is
-  unaffected. Set to `false` (default) for eager expansion.
-- `boundary_fallback::Bool=false`: When `true`, near-boundary evaluations use a linear
-  kernel rather than computing full ghost point stencils — correct throughout the domain
-  at the cost of reduced smoothness in the boundary stencil region. Derivatives are not
-  supported in this mode. Required for `N≥4`; only active when `lazy=true`.
+- `lazy::Union{Nothing,Bool}=nothing`: When `true`, skip ghost point expansion at construction
+  time. Ghost values are computed on the fly only when evaluating near boundaries, with exactly
+  the values eager expansion would store, saving memory and construction time — especially in
+  high dimensions. When `false`, all ghost points are expanded at construction. The default,
+  `nothing`, chooses lazy for 5 or more dimensions on uniform grids (fast path, no
+  antiderivatives) and eager otherwise.
+- `boundary_fallback`: Deprecated, has no effect; will be removed in v1.0. Lazy interpolants
+  compute the same boundary ghost values as eager ones, in every dimension.
 
 # Returns
 A `ConvolutionExtrapolation` object callable at arbitrary points within (or, depending on
@@ -86,10 +86,11 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
         extrap::Union{Symbol,AbstractExtrapolation}=Throw(),
         bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect,
         derivative::Union{Int,NTuple{N,Int}}=0, subgrid=nothing,
-        lazy::Bool=false, boundary_fallback::Bool=false) where {T,N}
+        lazy::Union{Nothing,Bool}=nothing, boundary_fallback=nothing) where {T,N}
 
     # deprecated keywords: warn if set, then ignore
     _warn_deprecated_table_keywords(precompute, subgrid)
+    _warn_deprecated_boundary_fallback(boundary_fallback)
 
     # check and normalize inputs
     knots_tuple = knots isa AbstractVector ?
@@ -116,6 +117,11 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
     is_integral = any(d -> derivatives_tuple[d] < 0, 1:N)
     is_nonuniform = any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || any(d -> kernels_tuple[d] == :n3, 1:N)
 
+    # lazy by default from 5 dimensions on uniform grids (fast path, no antiderivatives): eager
+    # expansion adds ghost layers on every axis, which in high dimensions costs far more memory
+    # and construction time than computing the ghosts on the fly near the boundaries
+    lazy = lazy === nothing ? (N >= 5 && fast && !is_integral && !is_nonuniform) : lazy
+
     if is_integral && is_nonuniform
       error("Antiderivatives (derivative < 0) are not supported on nonuniform grids.")
     elseif is_integral && !is_nonuniform
@@ -130,12 +136,8 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
       fast = false # nonuniform grids not supported in fast mode
     end
 
-    if lazy && N>=4 && !boundary_fallback && !is_nonuniform
-        error("Lazy uniform mode requires 'boundary_fallback=true' for dimensions >= 4.")
-    end
-
-    if lazy && any(d -> derivatives_tuple[d] != 0, 1:N) && (boundary_fallback || is_nonuniform)
-        error("In lazy mode, derivatives are only supported in the uniform fast path with 'boundary_fallback=false'.")
+    if lazy && any(d -> derivatives_tuple[d] != 0, 1:N) && is_nonuniform
+        error("In lazy mode, derivatives are only supported on uniform grids (the fast path).")
     end
 
     if lazy && !fast && !is_nonuniform
@@ -155,15 +157,13 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
 
     if extrap == :natural || extrap == Natural()
         return _build_natural(knots_tuple, values, kernels_tuple, fast,
-                              bcs_tuple, derivatives_tuple,
-                              lazy, boundary_fallback)
+                              bcs_tuple, derivatives_tuple, lazy)
     elseif fast
         return _build_fast(knots_tuple, values, kernels_tuple, bcs_tuple,
-                          derivatives_tuple, extrap,
-                          lazy, boundary_fallback)
+                          derivatives_tuple, extrap, lazy)
     else
         return _build_slow(knots_tuple, values, kernels_tuple, bcs_tuple, derivatives_tuple,
-                          extrap, lazy, boundary_fallback)
+                          extrap, lazy)
     end
 end
 
@@ -172,10 +172,9 @@ function _build_fast(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N}
                     bc::NTuple{N,Tuple{Symbol,Symbol}},
                     derivative::NTuple{N,Int},
                     extrap::Union{Symbol,AbstractExtrapolation},
-                    lazy::Bool, boundary_fallback::Bool) where {T,N}
+                    lazy::Bool) where {T,N}
     itp = FastConvolutionInterpolation(knots, values;
-                                  kernel, bc, derivative,
-                                  lazy, boundary_fallback)
+                                  kernel, bc, derivative, lazy)
     return ConvolutionExtrapolation(itp, _extrap_type(extrap))
 end
 
@@ -184,9 +183,9 @@ function _build_slow(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N}
                     bc::NTuple{N,Tuple{Symbol,Symbol}},
                     derivative::NTuple{N,Int},
                     extrap::Union{Symbol,AbstractExtrapolation},
-                    lazy::Bool, boundary_fallback::Bool) where {T,N}
+                    lazy::Bool) where {T,N}
     itp = ConvolutionInterpolation(knots, values; kernel, bc,
-                                  derivative, lazy, boundary_fallback)
+                                  derivative, lazy)
     return ConvolutionExtrapolation(itp, _extrap_type(extrap))
 end
 
@@ -194,19 +193,16 @@ function _build_natural(knots::NTuple{N,AbstractVector}, values::AbstractArray{T
                         kernel::NTuple{N,Symbol}, fast::Bool,
                         bc::NTuple{N,Tuple{Symbol,Symbol}},
                         derivative::NTuple{N,Int},
-                        lazy::Bool, boundary_fallback::Bool) where {T,N}
+                        lazy::Bool) where {T,N}
     # Natural extrapolation always uses eager mode (needs double-extrapolation)
-    itp = ConvolutionInterpolation(knots, values; kernel, bc, derivative, 
-                                    lazy=false, boundary_fallback)
+    itp = ConvolutionInterpolation(knots, values; kernel, bc, derivative, lazy=false)
     bc = ntuple(_ -> (:linear,:linear), N) # overwrites
     if fast
         itp = FastConvolutionInterpolation(itp.knots, itp.coefs;
-                        kernel, bc, derivative,
-                        lazy, boundary_fallback)
+                        kernel, bc, derivative, lazy)
     else
         itp = ConvolutionInterpolation(itp.knots, itp.coefs;
-                        kernel, bc, derivative, 
-                        lazy, boundary_fallback)
+                        kernel, bc, derivative, lazy)
     end
     return ConvolutionExtrapolation(itp, Line())
 end

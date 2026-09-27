@@ -64,40 +64,20 @@ end
         x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]
         x_diff_right = one(T) - x_diff_left
 
-        ng = itp.eqs[1] - 1
-        n = itp.domain_size[1]
-        kernel_type = _kernel_sym(itp.kernel_sym)
-
-        if is_boundary
-            if i - ng < 1
-                ghost_matrix_l = get_polynomial_ghost_coeffs(itp.bc[1][1], kernel_type[1])
-                y_slice_l = view(itp.coefs, 1:size(ghost_matrix_l, 2))
-                mul!(view(itp.lazy_workspace.ghost_buf, 1:ng), view(ghost_matrix_l, 1:ng, :), y_slice_l)
-            end
-            if i + itp.eqs[1] > n
-                ghost_matrix_r = get_polynomial_ghost_coeffs(itp.bc[1][2], kernel_type[1])
-                ns_r = size(ghost_matrix_r, 2)
-                for k in 1:ng
-                    itp.lazy_workspace.ghost_buf[k] = sum(ghost_matrix_r[k, m] * itp.coefs[n - m + 1] for m in 1:ns_r)
-                end
-            end
-        end
-
         # Kernel weights of all 2·eqs columns at τ = x_diff_right (column k ↔ index i + k − eqs)
         w = _kernel_weights(Val(DG[1]), Val(DO[1]), x_diff_right)
 
-        # Dot product over the stencil; out-of-domain coefficients come from the ghost buffer
-        result = zero(T)
-        @inbounds for k in 1:length(w)
-            abs_idx = i + k - itp.eqs[1]
-            coef = if abs_idx < 1
-                itp.lazy_workspace.ghost_buf[1 - abs_idx]
-            elseif abs_idx > n
-                itp.lazy_workspace.ghost_buf[abs_idx - n]
-            else
-                itp.coefs[abs_idx]
+        result = if is_boundary
+            # the stencil reaches past the domain: ghosts formed on a local patch, as eager forms them
+            _lazy_patch_sum(itp, (i,), (w,))
+        else
+            # the whole stencil lies inside the domain: a plain dot product, as in eager mode
+            offset = i - itp.eqs[1]                       # stencil offset
+            acc = zero(T)
+            @inbounds @simd for k in 1:length(w)
+                acc += itp.coefs[offset + k] * w[k]
             end
-            result += coef * w[k]
+            acc
         end
 
         return result * (-one(T)/itp.h[1])^DO[1]

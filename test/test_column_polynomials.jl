@@ -46,21 +46,3 @@ end
     @test [CI._kernel_value_exact(:a0, 1, σ) for σ in -2:2] == [-1//2, -1//2, 0, 1//2, 1//2]
     @test [CI._kernel_value_exact(:a0, 2, σ) for σ in -2:2] == [1, 1//2, 1//8, 1//2, 1]
 end
-
-# For order 1, the polynomial left tail must reproduce the existing order-1 prefix sums, along
-# each dimension of a 2D coefficient array. (Differences can only be in the last bit: the new
-# builder rounds ½ − K̃ once from the exact value.)
-@testset "Polynomial left tail reproduces order-1 tails" begin
-    CI = ConvolutionInterpolations
-    rng = Random.MersenneTwister(5)
-    for kernel in (:a0, :a1, :a3, :b5, :b13)
-        eqs = CI.get_equations_for_degree(kernel)
-        coefs = randn(rng, 30, 27)
-        for d in 1:2
-            # today's order-1 tail: prefix sum of c·(½ − left value) along dimension d
-            lv = CI._compute_left_values(Float64, kernel, eqs, size(coefs, d))
-            expected = cumsum(coefs .* CI._left_weights(lv, d, Val(2)), dims=d)
-            @test CI._left_tail_polynomial(coefs, kernel, 1, eqs, d)[1] ≈ expected rtol=1e-13
-        end
-    end
-end

@@ -164,8 +164,6 @@ See also: `DerivativeOrder`, `convolution_interpolation`.
 """
 struct IntegralOrder end
 
-struct FastIntegralOrder end
-
 """
     FastIntegralOrders{DO}
 

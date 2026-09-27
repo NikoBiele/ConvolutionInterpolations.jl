@@ -145,9 +145,6 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
 
     anchor = ntuple(d -> derivative[d] < 0 ? knots_new[d][eqs[d]] : zero(T), N)
 
-    left_values, tail1_left, tail2_ll, tail3_edge_ll, tail3_corner_lll =
-                                    _build_tails(coefs, kernel, Val{DV}(), eqs, knots_new)
-
     kernel_type = ntuple(d -> nothing, N)
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
     integral_dimension = n_integral <= 3 ? Val(n_integral) : HigherDimension(Val(n_integral))
@@ -161,7 +158,7 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
 
     # integrals of any order in any dimension: exact anchoring and entry tables per integral
     # dimension, and the left tails of every region (tails only for at most 3 integral dimensions)
-    if any(<(0), derivative) && !all(==(-1), derivative)
+    if any(<(0), derivative)
         integral_taylor = ntuple(d -> derivative[d] < 0 ?
                                  _anchor_taylor_table(T, kernel[d], -derivative[d], eqs[d]) :
                                  Matrix{T}(undef, 0, 0), N)
@@ -184,102 +181,14 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
                                         typeof(Val{LZ}()),typeof(integral_dimension),typeof(domain_size)}(
         coefs, domain_size, knots_new, h, x0, kernel_type, dimension, kernels, eqs,
         bc, do_type, nothing, nothing, Val(:not_used),
-        Val{LZ}(), boundary_fallback, left_values, anchor, integral_dimension, lazy_workspace,
-        tail1_left, tail2_ll, tail3_edge_ll, tail3_corner_lll,
+        Val{LZ}(), boundary_fallback, anchor, integral_dimension, lazy_workspace,
         integral_taylor, integral_entries, integral_tails,
     )
 end
 
-function _build_tails(coefs::AbstractArray{T,N}, kernel, ::Val{DV}, eqs, knots_new) where {T,N,DV}
-    # the order-1 tails are only read by the pure first-order integral evaluators; every other
-    # integral uses the generic data (integral_taylor, integral_entries, integral_tails)
-    n_integral = all(==(-1), DV) ? N : 0
-    derivative = DV
-    integral_type = n_integral <= 3 ? Val(n_integral) : HigherDimension(Val(n_integral))
-    return _build_tails_dispatch(coefs, kernel, derivative, eqs, knots_new, integral_type)
-end
-
-# Anchoring constants (antiderivative kernel at the anchor) of every integral dimension,
-# and a one-element placeholder in the other dimensions
-_all_left_values(coefs::AbstractArray{T,N}, kernel, derivative, eqs) where {T,N} =
-    ntuple(N) do d
-        derivative[d] == -1 ? _compute_left_values(T, kernel[d], eqs[d], size(coefs, d)) : [zero(T)]
-    end
-
-# Weights ½ − left value of the coefficients left of the stencil in dimension d, shaped to
-# broadcast along dimension d of an N-dimensional array
-_left_weights(left_values::Vector{T}, d::Int, ::Val{N}) where {T,N} =
-    T(1//2) .- reshape(left_values, ntuple(i -> i == d ? length(left_values) : 1, N))
-
-# Left tail in each integral dimension: prefix sums along that dimension
-_all_tail1_left(coefs::AbstractArray{T,N}, left_values, derivative, placeholder) where {T,N} =
-    ntuple(N) do d
-        derivative[d] == -1 ? cumsum(coefs .* _left_weights(left_values[d], d, Val(N)), dims=d) :
-                              placeholder
-    end
-
-function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::Val{0}) where {T,N}
-    # no integral dimensions: placeholders only
-    placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
-    left_values = ntuple(_ -> [zero(T)], N)
-    return left_values, ntuple(_ -> placeholder, N), placeholder,
-           ntuple(_ -> placeholder, 3), placeholder
-end
-
-function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::Val{1}) where {T,N}
-    # one integral dimension: left tail only
-    placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
-    left_values = _all_left_values(coefs, kernel, derivative, eqs)
-    tail1_left = _all_tail1_left(coefs, left_values, derivative, placeholder)
-    return left_values, tail1_left, placeholder,
-           ntuple(_ -> placeholder, 3), placeholder
-end
-
-function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::Val{2}) where {T,N}
-    # two integral dimensions: left tails, and the corner left in both
-    placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
-    int_dims = findall(d -> derivative[d] == -1, 1:N)
-    left_values = _all_left_values(coefs, kernel, derivative, eqs)
-    tail1_left = _all_tail1_left(coefs, left_values, derivative, placeholder)
-    wl1 = _left_weights(left_values[int_dims[1]], int_dims[1], Val(N))
-    wl2 = _left_weights(left_values[int_dims[2]], int_dims[2], Val(N))
-    tail2_ll = cumsum(cumsum(coefs .* wl1 .* wl2, dims=int_dims[1]), dims=int_dims[2])
-    return left_values, tail1_left, tail2_ll,
-           ntuple(_ -> placeholder, 3), placeholder
-end
-
-function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::Val{3}) where {T,N}
-    # three integral dimensions: left tails, the three left-left edges, and the left corner
-    placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
-    int_dims = findall(d -> derivative[d] == -1, 1:N)
-    left_values = _all_left_values(coefs, kernel, derivative, eqs)
-    tail1_left = _all_tail1_left(coefs, left_values, derivative, placeholder)
-    wl1 = _left_weights(left_values[int_dims[1]], int_dims[1], Val(N))
-    wl2 = _left_weights(left_values[int_dims[2]], int_dims[2], Val(N))
-    wl3 = _left_weights(left_values[int_dims[3]], int_dims[3], Val(N))
-    # edge k is free in the k-th integral dimension and left-saturated in the other two
-    tail3_edge_ll = (cumsum(cumsum(coefs .* wl2 .* wl3, dims=int_dims[2]), dims=int_dims[3]),
-                     cumsum(cumsum(coefs .* wl1 .* wl3, dims=int_dims[1]), dims=int_dims[3]),
-                     cumsum(cumsum(coefs .* wl1 .* wl2, dims=int_dims[1]), dims=int_dims[2]))
-    tail3_corner_lll = cumsum(cumsum(cumsum(coefs .* wl1 .* wl2 .* wl3, dims=int_dims[1]),
-                                     dims=int_dims[2]), dims=int_dims[3])
-    return left_values, tail1_left, placeholder, tail3_edge_ll, tail3_corner_lll
-end
-
-function _build_tails_dispatch(coefs::AbstractArray{T,N}, kernel, derivative, eqs, knots_new, ::HigherDimension{NI}) where {T,N,NI}
-    # more than 3 integral dimensions: evaluated by direct summation, no tail arrays needed
-    placeholder = Array{T,N}(undef, ntuple(_ -> 0, N)...)
-    left_values = _all_left_values(coefs, kernel, derivative, eqs)
-    return left_values, ntuple(_ -> placeholder, N), placeholder,
-           ntuple(_ -> placeholder, 3), placeholder
-end
-
 @generated function _build_fast_do_type(::Val{D}) where D
-    if all(==(-1), D)
-        # pure first-order integrals: the specialized evaluators, fastest for this case
-        return :(FastIntegralOrder())
-    elseif any(<(0), D)
-        # every other integral: any orders, possibly mixed with interpolation or derivatives
+    if any(<(0), D)
+        # every integral: any orders, possibly mixed with interpolation or derivatives
         return :(FastIntegralOrders{$D}())
     else
         return :(DerivativeOrder(Val($D)))
@@ -306,23 +215,4 @@ end
         end
     end
     return T
-end
-
-# K̃ at the integer offset eqs − j of every coefficient j: the anchoring constants of an
-# integral dimension. Exact: the constant terms of the column polynomials of K̃ (their value
-# at τ = 0), rounded once to T, and the saturated values ±½ outside the kernel support.
-function _compute_left_values(T, kernel::Symbol, eqs::Int, n_coefs_d::Int)
-    lv = zeros(T, n_coefs_d)
-    columns = kernel == :a0 ? nothing : _column_polynomials_exact(kernel, -1)
-    for j in 1:n_coefs_d
-        s = eqs - j                                   # integer offset of coefficient j
-        if abs(s) >= eqs
-            lv[j] = T(1//2) * T(sign(s))              # outside the support: saturated
-        elseif kernel == :a0
-            lv[j] = zero(T)                           # :a0 (eqs = 1): only s = 0 is inside, K̃(0) = 0
-        else
-            lv[j] = T(columns[s + eqs + 1][1])        # column c = s + eqs + 1, at τ = 0
-        end
-    end
-    return lv
 end

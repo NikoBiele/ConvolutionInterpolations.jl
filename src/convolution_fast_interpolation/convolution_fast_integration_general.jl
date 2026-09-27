@@ -69,15 +69,38 @@ end
 @inline _pad_weights(w::NTuple{K,T}, ::Val{Kmax}) where {K,T,Kmax} =
     ntuple(k -> k <= K ? w[k] : zero(T), Val(Kmax))
 
-# Product of the stencil weights of all dimensions not in the tail, for coefficient index I
-@inline function _stencil_weight_product(W::NTuple{N,NTuple{K,T}}, I::CartesianIndex{N},
-                                         i::NTuple{N,Int}, eqs::NTuple{N,Int},
-                                         in_tail::NTuple{N,Bool}) where {N,K,T}
-    p = one(T)
-    @inbounds for d in 1:N
-        in_tail[d] || (p *= W[d][I[d] - i[d] + eqs[d]])
+# Σ over the stencil of coefs[o + k] · Π_d W[d][k_d], k_d = 1 … len[d], contracted one axis at a
+# time as in the value evaluators: a vectorised inner loop along the first (contiguous) axis,
+# then one multiplication per partial sum on each further axis. For N = 3 this generates
+#     s3 = 0; for k3: (s2 = 0; for k2: (s1 = 0; @simd for k1: s1 += c·W[1][k1]); s2 += s1·W[2][k2]); s3 += s2·W[3][k3]
+@generated function _stencil_contract(coefs::AbstractArray{T,N}, W::NTuple{N,NTuple{K,T}},
+                                      o::NTuple{N,Int}, len::NTuple{N,Int}) where {T,N,K}
+    k = [Symbol(:k, d) for d in 1:N]                     # loop index per axis
+    s = [Symbol(:s, d) for d in 1:N]                     # partial sum over axes 1 … d
+    idx = [:(o[$d] + $(k[d])) for d in 1:N]              # coefficient index along each axis
+    # innermost: the first axis, contiguous in memory
+    body = quote
+        $(s[1]) = zero(T)
+        @simd for $(k[1]) in 1:len[1]
+            $(s[1]) += coefs[$(idx...)] * W[1][$(k[1])]
+        end
     end
-    return p
+    # every further axis wraps the previous level and weights its partial sum
+    for d in 2:N
+        body = quote
+            $(s[d]) = zero(T)
+            for $(k[d]) in 1:len[$d]
+                $body
+                $(s[d]) += $(s[d-1]) * W[$d][$(k[d])]
+            end
+        end
+    end
+    return quote
+        @inbounds begin
+            $body
+        end
+        return $(s[N])
+    end
 end
 
 # Π t_d^k_d for moment index `lin` of a region (last tail dimension's power varying fastest)
@@ -96,34 +119,34 @@ end
 end
 
 # At most 3 integral dimensions: the center plus every region with precomputed tails
-function _integral_sum_tails(itp::FastConvolutionInterpolation{T,N}, W, i::NTuple{N,Int},
-                             t::NTuple{N,T}, ::Val{DO}) where {T,N,DO}
+function _integral_sum_tails(itp::FastConvolutionInterpolation{T,N}, W::NTuple{N,NTuple{K,T}},
+                             i::NTuple{N,Int}, t::NTuple{N,T}, ::Val{DO}) where {T,N,K,DO}
     eqs = itp.eqs
     ranks = _integral_ranks(Val(DO))
     orders = _integral_orders_abs(Val(DO))
     n_int = _count_negative(Val(DO))
-    stencil = ntuple(d -> (i[d] - eqs[d] + 1):(i[d] + eqs[d]), N)
-    result = zero(T)
+    o = ntuple(d -> i[d] - eqs[d], N)                    # stencil entry k of axis d is coefficient o[d] + k
+    len = ntuple(d -> 2eqs[d], N)                        # stencil length per axis
 
-    # region 0: every dimension within the stencil
-    none = ntuple(_ -> false, N)
-    @inbounds for I in CartesianIndices(stencil)
-        result += itp.coefs[I] * _stencil_weight_product(W, I, i, eqs, none)
-    end
+    # region 0: every dimension within the stencil, contracted one axis at a time
+    result = _stencil_contract(itp.coefs, W, o, len)
 
-    # regions 1 … 2^n − 1: the integral dimensions whose bit is set lie left of the stencil
+    # regions 1 … 2^n − 1: the integral dimensions whose bit is set lie left of the stencil. On
+    # those axes only the tail entry at the coefficient just left of the stencil (o[d]) is read,
+    # with weight 1; the other axes are contracted with their stencil weights as in region 0.
+    # Each moment array is contracted on its own and weighted by its power Π t_d^k_d.
+    unit = ntuple(k -> k == 1 ? one(T) : zero(T), Val(K))   # weight vector selecting entry 1 only
     @inbounds for mask in 1:(1 << n_int) - 1
         in_tail = ntuple(d -> ranks[d] > 0 && ((mask >> (ranks[d] - 1)) & 1) == 1, N)
         # empty unless there are coefficients left of the stencil in all of the region's dimensions
-        all(ntuple(d -> !in_tail[d] || i[d] - eqs[d] >= 1, N)) || continue
-        ranges = ntuple(d -> in_tail[d] ? ((i[d] - eqs[d]):(i[d] - eqs[d])) : stencil[d], N)
-        arrays = itp.integral_tails[mask]
-        for I in CartesianIndices(ranges)
-            acc = zero(T)
-            for lin in eachindex(arrays)
-                acc += arrays[lin][I] * _moment_power(lin, t, in_tail, orders)
-            end
-            result += _stencil_weight_product(W, I, i, eqs, in_tail) * acc
+        all(ntuple(d -> !in_tail[d] || o[d] >= 1, N)) || continue
+        W_r = ntuple(d -> in_tail[d] ? unit : W[d], N)       # unit weight on the tail axes
+        o_r = ntuple(d -> in_tail[d] ? o[d] - 1 : o[d], N)   # tail axes: entry 1 is coefficient o[d]
+        len_r = ntuple(d -> in_tail[d] ? 1 : len[d], N)      # tail axes: that single entry
+        arrays = itp.integral_tails[mask]                     # one array per moment of this region
+        for lin in eachindex(arrays)
+            result += _moment_power(lin, t, in_tail, orders) *
+                      _stencil_contract(arrays[lin], W_r, o_r, len_r)
         end
     end
     return result

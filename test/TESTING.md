@@ -167,7 +167,7 @@ Expected convergence orders: `:a3` → 3rd order, `:b5` → 7th order.
 
 ### Higher-order integrals
 
-`test_higher_integrals.jl` covers `derivative = -m` for m ≥ 2, evaluated by the generic integral evaluator:
+`test_higher_integrals.jl` covers `derivative = -m` for m ≥ 2. Every integral order, including order 1 (see the antiderivative tests above), is evaluated by the same generic integral evaluator:
 
 - **Exactness on reproduced data**: every kernel reproduces linear data (`:a0` constants), so every order up to each kernel's cap must match the closed-form m-fold integral to rounding (tolerance `1e-13`).
 - **Consistency between orders**: F_m(x) must equal ∫ₐˣ F_(m−1)(t) dt, computed by 12-point Gauss–Legendre quadrature of the package's own order-(m−1) interpolant on every half grid step, where it is a polynomial. Checks anchoring and tails on smooth, non-polynomial data (tolerance `1e-12`).
@@ -175,7 +175,6 @@ Expected convergence orders: `:a3` → 3rd order, `:b5` → 7th order.
 - **Precision**: Float32 in gives Float32 out; BigFloat is exact on linear data far beyond Float64 precision.
 - **N-D**: separable data, where the result must equal the product of 1D results.
 - **Errors**: orders beyond a kernel's cap, lazy mode (for all integral orders), the direct path, and nonuniform grids.
-- **Construction links to order 1**: for order 1, the polynomial left tails, the region tails and the anchored stencil weights must reproduce the existing order-1 construction.
 
 ### Mixed integral/derivative orders
 

@@ -183,23 +183,6 @@ keeps the result type-stable even when kernels differ between dimensions.
     return :(tuple($(calls...)))
 end
 
-"""
-    _antiderivative_weight(w, i, eqs, j)
-
-K̃ weight of coefficient j for a point in cell i, from the column weights `w` of that dimension
-at τ = t (see `_kernel_weights` with derivative −1): column c = i + eqs + 1 − j inside the
-stencil, and the saturated values outside it (+½ left of the stencil, −½ right of it).
-"""
-@inline function _antiderivative_weight(w::NTuple{K,T}, i::Int, eqs::Int, j::Int) where {K,T}
-    c = i + eqs + 1 - j
-    c > K && return T(1//2)
-    c < 1 && return -T(1//2)
-    return @inbounds w[c]
-end
-
-# Val((−1, −1, …, −1)) for N dimensions, as a compile-time constant
-@generated _integral_orders(::Val{N}) where {N} = :(Val($(ntuple(_ -> -1, N))))
-
 # ---------------------------------------------------------------------------------------------
 # Higher integral orders
 # ---------------------------------------------------------------------------------------------
@@ -353,6 +336,38 @@ function _build_region_tails(coefs::AbstractArray{T,N}, kernels::NTuple{N,Symbol
 end
 
 """
+    _far_stencil_rows(Val(kernel), Val(M), T)
+
+Anchored weights of a cell whose whole stencil lies beyond the anchor's reach (every coefficient
+j ≥ 2·eqs), as polynomials in t, in eager order: entry k is the weight of coefficient
+j = i − eqs + k. Each is the column polynomial of K_M with the far field
+(u − j)^(M−1) / (2(M−1)!) folded in, where u − j = t + o and o is the column's offset. Derived
+exactly in Rational{BigInt} and rounded once to `T`, in the layout of `_column_rows`
+(rows[d][k] = coefficient of t^(d−1) for entry k), so such a cell costs one Horner evaluation.
+Not defined for :a0, which has no column polynomials.
+"""
+@generated function _far_stencil_rows(::Val{kernel}, ::Val{M}, ::Type{T}) where {kernel,M,T}
+    columns = _column_polynomials_exact(kernel, -M)      # column c holds K_M(o + t), o = c − 1 − eqs
+    K = length(columns)                                  # 2·eqs columns
+    eqs = K ÷ 2                                          # stencil half-width
+    fac = 2 * factorial(big(M - 1))                      # divisor of the far field
+    folded = map(1:K) do c
+        o = big(c - 1 - eqs)                             # offset of column c, so u − j = t + o
+        p = copy(columns[c])                             # exact coefficients of t^0, t^1, …
+        length(p) < M && append!(p, zeros(Rational{BigInt}, M - length(p)))  # room for t^(M−1)
+        for k in 0:M-1
+            # (t + o)^(M−1) / (2(M−1)!): the coefficient of t^k is binomial(M−1, k)·o^(M−1−k) / fac
+            p[k+1] += binomial(big(M - 1), big(k)) * o^(M - 1 - k) // fac
+        end
+        p
+    end
+    D = maximum(length, folded)                          # number of rows (highest power + 1)
+    # entry k (coefficient j = i − eqs + k) is held by column K + 1 − k, as in `_anchored_weight`
+    rows = ntuple(d -> ntuple(k -> d <= length(folded[K+1-k]) ? T(folded[K+1-k][d]) : zero(T), K), D)
+    return :($rows)
+end
+
+"""
     _anchored_stencil_weights(Val(kernel), Val(M), t, i, eqs, taylor)
 
 Anchored weights of the 2·eqs stencil coefficients of one integral dimension of order M, for a
@@ -361,9 +376,18 @@ j = i − eqs + k. The anchored weight is K_M(u − j) − Σ_r K_{M−r}(eqs �
 (u = i + t): the column polynomial of K_M minus the Taylor polynomial at the anchor, which for
 coefficients far from the anchor (j ≥ 2·eqs) is the far field −(u − j)^(M−1) / (2(M−1)!), and
 for those near it comes from the exact table `taylor` (see `_anchor_taylor_table`).
+
+In a cell whose whole stencil is far from the anchor (i ≥ 3·eqs − 1, almost every cell on a
+large grid), the weights come directly from the exactly folded table `_far_stencil_rows`: one
+branch per cell instead of one per coefficient, and one rounding per table entry.
 """
 @inline function _anchored_stencil_weights(::Val{kernel}, ::Val{M}, t::T, i::Int, eqs::Int,
                                            taylor::AbstractMatrix{T}) where {kernel,M,T}
+    # whole stencil beyond the anchor's reach (its first coefficient i − eqs + 1 ≥ 2·eqs): the
+    # folded table. kernel is a compile-time constant, so the :a0 test disappears when compiled
+    if kernel !== :a0 && i - eqs + 1 >= 2eqs
+        return _column_weights(_far_stencil_rows(Val(kernel), Val(M), T), t)
+    end
     # K_M weights of all columns: column c holds K_M(c − 1 − eqs + t), the weight of j = i + eqs + 1 − c
     w = _kernel_weights(Val(kernel), Val(-M), t)
     v = T(i - eqs) + t                                   # u − eqs: position relative to the anchor

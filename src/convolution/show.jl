@@ -45,7 +45,6 @@ _show_deg(other) = other
 
 _show_do(::DerivativeOrder{DO}) where DO = DO isa Tuple && length(DO) == 1 ? "derivative=$(DO[1])" : allequal(DO) ? "derivative=$(DO[1])" : "derivative=$DO"
 _show_do(::IntegralOrder)                = "integral"
-_show_do(::FastIntegralOrder)            = "integral"
 _show_do(::FastIntegralOrders{DO}) where DO = length(DO) == 1 ? "derivative=$(DO[1])" : "derivative=$DO"
 _show_do(::MixedIntegralOrder{DO}) where DO = "mixed=$DO"
 

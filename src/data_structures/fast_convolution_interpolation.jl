@@ -42,19 +42,9 @@ rounding for every kernel, derivative and integral order.
 - `lazy::LZ`: If `Val(true)`, ghost points are computed on the fly near the boundaries
 - `boundary_fallback::Bool`: In lazy mode, use linear interpolation near the boundaries
   instead of computing ghost points
-- `left_values::NTuple{N,Vector{T}}`: Antiderivative kernel at the anchor, per coefficient,
-  for integral dimensions
 - `anchor::NTuple{N,T}`: Point where antiderivatives are zero, per integral dimension
 - `dim_integral::DI`: Integral dimension type for dispatch
 - `lazy_workspace::LazyBoundaryWorkspace{T,N}`: Scratch buffers for lazy boundary evaluation
-- `tail1_left`, `tail2_ll`, `tail3_edge_ll`, `tail3_corner_lll`: Prefix sums of the
-  antiderivative contributions left of the stencil, for O(1) integral evaluation. Coefficients
-  right of the stencil contribute exactly zero, so there are no right tails.
-- `anchor_taylor::Matrix{T}`: For a 1D integral of order M ≥ 2, the exact values
-  K_{M−r}(eqs − j) of the coefficients near the anchor (r = 0 … M−1), which anchor the M-fold
-  integral and all lower integrals at zero
-- `tail_polynomial::Vector{Array{T,N}}`: For a 1D integral of order M ≥ 2, the left tail as
-  a polynomial in the position within the cell: array k holds the coefficient of t^(k−1)
 - `integral_taylor::NTuple{N,Matrix{T}}`: For each integral dimension of order m, the exact values
   K_{m−r}(eqs − j) of the coefficients near the anchor (see `_anchor_taylor_table`)
 - `integral_entries::NTuple{N,Matrix{T}}`: For each integral dimension, the exact polynomials
@@ -91,16 +81,9 @@ struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
     subgrid::SG
     lazy::LZ
     boundary_fallback::Bool
-    left_values::NTuple{N, Vector{T}}
     anchor::NTuple{N, T}
     dim_integral::DI
     lazy_workspace::LazyBoundaryWorkspace{T,N}
-    # integral tails: prefix sums over the coefficients left of the stencil (coefficients right
-    # of it contribute exactly zero, so no right tails exist)
-    tail1_left::NTuple{N, Array{T,N}}      # left-saturated in one integral dimension
-    tail2_ll::Array{T,N}                   # left-saturated in both of 2 integral dimensions
-    tail3_edge_ll::NTuple{3, Array{T,N}}   # 3 integral dims: free in dim k, left-saturated in the other two
-    tail3_corner_lll::Array{T,N}           # 3 integral dims: left-saturated in all three
     # integrals of any order in any dimension (see FastIntegralOrders)
     integral_taylor::NTuple{N, Matrix{T}}      # per integral dimension: exact anchoring table
     integral_entries::NTuple{N, Matrix{T}}     # per integral dimension: near-anchor entry polynomials

@@ -31,7 +31,7 @@ end
             f = dims == 1 ? g1.(vec(pts)) :
                 dims == 2 ? [g2(pts[1,i], pts[2,i]) for i in 1:size(pts,2)] :
                             [g3(pts[1,i], pts[2,i], pts[3,i]) for i in 1:size(pts,2)]
-            itp = convolution_interpolation(pts, f)
+            itp = convolution_interpolation(pts, f; mode = :exact)
             res = maximum(abs(itp(pts[:, i]...) - f[i]) for i in 1:size(pts, 2))
             @test res < tol
         end
@@ -51,7 +51,7 @@ end
             pts[2, k] = clamp(xg[ci[2]] + 1e-3h * (2rand(rng) - 1), 0.0, 1.0)
         end
         vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
-        itp_sc = convolution_interpolation(pts, vals; kernel = :b5)
+        itp_sc = convolution_interpolation(pts, vals; kernel = :b5, mode = :exact)
         ev = range(0.1, 0.9, length = 21)
         dmax = maximum(abs(itp_sc(x, y) - itp_grid(x, y)) for x in ev, y in ev)
         @test dmax < 1e-3          # O(perturbation * f') + both fit errors
@@ -65,7 +65,7 @@ end
             rng = MersenneTwister(3)
             pts = jittered_pts(n_side, 0.35, rng)
             vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
-            itp = convolution_interpolation(pts, vals; kernel = :b5)
+            itp = convolution_interpolation(pts, vals; kernel = :b5, mode = :exact)
             ev = range(0.1, 0.9, length = 31)
             push!(rmss, sqrt(mean((itp(x, y) - g2(x, y))^2 for x in ev, y in ev)))
         end
@@ -78,7 +78,7 @@ end
         rng = MersenneTwister(3)
         pts = jittered_pts(40, 0.35, rng)
         vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
-        knots, gvals, _ = fit_scattered(pts, vals; kernel = :b5)
+        knots, gvals, _ = fit_scattered(pts, vals; kernel = :b5, mode = :exact)
         ev = range(0.1, 0.9, length = 31)
         d1 = FastConvolutionInterpolation(knots, gvals; kernel = :b5, bc = :poly,
                                         derivative = (1, 0))
@@ -93,7 +93,7 @@ end
         rng = MersenneTwister(3)
         pts = jittered_pts(57, 0.35, rng)
         vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
-        knots, gvals, _ = fit_scattered(pts, vals; kernel = :b5)
+        knots, gvals, _ = fit_scattered(pts, vals; kernel = :b5, mode = :exact)
         Ixy = FastConvolutionInterpolation(knots, gvals; kernel = :b5, bc = :poly,
                                         derivative = (-1, -1))
         for (a, b, c, d) in ((0.1, 0.9, 0.1, 0.9), (0.2, 0.5, 0.3, 0.8))
@@ -108,9 +108,9 @@ end
         xs = sort(rand(rng, 60))
         pts = reshape(xs, 1, :)
         vals = g1.(xs)
-        _, v_ns, _ = fit_scattered(pts, vals; solver = :nullspace, gridsize = 96)
+        _, v_ns, _ = fit_scattered(pts, vals; mode = :exact, solver = :nullspace, gridsize = 96)
         for s in (:cholesky, :qr)
-            _, v_s, _ = fit_scattered(pts, vals; solver = s, gridsize = 96)
+            _, v_s, _ = fit_scattered(pts, vals; mode = :exact, solver = s, gridsize = 96)
             @test maximum(abs, v_ns .- v_s) < 1e-4
         end
     end
@@ -144,8 +144,8 @@ end
         @test length.(knots3) == (20, 20)
         @test size(gvals3) == (20, 20)
 
-        # noise-free data: the fit approaches interpolation
-        knots4, gvals4, info4 = fit_scattered(pts, clean; kernel = :b5, mode = :smooth)
+        # noise-free data: the fit approaches interpolation, and the capped grid warns
+        knots4, gvals4, info4 = @test_logs (:warn, r"limited by `oversample`") match_mode = :any fit_scattered(pts, clean; kernel = :b5, mode = :smooth)
         itp4 = FastConvolutionInterpolation(knots4, gvals4; kernel = :b5, bc = :poly)
         rms4 = sqrt(mean((itp4(x, y) - g2(x, y))^2 for x in ev, y in ev))
         @test rms4 < 1e-3
@@ -159,8 +159,8 @@ end
         xs = sort(rand(rng, 400))
         clean1 = g1.(xs)
         noisy1 = clean1 .+ sigma .* randn(rng, length(xs))
-        knots1, gvals1, info1 = fit_scattered(reshape(xs, 1, :), noisy1; mode = :smooth)
-        itp1 = FastConvolutionInterpolation(knots1, gvals1; kernel = :b5, bc = :poly)
+        knots1, gvals1, info1 = fit_scattered(reshape(xs, 1, :), noisy1)         # defaults: :smooth, :a4
+        itp1 = FastConvolutionInterpolation(knots1, gvals1; kernel = :a4, bc = :poly)
         ev1 = range(0.1, 0.9, length = 201)
         rms1 = sqrt(mean((itp1(x) - g1(x))^2 for x in ev1))
         @test rms1 < 0.5 * sigma
@@ -169,6 +169,18 @@ end
         # element type: Float32 data give a Float32 grid
         _, gvals32, _ = fit_scattered(Float32.(pts), Float32.(noisy); kernel = :b5, mode = :smooth)
         @test eltype(gvals32) == Float32
+
+        # defaults: :smooth with kernel :a4 and q = 5, in fit_scattered and the constructor
+        knots6, gvals6, info6 = fit_scattered(pts, noisy)
+        _, gvals7, info7 = fit_scattered(pts, noisy; mode = :smooth, kernel = :a4, q = 5)
+        @test gvals6 == gvals7
+        @test info6 == info7
+        itp6 = convolution_interpolation(pts, noisy)
+        itp7 = FastConvolutionInterpolation(knots6, gvals6; kernel = :a4, bc = :poly)
+        @test maximum(abs(itp6(x, y) - itp7(x, y)) for x in ev, y in ev) < 1e-12
+
+        # a grid capped by oversample below what the fitted smoothing needs warns
+        @test_logs (:warn, r"limited by `oversample`") match_mode = :any fit_scattered(pts, noisy; oversample = 0.2)
 
         # errors: the removed :lsq mode and invalid smoothing parameters
         @test_throws ArgumentError fit_scattered(pts, noisy; mode = :lsq)
@@ -182,7 +194,7 @@ end
         rng = MersenneTwister(13)
         pts = jittered_pts(25, 0.35, rng)
         vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
-        itp = convolution_interpolation(pts, vals; kernel = (:b7, :b5))
+        itp = convolution_interpolation(pts, vals; kernel = (:b7, :b5), mode = :exact)
         res = maximum(abs(itp(pts[1,i], pts[2,i]) - vals[i]) for i in 1:size(pts, 2))
         @test res < 1e-9
     end
@@ -193,7 +205,7 @@ end
         pts = jittered_pts(10, 0.35, rng)
         for T in (Float32, BigFloat)
             vals = T[g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
-            knots, gvals, viol = fit_scattered(T.(pts), vals; kernel = :b5)
+            knots, gvals, viol = fit_scattered(T.(pts), vals; kernel = :b5, mode = :exact)
             @test eltype(gvals) == T
             @test Float64(viol) < 1e-8
         end
@@ -207,7 +219,7 @@ end
         pts[2, :] .= 2 .* pts[2, :] .- 1         # [-1, 1]
         gg(x, y) = sin(2x) * cos(1.5y)
         vals = [gg(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
-        itp = convolution_interpolation(pts, vals; kernel = :b5)
+        itp = convolution_interpolation(pts, vals; kernel = :b5, mode = :exact)
         res = maximum(abs(itp(pts[1,i], pts[2,i]) - vals[i]) for i in 1:size(pts, 2))
         @test res < 1e-9
     end
@@ -229,7 +241,13 @@ end
         # nullspace size cap is a hard error, not a hang
         big = rand(rng, 2, 4000)
         bigv = vec(sum(big; dims = 1))
-        @test_throws Exception fit_scattered(big, bigv; solver = :nullspace)
+        @test_throws Exception fit_scattered(big, bigv; mode = :exact, solver = :nullspace)
+        # :smooth needs more points than the penalty's null space (5^D with q = 5)
+        few = rand(rng, 2, 25)
+        fewv = vec(sum(few; dims = 1))
+        @test_throws ArgumentError fit_scattered(few, fewv)
+        @test_throws ArgumentError fit_scattered(few, fewv; mode = :smooth, q = 5)
+        @test fit_scattered(few, fewv; mode = :exact)[3] < 1e-8     # :exact still fits them
     end
 
     @testset "duplicates and warnings" begin
@@ -238,13 +256,13 @@ end
         pts = rand(rng, 2, 80)
         pts = hcat(pts, pts[:, 1])               # exact duplicate, same value
         vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
-        knots, gvals, viol = fit_scattered(pts, vals; kernel = :b5)
+        knots, gvals, viol = fit_scattered(pts, vals; kernel = :b5, mode = :exact)
         @test viol < 1e-8                        # consistent duplicate is harmless
         # conflicting duplicate: provably infeasible, warning fires deterministically
         pts2 = hcat(pts, pts[:, 1])
         vals2 = vcat(vals, vals[1] + 0.1)
         @test_logs (:warn, r"constraint violation") match_mode = :any begin
-            _, _, viol = fit_scattered(pts2, vals2; kernel = :b5)
+            _, _, viol = fit_scattered(pts2, vals2; kernel = :b5, mode = :exact)
             @test viol > 0.01            # ~|Δv|/2, the LSQ compromise
         end
     end

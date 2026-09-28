@@ -16,8 +16,8 @@ ConvolutionInterpolations.jl uses a new family of high-order convolution kernels
 - **Simple API**: A single interface covers nearest-neighbor through 13th-degree polynomial kernels
 - **Derivatives up to 7th order**: Analytically differentiated kernels, stable and allocation-free
 - **Antiderivative support (uniform)**: Compute 7th order accurate smooth indefinite integrals, including repeated integrals up to 8th order, in any dimension
-- **Scattered data interpolation**: Exact 7th-order interpolation of fully scattered data via `convolution_interpolation(points, values)`, with derivatives and near machine-precision box integrals
-- **Scattered data smoothing**: Fit noisy scattered data with automatically chosen smoothing via `mode=:smooth`
+- **Scattered data smoothing**: Fit noisy scattered data with automatically chosen smoothing, the default for `convolution_interpolation(points, values)`
+- **Scattered data interpolation**: Exact 7th-order interpolation of trusted scattered data via `mode=:exact`, with derivatives and near machine-precision box integrals
 - **Gaussian smoothing**: Recover clean signals from noisy data with `convolution_smooth`
 - **Grid resampling**: High-order separable resampling with `convolution_resample`
 
@@ -73,7 +73,7 @@ plot(p1, p2, layout=(1,2), size=(800,300))
 
 [![2D random interpolation](fig/smooth_2D_interpolation.png)](fig/smooth_2D_interpolation.png)
 
-### Smoothing Noisy Data
+### Smoothing Noisy Gridded Data
 
 `convolution_smooth` applies separable Gaussian kernel smoothing to recover clean signals from noisy data. 
 The kernel is normalized to sum to unity, so the mean signal level is preserved.
@@ -169,20 +169,22 @@ Antiderivatives (`derivative=-1`) are not supported with resampling, use `convol
 
 ### Scattered Data Interpolation (trusted data)
 
-If the scattered data is trusted, measurements the interpolant should pass
-through **exactly**, fit it directly. Pass a `D x N` matrix (each column one
-point) and a value vector; the result behaves like any gridded interpolant:
+By default, scattered data are smoothed (see the next section), because they are
+usually measurements with some noise. If your data are exact, for example samples
+of a known function, use `mode=:exact`: the interpolant then passes through every
+data point. Pass a `D x N` matrix (one point per column) and a vector of values;
+the result behaves like any gridded interpolant:
 
 ```julia
 n = 800
 points = rand(2, n)
 values = [sin(3p[1]) * cos(2p[2]) for p in eachcol(points)]
 
-itp = convolution_interpolation(points, values)   # exact at every data point
-itp_dx = convolution_interpolation(points, values; derivative=(1, 0))
+itp = convolution_interpolation(points, values; mode=:exact)   # exact at every data point
+itp_dx = convolution_interpolation(points, values; mode=:exact, derivative=(1, 0))
 
 # box integrals via the mixed antiderivative (inclusion-exclusion):
-I = convolution_interpolation(points, values; derivative=(-1, -1))
+I = convolution_interpolation(points, values; mode=:exact, derivative=(-1, -1))
 box = I(0.9, 0.8) - I(0.1, 0.8) - I(0.9, 0.2) + I(0.1, 0.2)  # ~1e-13 accurate
 ```
 
@@ -190,18 +192,18 @@ Internally the kernel basis lives on a uniform grid over the data's bounding
 box; the data enter as exact constraints on the grid coefficients, so the
 full gridded machinery applies unchanged. Exact to ~1e-12 at the data,
 ~7th-order convergence for quasi-uniform point sets; 1D–3D recommended.
-Options: `solver=:cholesky` (default) / `:qr` (lowest floor);
-`fit_scattered(points, values)` returns the underlying `(knots, values)`.
-Strongly clustered data warns and degrades gracefully to least squares —
-for noisy data, use `mode=:smooth` below.
+Options: `solver=:cholesky` (default) or `:qr` (lowest roundoff floor).
+`fit_scattered(points, values; mode=:exact)` returns the underlying `(knots, values)`.
+Strongly clustered data trigger a warning, and the fit then degrades gracefully to
+least squares. For noisy data, use the default smoothing described below.
 
 ### Scattered Data Smoothing (noisy data)
 
-For noisy scattered data, fit with `mode=:smooth`. Instead of passing through every
-point, the fit balances closeness to the data against smoothness, and chooses that
-balance itself by generalized cross-validation, so there is no smoothing parameter
-to tune. The result is a high-order interpolant like any other: evaluate it,
-differentiate it, integrate it.
+By default, scattered data are fitted with `mode=:smooth`. Instead of passing through
+every point, the fit balances closeness to the data against smoothness, and chooses
+this balance itself by generalized cross-validation, so there is no smoothing
+parameter to tune. The result is a high-order interpolant like any other: you can
+evaluate, differentiate and integrate it.
 
 ```julia
 using ConvolutionInterpolations, Plots
@@ -211,13 +213,13 @@ n_points = 1000                                                      # number of
 points = rand(2, n_points) .* 2π                                     # one point per column
 values = sin.(points[1,:]) .* sin.(points[2,:]) .+ 0.1 .* randn(n_points)   # signal plus noise (σ = 0.1)
 
-# smoothed interpolant, with the smoothing chosen automatically
-itp = convolution_interpolation(points, values; mode=:smooth)        # f(x,y)
-itp_dx = convolution_interpolation(points, values; mode=:smooth, derivative=(1,0))  # ∂f/∂x
-itp_int = convolution_interpolation(points, values; mode=:smooth, derivative=-1)    # ∫∫f dx dy
+# smoothed interpolant, with the smoothing chosen automatically (the default mode=:smooth)
+itp = convolution_interpolation(points, values)                      # f(x,y)
+itp_dx = convolution_interpolation(points, values; derivative=(1,0)) # ∂f/∂x
+itp_int = convolution_interpolation(points, values; derivative=-1)   # ∫∫f dx dy
 
 # the chosen smoothing and the estimated noise level of the data
-knots, vals, info = fit_scattered(points, values; mode=:smooth)      # the fit behind itp
+knots, vals, info = fit_scattered(points, values)                    # the fit behind itp
 info.noise                                                           # ≈ 0.1, the noise we added
 info.lambda                                                          # the smoothing parameter chosen
 
@@ -238,12 +240,14 @@ plot(p1, p2, p3, p4, layout=(2,2), size=(900,800), colorbar=false, dpi=300)
 
 [![Scattered Data Smoothing](fig/scattered_data_smoothing.png)](fig/scattered_data_smoothing.png)
 
-Passing `lambda=info.lambda` reproduces a fit exactly without repeating the search,
-or applies the same smoothing to other data of the same kind. `fit_scattered` returns
-the fitted grid, with `info.noise` as a check against a known measurement error. By
-default the fit's grid is refined only as far as the chosen smoothing needs, so heavily
-smoothed fits stay fast; a given `gridsize` is used as is. For noisy data that is
-already on a grid, use `convolution_smooth`.
+Passing `lambda=info.lambda` reproduces a fit exactly, without repeating the search,
+or applies the same smoothing to other data of the same kind. `info.noise` is the
+estimated noise level of the data, a useful check against a known measurement error.
+The fit's grid is refined only as far as the chosen smoothing requires, so heavily
+smoothed fits stay fast; a `gridsize` you pass is used as given. On noise-free data
+the fit approaches interpolation, but `mode=:exact` is more accurate there. Smoothing
+needs more than 5^D data points (25 in 2D, 125 in 3D). For noisy data that is already
+on a grid, use `convolution_smooth`.
 
 `scattered_to_grid` is deprecated: `mode=:smooth` replaces the gridding-and-smoothing
 pipeline it was used for, and is more accurate.
@@ -662,8 +666,8 @@ They are still accepted, with a deprecation warning, and will be removed in a fu
 - **Use `:a0`, `:a1` or `:a3` in high dimensions**: Evaluation time of narrower kernels scale better with dimensions
 - **Any precision works out of the box**: `Float32` and `BigFloat` interpolants use the exact kernel coefficients rounded to their own precision
 - **Orthogonal grids assumption**: The separable kernel design requires mutually orthogonal grid axes.
-- **Use `convolution_interpolation(points, values)` for trusted scattered data**: Exact 7th-order fit with derivatives and box integrals
-- **Use `mode=:smooth` for noisy scattered data**: Smoothing chosen automatically, with an estimate of the noise level
+- **Use `mode=:exact` for trusted scattered data**: Exact 7th-order fit with derivatives and box integrals
+- **Keep the default smoothing for noisy scattered data**: Smoothing chosen automatically, with an estimate of the noise level
 - **Use `convolution_smooth` before interpolating noisy gridded data**: Separable Gaussian smoothing with B ≈ 0.1 recommended
 - **Use `convolution_resample` for grid-to-grid operations**: Faster than construct+eval, exploits separability
 
@@ -700,7 +704,7 @@ Key differences from existing interpolation packages:
 - Single interface from nearest-neighbor to 13th-degree kernels
 - Minimal dependencies (LinearAlgebra, SparseArrays, NearestNeighbors.jl)
 - Separable Gaussian smoothing for noisy data in any number of dimensions
-- Complete scattered-data-to-interpolant pipeline via nearest-neighbor gridding
+- Scattered data fitting with automatically chosen smoothing, or exact interpolation
 - Grid-to-grid resampling faster than construct+eval, with alloc count independent of grid size
 - Mixed interpolation, differentiation, and integration in a single operator across arbitrary dimensions
 

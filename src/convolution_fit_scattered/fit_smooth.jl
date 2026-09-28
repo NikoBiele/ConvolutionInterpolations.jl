@@ -225,9 +225,10 @@ end
 
 Penalised fit of `mode = :smooth`. With `n_fixed === nothing` (gridsize = :auto) the grid
 starts at `min(32, g_cap)` knots per axis and is refined, up to `g_cap`, until it resolves the
-fitted cutoff; otherwise the grid `n_fixed` is used as given. Returns the interior knot counts,
-the fitted interior coefficients (Float64, column-major over the grid) and `(lambda, noise)`,
-with `noise` the estimated standard deviation of the data about the fit, √(‖A c − f‖²/(n − tr H)).
+fitted cutoff; if the cap stops the refinement, a warning says the fit may be under-resolved.
+Otherwise the grid `n_fixed` is used as given. Returns the interior knot counts, the fitted
+interior coefficients (Float64, column-major over the grid) and `(lambda, noise)`, with `noise`
+the estimated standard deviation of the data about the fit, √(‖A c − f‖²/(n − tr H)).
 """
 function _fit_smooth(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTuple{D,Symbol},
                      eqs::NTuple{D,Int}, ng::NTuple{D,Int}, G::NTuple{D,Matrix{Float64}},
@@ -249,12 +250,23 @@ function _fit_smooth(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTuple{D
                     "noise ≈ $(round(σ̂; sigdigits = 3)), $(fit.nchol) Cholesky / $(fit.nqr) QR")
         end
         n_fixed === nothing || break                            # a given grid is used as is
-        # refine the axes whose grid is clearly too coarse for the fitted cutoff
-        g_need = ntuple(d -> ceil(Int, min(_SMOOTH_GAMMA * _smooth_cutoff(fit.λ, qv[d]),
-                                           Float64(g_cap[d]))) + 1, D)
-        grow   = ntuple(d -> n_int[d] < g_cap[d] && g_need[d] >= _SMOOTH_REFINE * n_int[d], D)
-        any(grow) || break
-        n_int  = ntuple(d -> grow[d] ? min(g_cap[d], g_need[d]) : n_int[d], D)
+        # knots per axis that resolve the fitted cutoff, and the grid they allow within the cap
+        want   = ntuple(d -> min(_SMOOTH_GAMMA * _smooth_cutoff(fit.λ, qv[d]) + 1, 1e9), D)
+        target = ntuple(d -> min(g_cap[d], ceil(Int, want[d])), D)
+        short  = ntuple(d -> want[d] >= _SMOOTH_REFINE * n_int[d], D)                 # clearly too coarse
+        grow   = ntuple(d -> short[d] && target[d] >= _SMOOTH_REFINE * n_int[d], D)   # and can still grow
+        if !any(grow)
+            if any(short)                                       # too coarse, but stopped by the cap
+                need = join((short[d] ? ceil(Int, want[d]) : n_int[d] for d in 1:D), "×")
+                @warn "fit_scattered (:smooth): the grid ($(join(n_int, "×")) knots) is limited " *
+                      "by `oversample` but the fitted smoothing needs about $need knots; the fit " *
+                      "may be under-resolved, which also inflates the noise estimate. Increase " *
+                      "`oversample` or pass a larger `gridsize`; if the data are noise-free, " *
+                      "use `mode = :exact`."
+            end
+            break
+        end
+        n_int  = ntuple(d -> grow[d] ? target[d] : n_int[d], D)
         λ_prev = fit.λ                                          # warm start on the next grid
     end
     σ̂ = fit.edf < n ? sqrt(fit.rss / (n - fit.edf)) : NaN

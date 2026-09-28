@@ -12,14 +12,20 @@ fitted interior coefficients are the interpolant's values at the interior knots:
 constructors consume.
 
 Two modes:
-- `:exact` (default) interpolates: the fit passes through every data point to
-  machine precision, and among the admissible grids the one minimizing a q-th
-  order roughness seminorm is selected. For trusted, noise-free data.
-- `:smooth` smooths: it minimizes `(1/n)·‖A c − f‖² + lambda·Σ_d ∫|∂_d^q s|²`,
+- `:smooth` (default) smooths: it minimizes `(1/n)·‖A c − f‖² + lambda·Σ_d ∫|∂_d^q s|²`,
   the mean squared misfit plus `lambda` times the roughness (in coordinates
   normalized to the bounding box, so `lambda` does not depend on the grid or the
   units of each axis). By default `lambda` is chosen by generalized
-  cross-validation, so no smoothing parameter needs to be tuned. For noisy data.
+  cross-validation, so no smoothing parameter needs to be tuned. For measured
+  data, which usually carry some noise; on noise-free data it approaches
+  interpolation, less accurately than `:exact`. Needs more data points than the
+  penalty's null space has dimensions: `q^D`, i.e. 125 in 3D with the default
+  `q = 5`.
+- `:exact` interpolates: the fit passes through every data point to machine
+  precision, and among the admissible grids the one minimizing a q-th order
+  roughness seminorm is selected. For trusted, noise-free data only: noise is
+  reproduced exactly and amplified between the points, most of all in
+  derivatives.
 
 # Arguments
 - `points::AbstractMatrix`: `D x Np` matrix; each column is one data point.
@@ -28,26 +34,34 @@ Two modes:
 # Keyword Arguments
 - `kernel::Union{Symbol,NTuple{D,Symbol}}=:auto`: any kernel with a polynomial
   boundary-condition table (`:a3`, `:a4`, `:a5`, `:a7`, `:b5`...`:b13`).
-  `:auto` uses the scattered-path default: `:b5` for 1-3D (measured to be
-  both the fastest and the deepest-converging choice with the default
-  solver), `:a4` for 4-5D, `:a3` above. Note this differs from the gridded
-  default (`:b7` for 1-2D): for scattered data the boundary-condition tables
-  cap all b-kernels at degree-7 reproduction, and `:b5`'s shallower ghost
-  extrapolation gives it the lowest roundoff floor under `:cholesky`.
-- `mode::Symbol=:exact`: `:exact` or `:smooth` (see above).
+  `:auto` uses the scattered-path default. For `:smooth`: `:a4` in every
+  dimension. With noisy data the accuracy is set by the noise and the
+  roughness order rather than the kernel, and `:a4`'s narrow stencil makes the
+  fit 2-3x faster than `:b5` in 2D and 3-9x in 3D at comparable accuracy.
+  Interpolate the fitted grid with the fitting kernel. For `:exact`: `:b5` for
+  1-3D (measured to be both the fastest and the deepest-converging choice with
+  the default solver), `:a4` for 4-5D, `:a3` above. Note this differs from the
+  gridded default (`:b7` for 1-2D): for scattered data the boundary-condition
+  tables cap all b-kernels at degree-7 reproduction, and `:b5`'s shallower
+  ghost extrapolation gives it the lowest roundoff floor under `:cholesky`.
+- `mode::Symbol=:smooth`: `:smooth` or `:exact` (see above).
 - `gridsize::Union{Symbol,Int,NTuple{D,Int}}=:auto`: interior knots per
   dimension. An `Int` or tuple is used as given in both modes. With `:auto`,
-  `:exact` sizes the grid from `oversample` and the data count, and `:smooth`
-  starts from a small grid and refines it until it resolves the fitted
-  smoothing (about eight knots per cycle of its cutoff), up to the grid
-  `oversample` gives.
+  `:smooth` starts from a small grid and refines it until it resolves the
+  fitted smoothing (about eight knots per cycle of its cutoff), up to the grid
+  `oversample` gives, and `:exact` sizes the grid from `oversample` and the
+  data count.
 - `oversample::Real=0.0`: grid knots per data spacing when `gridsize=:auto`:
-  the grid for `:exact`, the largest grid for `:smooth`. `0.0` selects the mode
-  default (1.6 for `:exact`, 0.8 for `:smooth`).
+  the largest grid for `:smooth`, the grid for `:exact`. `0.0` selects the mode
+  default (0.8 for `:smooth`, 1.6 for `:exact`). `:smooth` warns when this limit
+  stops the grid refinement: the fit may then be under-resolved, and a larger
+  `oversample` helps.
 - `q::Union{Int,Symbol}=:auto`: roughness (difference) order of the seminorm.
-  `:auto` uses the boundary-condition stencil width minus one (5 for `:b5`, 7
-  for `:b7`-class tables), which preserves the kernel's convergence order in
-  data gaps.
+  `:auto` uses, for `:smooth`, 5 for every kernel (higher orders make the
+  smoothing system ill-conditioned, lower orders are less accurate); for
+  `:exact`, the boundary-condition stencil width minus one (5 for `:b5`, 7 for
+  `:b7`-class tables), which preserves the kernel's convergence order in data
+  gaps.
 - `lambda::Union{Symbol,Real}=:gcv` (`:smooth` only): the smoothing parameter,
   or `:gcv` to choose it by generalized cross-validation. The `lambda` returned
   by a fit reproduces that fit when passed back.
@@ -71,10 +85,10 @@ Two modes:
 # Returns
 `(knots, vals, third)`: the tuple of interior knot ranges, the array of fitted
 interior grid values, and
-- for `:exact`, `viol`: the final maximum constraint violation;
 - for `:smooth`, `(lambda = λ, noise = σ)`: the smoothing parameter used and
   the estimated standard deviation of the data about the fit,
-  `√(‖A c − f‖² / (n − edf))` with `edf` the fit's effective degrees of freedom.
+  `√(‖A c − f‖² / (n − edf))` with `edf` the fit's effective degrees of freedom;
+- for `:exact`, `viol`: the final maximum constraint violation.
 
 Construct an interpolant with `FastConvolutionInterpolation(knots, vals; bc=:poly, ...)`,
 or use `convolution_interpolation(points, values)` which does this directly.
@@ -88,7 +102,7 @@ to the element type of the data.
 """
 function fit_scattered(points::AbstractMatrix, values::AbstractVector;
                        kernel::Union{Symbol,Tuple{Vararg{Symbol}}}=:auto,
-                       mode::Symbol=:exact,
+                       mode::Symbol=:smooth,
                        gridsize::Union{Symbol,Int,Tuple{Vararg{Int}}}=:auto,
                        oversample::Real=0.0,
                        q::Union{Int,Symbol}=:auto,
@@ -128,7 +142,7 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
     f   = Fs.(values)
 
     # ---- kernels, boundary-condition tables, ghost counts -------------------
-    kernel = kernel === :auto ? _default_scattered_kernel(D) : kernel
+    kernel = kernel === :auto ? _default_scattered_kernel(D, mode) : kernel
     kernels = kernel isa Symbol ? ntuple(_ -> kernel, D) :
               length(kernel) == D ? NTuple{D,Symbol}(kernel) :
               throw(ArgumentError("kernel must be a Symbol or an NTuple{$D,Symbol}."))
@@ -141,7 +155,8 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
     ng  = ntuple(d -> eqs[d] - 1, D)                       # ghosts per side
     G   = ntuple(d -> get_polynomial_ghost_coeffs(:poly, kernels[d]), D)
     ns  = ntuple(d -> size(G[d], 2), D)                    # BC stencil width
-    qv  = ntuple(d -> q === :auto ? ns[d] - 1 : q::Int, D) # roughness orders
+    qv  = ntuple(d -> q !== :auto ? q::Int :               # roughness orders
+                      mode === :smooth ? 5 : ns[d] - 1, D)
 
     # ---- bounding box ---------------------------------------------------------
     lo = ntuple(d -> minimum(view(pts, d, :)), D)
@@ -166,6 +181,11 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
 
     # ---- :smooth: penalised fit with GCV-chosen smoothing (fit_smooth.jl) ----
     if mode === :smooth
+        n_null = prod(qv)                                  # polynomials the penalty does not see
+        Np > n_null ||
+            throw(ArgumentError("mode = :smooth needs more than $n_null data points in $(D)D " *
+                                "with q = $(join(unique(qv), "/")) (the penalty's null space); " *
+                                "got $Np. Use mode = :exact, or a lower q."))
         os    = oversample > 0 ? Float64(oversample) : 0.8
         g_cap = ntuple(d -> max(ns[d], ceil(Int, os * Np^(1 / D)) + 1), D)   # largest :auto grid
         n_int, c_int, info = _fit_smooth(Float64.(pts), Float64.(f), kernels, eqs, ng, G, ns, qv,
@@ -216,10 +236,13 @@ point (`D x Np`); `values` holds the corresponding data values.
 
 Fits the data with `fit_scattered` and wraps the fitted grid in the standard
 fast interpolant, so evaluation, derivatives, and integrals work exactly as for
-gridded data. With the default `mode = :exact` the interpolant passes through
-the data; for noisy data use `mode = :smooth`, which chooses the smoothing
-automatically (to see the chosen `lambda` and the estimated noise, call
-`fit_scattered` directly). All `fit_scattered` keyword arguments are accepted,
+gridded data. The default `mode = :smooth` smooths the data with the smoothing
+chosen automatically, which suits measured, noisy data (to see the chosen
+`lambda` and the estimated noise, call `fit_scattered` directly); for trusted,
+noise-free data use `mode = :exact`, whose interpolant passes through the data.
+Unlike the gridded constructors, which always interpolate, the scattered path
+smooths by default, because scattered data are usually measurements.
+All `fit_scattered` keyword arguments are accepted,
 plus `derivative`, which is forwarded to `FastConvolutionInterpolation`, and
 `extrap`. The deprecated `precompute` and `subgrid` keywords are still accepted
 and forwarded, but have no effect. The boundary condition is fixed to `:poly`
@@ -227,18 +250,18 @@ for consistency with the fit.
 
 ```julia
 pts = rand(2, 500)                                        # 500 scattered points in 2D, one per column
-vals = [sin(3p[1]) * cos(2p[2]) for p in eachcol(pts)]    # exact data at the points
-itp = convolution_interpolation(pts, vals)                # interpolant through the data
-itp(0.4, 0.6)                                             # evaluate anywhere inside the data's box
+vals = [sin(3p[1]) * cos(2p[2]) for p in eachcol(pts)]    # the signal at the points
+noisy = vals .+ 0.05 .* randn(500)                        # measured with noise
+itp = convolution_interpolation(pts, noisy)               # smoothing chosen automatically
+itp(0.4, 0.6)                                             # close to the noise-free value
 
-noisy = vals .+ 0.05 .* randn(500)                        # the same data with noise added
-itp_s = convolution_interpolation(pts, noisy; mode = :smooth)   # smoothing chosen automatically
-itp_s(0.4, 0.6)                                           # close to the noise-free value
+itp_x = convolution_interpolation(pts, vals; mode = :exact)   # noise-free data: interpolate exactly
+itp_x(0.4, 0.6)                                           # evaluate anywhere inside the data's box
 ```
 """
 function convolution_interpolation(points::AbstractMatrix, values::AbstractVector;
                                    kernel::Union{Symbol,Tuple{Vararg{Symbol}}}=:auto,
-                                   mode::Symbol=:exact,
+                                   mode::Symbol=:smooth,
                                    gridsize::Union{Symbol,Int,Tuple{Vararg{Int}}}=:auto,
                                    oversample::Real=0.0,
                                    q::Union{Int,Symbol}=:auto,
@@ -251,7 +274,7 @@ function convolution_interpolation(points::AbstractMatrix, values::AbstractVecto
                                    subgrid=nothing,
                                    extrap::Union{Symbol,AbstractExtrapolation}=Throw())
     D = size(points, 1)
-    kernel_res = kernel === :auto ? _default_scattered_kernel(D) : kernel
+    kernel_res = kernel === :auto ? _default_scattered_kernel(D, mode) : kernel
     knots, vals, _ = fit_scattered(points, values;
                                    kernel = kernel_res, mode, gridsize,
                                    oversample, q, lambda, solver, W, iters, tol, verbose)
@@ -265,10 +288,12 @@ end
 # internals
 # =============================================================================
 
-"""Scattered-path default kernel: `:b5` for 1-3D (fastest and, with the
-default `:cholesky` solver, also the deepest-converging in benchmarks),
-`:a4` for 4-5D, `:a3` above."""
-_default_scattered_kernel(D::Int) = D <= 3 ? :b5 : D <= 5 ? :a4 : :a3
+"""Scattered-path default kernel. `:smooth`: `:a4` in every dimension (accuracy
+is noise-limited, and its narrow stencil keeps the fit fast). `:exact`: `:b5`
+for 1-3D (fastest and, with the default `:cholesky` solver, also the
+deepest-converging in benchmarks), `:a4` for 4-5D, `:a3` above."""
+_default_scattered_kernel(D::Int, mode::Symbol = :smooth) =
+    mode === :smooth ? :a4 : D <= 3 ? :b5 : D <= 5 ? :a4 : :a3
 
 """Sparse collocation matrix over the full (ghost-extended) grid: row i holds
 the tensor-product kernel weights of data point i at the grid knots."""

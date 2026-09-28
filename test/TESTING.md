@@ -62,11 +62,11 @@ The tests are organized into thematic files, all included from `runtests.jl`, gr
 | File | Scope |
 |------|-------|
 | `test_gaussian.jl` | Gaussian smoothing kernel and `convolution_smooth` |
-| `test_scattered_to_grid.jl` | Nearest-neighbor gridding of scattered data |
-| `test_fit_scattered.jl` | Scattered-data fitting: exactness, convergence, derivatives, box integrals |
+| `test_scattered_to_grid.jl` | Nearest-neighbor gridding of scattered data (deprecated `scattered_to_grid`) |
+| `test_fit_scattered.jl` | Scattered-data fitting: smoothing (the default), exact interpolation, convergence, derivatives, box integrals |
 | `test_resample.jl` | `convolution_resample` accuracy, output size, derivatives |
 | `test_show.jl` | `show` output for all interpolant types and options |
-| `test_deprecations.jl` | Deprecated `precompute`/`subgrid`/`boundary_fallback` keywords warn and have no effect |
+| `test_deprecations.jl` | Deprecated `precompute`/`subgrid`/`boundary_fallback` keywords warn and have no effect; deprecated `scattered_to_grid` warns and still works |
 
 ## Kernel Coverage Strategy
 
@@ -246,7 +246,7 @@ Verifies that `bc=:poly` with only 4 grid points is automatically downgraded to 
 
 ### Deprecated keywords
 
-`test_deprecations.jl` verifies that setting `precompute`, `subgrid` or `boundary_fallback` produces a deprecation warning and a result identical to not setting them, and that nothing warns when none is set. Covers `convolution_interpolation`, `FastConvolutionInterpolation`, the scattered-data `convolution_interpolation`, and for `boundary_fallback` also `ConvolutionInterpolation` (nonuniform lazy) with both `true` and `false`, in boundary and interior cells; `convolution_resample` is covered in `test_resample.jl`.
+`test_deprecations.jl` verifies that setting `precompute`, `subgrid` or `boundary_fallback` produces a deprecation warning and a result identical to not setting them, and that nothing warns when none is set. Covers `convolution_interpolation`, `FastConvolutionInterpolation`, the scattered-data `convolution_interpolation`, and for `boundary_fallback` also `ConvolutionInterpolation` (nonuniform lazy) with both `true` and `false`, in boundary and interior cells; `convolution_resample` is covered in `test_resample.jl`. It also verifies that the deprecated `scattered_to_grid` warns and still grids the data.
 
 ### Gaussian kernel
 

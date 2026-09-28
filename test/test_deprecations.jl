@@ -1,5 +1,5 @@
 println("\n" * "-"^60)
-println("Testing deprecated keywords (precompute, subgrid, boundary_fallback)...")
+println("Testing deprecations (precompute, subgrid, boundary_fallback, scattered_to_grid)...")
 println("-"^60)
 
 # `precompute`, `subgrid` and `boundary_fallback` no longer have any effect. Setting them must
@@ -37,10 +37,10 @@ println("-"^60)
         # An evaluation point at the centre of the scattered points
         xc = sum(points[1, :]) / size(points, 2)
         yc = sum(points[2, :]) / size(points, 2)
-        # No keywords: the reference fit
-        s_ref = convolution_interpolation(points, vals)
+        # The reference fit (noise-free data: exact interpolation)
+        s_ref = convolution_interpolation(points, vals; mode = :exact)
         # Deprecated precompute keyword: a warning, and an identical fit
-        s_dep = @test_logs (:warn, r"`precompute` no longer has any effect") convolution_interpolation(points, vals; precompute=101)
+        s_dep = @test_logs (:warn, r"`precompute` no longer has any effect") convolution_interpolation(points, vals; mode = :exact, precompute=101)
         @test s_dep(xc, yc) == s_ref(xc, yc)
     end
 

@@ -334,17 +334,17 @@ Uniform grid kernels
 
 | Kernel | Degree | Continuity | Derivative range | Convergence | stencil |
 |--------|--------|------------|------------------|-------------|-----|
-| `:a0`  | 0      | —          | -1..0            | 1st order   | 2ᴺ   |
-| `:a1`  | 1      | C⁰         | -1..0            | 2nd order   | 2ᴺ   |
-| `:a3`  | 3      | C¹         | -1..1            | 3rd order   | 4ᴺ   |
-| `:a4`  | 3      | C¹         | -1..1            | 4th order   | 6ᴺ   |
-| `:a5`  | 5      | C³         | -1..1            | 3rd order   | 6ᴺ   |
-| `:a7`  | 7      | C⁵         | -1..1            | 3rd order   | 8ᴺ   |
-| `:b5`  | 5      | C³         | -1..3            | 6th order   | 10ᴺ   |
-| `:b7`  | 7      | C⁵         | -1..5            | 7th order   | 12ᴺ   |
-| `:b9`  | 9      | C⁷         | -1..6            | 7th order   | 14ᴺ   |
-| `:b11` | 11     | C⁹         | -1..7            | 7th order   | 16ᴺ   |
-| `:b13` | 13     | C¹¹        | -1..7            | 7th order   | 18ᴺ   |
+| `:a0`  | 0      | —          | -2..0            | 1st order   | 2ᴺ   |
+| `:a1`  | 1      | C⁰         | -2..0            | 2nd order   | 2ᴺ   |
+| `:a3`  | 3      | C¹         | -4..1            | 3rd order   | 4ᴺ   |
+| `:a4`  | 3      | C¹         | -4..1            | 4th order   | 6ᴺ   |
+| `:a5`  | 5      | C³         | -4..1            | 3rd order   | 6ᴺ   |
+| `:a7`  | 7      | C⁵         | -4..1            | 3rd order   | 8ᴺ   |
+| `:b5`  | 5      | C³         | -6..3            | 6th order   | 10ᴺ   |
+| `:b7`  | 7      | C⁵         | -8..5            | 7th order   | 12ᴺ   |
+| `:b9`  | 9      | C⁷         | -8..6            | 7th order   | 14ᴺ   |
+| `:b11` | 11     | C⁹         | -8..7            | 7th order   | 16ᴺ   |
+| `:b13` | 13     | C¹¹        | -8..7            | 7th order   | 18ᴺ   |
 
 Non-uniform grid kernels
 
@@ -489,8 +489,10 @@ itp(1.0, 0.5)   # ≈ 0.0793  (= (1 - sin(1)) · 0.5)
 
 Every order is computed exactly from the kernels' m-fold antiderivatives, and converges at the kernel's
 full rate. The highest order depends on the kernel: 2 for `:a0` and `:a1`, 4 for the other `:a` kernels,
-6 for `:b5`, and 8 for `:b7` through `:b13`. Memory grows with the orders: with up to three integral
-dimensions, construction stores one grid-sized array per combination of powers in each tail region.
+6 for `:b5`, and 8 for `:b7` through `:b13`. Memory grows quickly with the orders: with up to three
+integral dimensions of orders m_d, construction stores Π(1 + m_d) − 1 arrays of the grid's size, for
+example m arrays for order m in one dimension, 8 for `derivative=(-2, -2)`, and 728 for order 8 in three
+dimensions.
 
 In N dimensions the result is the iterated antiderivative:
 

@@ -1,6 +1,6 @@
 name = "ConvolutionInterpolations"
 uuid = "75b5ba44-29d7-490a-960d-52c835d47405"
-version = "0.28.0"
+version = "0.28.1"
 authors = ["Nikolaj Maack Bielefeld"]
 
 [deps]
@@ -9,11 +9,11 @@ NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-LinearAlgebra = "1.0.0 - 1.13.0"
-NearestNeighbors = "0.4.0 - 0.4.28"
-Random = "1.0.0 - 1.11.0"
-SparseArrays = "1.0.0 - 1.13.0"
-StatsBase = "0.20.0 - 0.34.12"
+LinearAlgebra = "1.0 - 1.13"
+NearestNeighbors = "0.4 - 0.4"
+Random = "1.0 - 1.11"
+SparseArrays = "1.0 - 1.14"
+StatsBase = "0.20 - 0.34"
 julia = "1.8"
 
 [extras]

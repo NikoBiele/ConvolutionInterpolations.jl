@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use ConvolutionInterpolations.jl in your work, please cite it as below."
+type: software
+title: "ConvolutionInterpolations.jl: high-order convolution interpolation"
+authors:
+  - given-names: Nikolaj Maack
+    family-names: Bielefeld
+    orcid: "https://orcid.org/0009-0005-4385-6444"
+abstract: >-
+  High-order interpolation, differentiation, integration and smoothing on discrete samples in
+  arbitrary dimensions.
+license: MIT
+version: 0.28.2
+date-released: 2026-10-14
+repository-code: "https://github.com/NikoBiele/ConvolutionInterpolations.jl"
+keywords:
+  - interpolation
+  - convolution
+  - scattered data
+  - smoothing
+  - derivatives
+  - integrals
+  - quadrature
+  - numerical methods
+  - Julia

@@ -12,6 +12,7 @@ abstract: >-
 license: MIT
 version: 0.28.2
 date-released: 2026-10-14
+doi: "10.5281/zenodo.23354656"
 repository-code: "https://github.com/NikoBiele/ConvolutionInterpolations.jl"
 keywords:
   - interpolation

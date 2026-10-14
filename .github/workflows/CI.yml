@@ -34,10 +34,13 @@ jobs:
         arch:
           - x64
         include:
-          # Also test the latest stable release on Windows
+          # Also test the latest stable release on Windows and macOS
           - version: '1'
             os: windows-latest
             arch: x64
+          - version: '1'
+            os: macos-latest
+            arch: aarch64   # macos-latest runners are Apple Silicon
     steps:
       - uses: actions/checkout@v5
       - uses: julia-actions/setup-julia@v2
@@ -47,3 +50,5 @@ jobs:
       - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+        with:
+          coverage: false   # no coverage is uploaded, and instrumentation slows the numerical loops severalfold

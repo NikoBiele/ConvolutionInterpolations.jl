@@ -142,6 +142,8 @@ Compute ghost point extrapolation coefficients for nonuniform b-kernel boundarie
 
 Uses Vandermonde system to express each ghost point as a linear combination of
 `poly_degree + 1` nearest interior points, enforcing polynomial reproduction.
+The system is set up in the local coordinate `(x - x_boundary) / h_end`, which leaves
+the coefficients unchanged and keeps it well conditioned on grids far from the origin.
 
 # Arguments
 - `knots`: Original (unexpanded) knot vector
@@ -160,57 +162,42 @@ function nonuniform_b_ghost_coefficients(knots::AbstractVector{T}, num_ghost::In
 
     coef_matrix = zeros(T, num_ghost, n_stencil)
 
+    # Positions are mapped to ξ = (x - x_boundary) / h_end, with x_boundary the boundary knot
+    # and h_end the spacing of the end interval (the ghost spacing). Polynomial reproduction is
+    # invariant under this affine map, so the coefficients are unchanged, but the Vandermonde
+    # entries become O(1) … O(p) instead of x^p for wherever the grid happens to lie, which is
+    # what keeps the solve well conditioned for the wide kernels (p up to 13).
     if side == :left
-        interior_positions = knots[1:n_stencil]
-
-        for g in 1:num_ghost
-            # Mirror spacing: ghost_g = x_1 - g * h_first
-            h_first = knots[2] - knots[1]
-            ghost_pos = knots[1] - g * h_first
-
-            # Vandermonde: V[k, m] = interior_positions[k]^(m-1)
-            V = zeros(T, n_stencil, n_stencil)
-            for k in 1:n_stencil
-                V[k, 1] = one(T)
-                for m in 2:n_stencil
-                    V[k, m] = V[k, m-1] * interior_positions[k]
-                end
-            end
-
-            # Target: ghost_pos^(m-1) for m = 1, ..., n_stencil
-            target = zeros(T, n_stencil)
-            gp_pow = one(T)
-            for m in 1:n_stencil
-                target[m] = gp_pow
-                gp_pow *= ghost_pos
-            end
-
-            coef_matrix[g, :] = V' \ target
-        end
+        x0 = knots[1]
+        h  = knots[2] - knots[1]
+        ξ  = [(knots[k] - x0) / h for k in 1:n_stencil]          # 0, h1/h, …
+        ghost_ξ = g -> -T(g)                                      # ghost g at x_1 - g*h
     else  # :right
-        interior_positions = knots[n-n_stencil+1:n]
+        x0 = knots[end]
+        h  = knots[end] - knots[end-1]
+        ξ  = [(knots[k] - x0) / h for k in (n - n_stencil + 1):n] # …, -h_n/h, 0
+        ghost_ξ = g -> T(g)                                       # ghost g at x_n + g*h
+    end
 
-        for g in 1:num_ghost
-            h_last = knots[end] - knots[end-1]
-            ghost_pos = knots[end] + g * h_last
-
-            V = zeros(T, n_stencil, n_stencil)
-            for k in 1:n_stencil
-                V[k, 1] = one(T)
-                for m in 2:n_stencil
-                    V[k, m] = V[k, m-1] * interior_positions[k]
-                end
-            end
-
-            target = zeros(T, n_stencil)
-            gp_pow = one(T)
-            for m in 1:n_stencil
-                target[m] = gp_pow
-                gp_pow *= ghost_pos
-            end
-
-            coef_matrix[g, :] = V' \ target
+    # Vandermonde in ξ: V[k, m] = ξ[k]^(m-1), the same for every ghost
+    V = zeros(T, n_stencil, n_stencil)
+    for k in 1:n_stencil
+        V[k, 1] = one(T)
+        for m in 2:n_stencil
+            V[k, m] = V[k, m-1] * ξ[k]
         end
+    end
+    Vt = factorize(V')
+
+    for g in 1:num_ghost
+        # Target: ghost_ξ^(m-1) for m = 1, ..., n_stencil
+        target = zeros(T, n_stencil)
+        gp_pow = one(T)
+        for m in 1:n_stencil
+            target[m] = gp_pow
+            gp_pow *= ghost_ξ(g)
+        end
+        coef_matrix[g, :] = Vt \ target
     end
 
     return coef_matrix

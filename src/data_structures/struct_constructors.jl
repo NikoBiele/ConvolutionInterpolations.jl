@@ -1,3 +1,9 @@
+abstract type AbstractConvolutionKernel end
+
+abstract type AbstractNonMixedConvolutionKernel <: AbstractConvolutionKernel end
+
+abstract type AbstractMixedConvolutionKernel <: AbstractConvolutionKernel end
+
 """
     HigherDimension{N}
 
@@ -54,6 +60,9 @@ Not typically constructed directly by users.
 
 See also: `ConvolutionKernel`, `FastConvolutionInterpolation`.
 """
+struct HigherOrderKernel{DG} <: AbstractNonMixedConvolutionKernel end
+
+struct HigherOrderMixedKernel{DG} <: AbstractMixedConvolutionKernel end
 
 """
     HigherOrderKernel(::Val{DG}) where DG
@@ -64,19 +73,6 @@ This is a convenience constructor that creates a `HigherOrderKernel{DG}` instanc
 a value type, used for implementing specialized kernel methods for higher-order
 convolution interpolation.
 """
-
-# the structs and abstract types defined here are to control functor dispatch
-
-abstract type AbstractConvolutionKernel end
-
-abstract type AbstractNonMixedConvolutionKernel <: AbstractConvolutionKernel end
-
-abstract type AbstractMixedConvolutionKernel <: AbstractConvolutionKernel end
-
-struct HigherOrderKernel{DG} <: AbstractNonMixedConvolutionKernel end
-
-struct HigherOrderMixedKernel{DG} <: AbstractMixedConvolutionKernel end
-
 HigherOrderKernel(::Val{DG}) where DG = HigherOrderKernel{DG}()
 
 HigherOrderMixedKernel(::Val{DG}) where DG = HigherOrderMixedKernel{DG}()

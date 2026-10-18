@@ -60,8 +60,6 @@ z_dx = convolution_resample((xs, ys), (xs_fine, ys_fine), z; derivative=(1, 0))
 
 See also: [`convolution_interpolation`](@ref), [`convolution_smooth`](@ref)
 """
-
-# 1D convenience wrapper
 function convolution_resample(knots_in::AbstractVector, knots_out::AbstractVector, values::AbstractVector{T}) where {T}
     return convolution_resample_internal((knots_in,), (knots_out,), values,
                                         (:b13,),

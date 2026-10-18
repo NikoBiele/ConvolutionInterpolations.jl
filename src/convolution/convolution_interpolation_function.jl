@@ -80,7 +80,6 @@ itp(0.5, 0.5, 0.5, 0.5, 0.5)
 
 See also: [`FastConvolutionInterpolation`](@ref), [`ConvolutionInterpolation`](@ref), [`ConvolutionExtrapolation`](@ref).
 """
-
 function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}},
         values::AbstractArray{T,N};
         kernel::Union{Symbol,NTuple{N,Symbol}}=:auto, fast::Bool=true, precompute=nothing,

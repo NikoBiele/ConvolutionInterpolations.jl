@@ -174,7 +174,6 @@ itp2(1.0, 2.0)   # evaluate at arbitrary 2D point
 
 See also: [`convolution_smooth`](@ref), [`convolution_interpolation`](@ref)
 """
-# default 1D call, no extrapolation
 function convolution_gaussian(knots::AbstractVector, values::AbstractArray{T,1},
                                 B::P) where {T,P}
     itp = convolution_gaussian_itp((knots,), values, T(B))

@@ -34,7 +34,6 @@ A structure that implements convolution-based interpolation on N-dimensional dat
 This implementation evaluates the convolution kernel at each point directly,
 providing accurate results but potentially slower performance than `FastConvolutionInterpolation`.
 """
-
 struct ConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
                                 Axs<:Tuple,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,NB,LZ,DI,SZ} <: 
                                 AbstractConvolutionInterpolation{T,N,NI,TCoefs,

@@ -9,7 +9,6 @@ Keys are kernel symbols (`:a0`, `:a1`, `:a3`, `:a4`, `:a5`, `:a7`, `:b5`, `:b7`,
 
 Used internally by `get_equations_for_degree`.
 """
-
 const DEGREE_TO_EQUATIONS = Dict(
     :a0 => 1,
     :a1 => 1,

@@ -50,7 +50,6 @@ rounding for every kernel, derivative and integral order.
   of every region: entry `mask` holds one array per combination of powers of the positions within
   the cell (see `_build_region_tails`)
 """
-
 struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
                                 Axs<:Tuple,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,DI,SZ} <:
                                 AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,DI,SZ}

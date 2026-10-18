@@ -75,20 +75,21 @@ Two modes:
   extrapolation well conditioned; raise it for strongly graded data.
 - `gridsize::Union{Symbol,Int,NTuple{D,Int}}=:auto`: interior knots per
   dimension. An `Int` or tuple is used as given in both modes. With `:auto`,
-  `:smooth` starts from a small grid and refines it until it resolves the
-  fitted smoothing (about eight knots per cycle of its cutoff), up to the grid
-  `oversample` gives, and `:exact` sizes the grid from `oversample` and the
-  data count. With user axes the knot counts are those of the axes, and
+  both modes size the grid from `oversample` and the data count. `:smooth`
+  uses that grid directly rather than a coarser one: a grid that cannot
+  represent part of the signal absorbs it into the residual, where nothing in
+  the fit reveals it, while the smoothing itself is set by `lambda`, not by
+  the knot count. With user axes the knot counts are those of the axes, and
   `gridsize` must be `:auto`.
-- `oversample::Real=0.0`: grid knots per data spacing when `gridsize=:auto`:
-  the largest grid for `:smooth`, the grid for `:exact`. `0.0` selects the mode
-  default: 0.8 for `:smooth`; for `:exact` 1.6 in 1D, 2.5 in 2D and 2.0 in 3D and
-  above, since random points in two or more dimensions share a grid cell often
-  enough at the 1D density that the fit goes least-squares. Points closer
-  together than the local knot spacing cannot be interpolated separately on any
-  grid; if `:exact` warns, raise `oversample`. `:smooth` warns when this limit
-  stops the grid refinement: the fit may then be under-resolved, and a larger
-  `oversample` helps.
+- `oversample::Real=0.0`: grid knots per data spacing when `gridsize=:auto`.
+  `0.0` selects the mode default: 0.8 for `:smooth`; for `:exact` 1.6 in 1D,
+  2.5 in 2D and 2.0 in 3D and above, since random points in two or more
+  dimensions share a grid cell often enough at the 1D density that the fit
+  goes least-squares. Points closer together than the local knot spacing
+  cannot be interpolated separately on any grid; if `:exact` warns, raise
+  `oversample`. `:smooth` warns when the fitted smoothing would need a finer
+  grid than this allows (about eight knots per cycle of its cutoff): the fit
+  may then be under-resolved, and a larger `oversample` helps.
 - `q::Union{Int,Symbol}=:auto`: roughness (difference) order of the seminorm.
   `:auto` uses, for `:smooth`, 5 for every kernel (higher orders make the
   smoothing system ill-conditioned, lower orders are less accurate); for
@@ -118,7 +119,7 @@ Two modes:
   controls; convergence typically takes 1-2 iterations.
 - `verbose::Bool=false`: `:exact` prints the constraint violation per
   iteration; `:smooth` prints the grid, `lambda`, cutoff, effective degrees of
-  freedom and estimated noise of each grid pass.
+  freedom and estimated noise of the fit.
 
 # Returns
 `(knots, vals, third)`: the tuple of interior knot axes (ranges for a uniform

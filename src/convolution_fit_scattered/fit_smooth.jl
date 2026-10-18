@@ -39,10 +39,8 @@ const _SMOOTH_T_TOL      = 0.1             # golden-section tolerance (decades)
 const _SMOOTH_FLAT_TOL   = 1e-6            # relative change of V that ends an extension
 const _SMOOTH_GOLDEN     = (sqrt(5) - 1) / 2
 const _SMOOTH_PROBES     = 10              # Hutchinson probe vectors
-const _SMOOTH_G0         = 32              # first grid (knots per axis), at most the cap
 const _SMOOTH_GAMMA      = 8               # knots per cycle of the cutoff
 const _SMOOTH_REFINE     = 1.25            # refine only when the needed grid is this much larger
-const _SMOOTH_MAX_PASSES = 4               # at most this many grids
 
 """SplitMix64 bit mixer: deterministic probe signs without a random-number dependency."""
 function _splitmix64(x::UInt64)
@@ -234,44 +232,35 @@ applied to the knot count, i.e. to the grid's average resolution.
 function _fit_smooth(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTuple{D,Symbol},
                      qv::NTuple{D,Int}, make_axes, n_fixed::Union{Nothing,NTuple{D,Int}},
                      g_cap::NTuple{D,Int}, λ, verbose::Bool) where {D}
-    n      = size(pts, 2)
-    n_int  = n_fixed === nothing ? ntuple(d -> min(_SMOOTH_G0, g_cap[d]), D) : n_fixed
-    λ_prev = nothing
-    local fit, axes
-    for pass in 1:_SMOOTH_MAX_PASSES
-        axes = make_axes(n_int)
-        sys  = _smooth_system(pts, f, kernels, qv, axes)
-        fit  = _smooth_gcv(sys, f, λ, λ_prev)
-        if verbose
-            k_c = join((round(_smooth_cutoff(fit.λ, qv[d]); sigdigits = 3) for d in 1:D), " × ")
-            σ̂   = fit.edf < n ? sqrt(fit.rss / (n - fit.edf)) : NaN
-            println("  fit_scattered (:smooth) grid $(join(n_int, "×")): lambda = $(round(fit.λ; sigdigits = 4)), " *
-                    "cutoff ≈ $k_c cycles per box, edf ≈ $(round(fit.edf; sigdigits = 4)), " *
-                    "noise ≈ $(round(σ̂; sigdigits = 3)), $(fit.nchol) Cholesky / $(fit.nqr) QR")
-        end
-        n_fixed === nothing || break                            # a given grid is used as is
-        # knots per axis that resolve the fitted cutoff, and the grid they allow within the cap
-        want   = ntuple(d -> min(_SMOOTH_GAMMA * _smooth_cutoff(fit.λ, qv[d]) + 1, 1e9), D)
-        target = ntuple(d -> min(g_cap[d], ceil(Int, want[d])), D)
-        short  = ntuple(d -> want[d] >= _SMOOTH_REFINE * n_int[d], D)                 # clearly too coarse
-        grow   = ntuple(d -> short[d] && target[d] >= _SMOOTH_REFINE * n_int[d], D)   # and can still grow
-        if !any(grow)
-            if any(short)                                       # too coarse, but stopped by the cap
-                need = join((short[d] ? ceil(Int, want[d]) : n_int[d] for d in 1:D), "×")
-                hint = axes isa NTuple{D,<:AbstractRange} ?
-                       " If the points are clustered where the data vary, `grid = :adaptive` " *
-                       "concentrates the knots there and may resolve the fit at this knot count." : ""
-                @warn "fit_scattered (:smooth): the grid ($(join(n_int, "×")) knots) is limited " *
-                      "by `oversample` but the fitted smoothing needs about $need knots; the fit " *
-                      "may be under-resolved, which also inflates the noise estimate. Increase " *
-                      "`oversample` or pass a larger `gridsize`; if the data are noise-free, " *
-                      "use `mode = :exact`." * hint
-            end
-            break
-        end
-        n_int  = ntuple(d -> grow[d] ? target[d] : n_int[d], D)
-        λ_prev = fit.λ                                          # warm start on the next grid
+    n     = size(pts, 2)
+    # The grid is the largest `oversample` allows, unless given: a grid coarser than the data can
+    # alias a signal into the residual, and then nothing in the fit reveals it. The cap is set
+    # from the data density, so it resolves whatever the points resolve.
+    n_int = n_fixed === nothing ? g_cap : n_fixed
+    axes  = make_axes(n_int)
+    sys   = _smooth_system(pts, f, kernels, qv, axes)
+    fit   = _smooth_gcv(sys, f, λ, nothing)
+    σ̂     = fit.edf < n ? sqrt(fit.rss / (n - fit.edf)) : NaN
+    if verbose
+        k_c = join((round(_smooth_cutoff(fit.λ, qv[d]); sigdigits = 3) for d in 1:D), " × ")
+        println("  fit_scattered (:smooth) grid $(join(n_int, "×")): lambda = $(round(fit.λ; sigdigits = 4)), " *
+                "cutoff ≈ $k_c cycles per box, edf ≈ $(round(fit.edf; sigdigits = 4)), " *
+                "noise ≈ $(round(σ̂; sigdigits = 3)), $(fit.nchol) Cholesky / $(fit.nqr) QR")
     end
-    σ̂ = fit.edf < n ? sqrt(fit.rss / (n - fit.edf)) : NaN
+    # knots per axis that would resolve the fitted cutoff; more than the grid has means the
+    # fit is limited by the grid, not by the data
+    want  = ntuple(d -> min(_SMOOTH_GAMMA * _smooth_cutoff(fit.λ, qv[d]) + 1, 1e9), D)
+    short = ntuple(d -> want[d] >= _SMOOTH_REFINE * n_int[d], D)
+    if any(short)
+        need  = join((short[d] ? ceil(Int, want[d]) : n_int[d] for d in 1:D), "×")
+        limit = n_fixed === nothing ? "`oversample`" : "`gridsize`"
+        hint  = axes isa NTuple{D,<:AbstractRange} ?
+                " If the points are clustered where the data vary, `grid = :adaptive` " *
+                "concentrates the knots there and may resolve the fit at this knot count." : ""
+        @warn "fit_scattered (:smooth): the grid ($(join(n_int, "×")) knots) is limited by " *
+              "$limit but the fitted smoothing needs about $need knots; the fit may be " *
+              "under-resolved, which also inflates the noise estimate. Increase $limit; " *
+              "if the data are noise-free, use `mode = :exact`." * hint
+    end
     return axes, fit.c, (lambda = fit.λ, noise = σ̂)
 end

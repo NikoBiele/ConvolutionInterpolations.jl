@@ -59,22 +59,21 @@ _smooth_probes(n::Int, K::Int) =
 """Cutoff (cycles per bounding box) of the smoothing with parameter `λ` and roughness order `q`."""
 _smooth_cutoff(λ::Real, q::Int) = Float64(λ)^(-1 / (2q)) / (2π)
 
-"""Operators of the penalised fit on the grid with `n_int` interior knots per axis: the
-collocation `Ae` and scaled roughness `Re` on the interior unknowns, their normal matrices,
-`Aᵀf`, the reference `λref` and the probe images `U = Aᵀ·Z`."""
+"""Operators of the penalised fit on the given axes: the collocation `Ae` and scaled roughness
+`Re` on the interior unknowns, their normal matrices, `Aᵀf`, the reference `λref` and the probe
+images `U = Aᵀ·Z`. `_scattered_operators` returns the roughness in plain-difference units on
+both grid types (q-th differences on ranges, divided differences rescaled to match them on
+vectors); the physical scaling into normalised coordinates is applied here to both."""
 function _smooth_system(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTuple{D,Symbol},
-                        eqs::NTuple{D,Int}, ng::NTuple{D,Int}, G::NTuple{D,Matrix{Float64}},
-                        ns::NTuple{D,Int}, qv::NTuple{D,Int}, lo::NTuple{D,Float64},
-                        hi::NTuple{D,Float64}, n_int::NTuple{D,Int}) where {D}
-    n       = size(pts, 2)
-    knots   = ntuple(d -> range(lo[d], hi[d], length = n_int[d]), D)
-    h       = ntuple(d -> Float64(step(knots[d])), D)
-    n_full  = ntuple(d -> n_int[d] + 2ng[d], D)
-    x0_full = ntuple(d -> lo[d] - ng[d] * h[d], D)
+                        qv::NTuple{D,Int}, axes::NTuple{D,<:AbstractVector}) where {D}
+    n     = size(pts, 2)
+    n_int = ntuple(d -> length(axes[d]), D)
+    ng    = axes isa NTuple{D,<:AbstractRange} ?
+            ntuple(d -> get_equations_for_degree(kernels[d]) - 1, D) :   # uniform: poly-table ghosts
+            ntuple(d -> kernels[d] === :n3 ? 1 : nonuniform_b_params(kernels[d])[1], D)   # nonuniform: ghosts per side
+    n_full = ntuple(d -> n_int[d] + 2ng[d], D)
 
-    A = _scattered_collocation(pts, kernels, eqs, n_full, x0_full, h)
-    S = _scattered_extension(n_full, n_int, ng, ns, G, Float64)
-    R = _scattered_roughness(n_full, qv, Float64)
+    Ae, Re = _scattered_operators(pts, kernels, axes, qv)       # interior unknowns
 
     # physical scaling of each axis's block of q-th differences, in normalised coordinates
     ĥ   = ntuple(d -> 1.0 / (n_int[d] - 1), D)
@@ -82,10 +81,9 @@ function _smooth_system(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTupl
     rowscale = reduce(vcat, [fill(sqrt(vol / ĥ[dd]^(2qv[dd])),
                                   (n_full[dd] - qv[dd]) * prod((n_full[d] for d in 1:D if d != dd); init = 1))
                              for dd in 1:D])
-    length(rowscale) == size(R, 1) || error("roughness block sizes do not match the operator.")
+    length(rowscale) == size(Re, 1) || error("roughness block sizes do not match the operator.")
+    Re = spdiagm(0 => rowscale) * Re
 
-    Ae  = A * S                                                 # collocation, interior unknowns
-    Re  = spdiagm(0 => rowscale) * (R * S)                      # scaled roughness, interior unknowns
     AtA = Ae' * Ae
     RtR = Re' * Re
     λref = sum(diag(AtA)) / (n * sum(diag(RtR)))                # balances the two traces
@@ -221,27 +219,29 @@ function _smooth_gcv(sys, f::Vector{Float64}, λ, λ_start)
 end
 
 """
-    _fit_smooth(pts, f, kernels, eqs, ng, G, ns, qv, lo, hi, n_fixed, g_cap, λ, verbose)
+    _fit_smooth(pts, f, kernels, qv, make_axes, n_fixed, g_cap, λ, verbose)
 
-Penalised fit of `mode = :smooth`. With `n_fixed === nothing` (gridsize = :auto) the grid
-starts at `min(32, g_cap)` knots per axis and is refined, up to `g_cap`, until it resolves the
-fitted cutoff; if the cap stops the refinement, a warning says the fit may be under-resolved.
-Otherwise the grid `n_fixed` is used as given. Returns the interior knot counts, the fitted
-interior coefficients (Float64, column-major over the grid) and `(lambda, noise)`, with `noise`
-the estimated standard deviation of the data about the fit, √(‖A c − f‖²/(n − tr H)).
+Penalised fit of `mode = :smooth`. `make_axes(n_int)` builds the knot axes for `n_int` knots
+per axis (uniform ranges, adaptive vectors or the user's own axes, see `_fit_axes`). With
+`n_fixed === nothing` (gridsize = :auto) the grid starts at `min(32, g_cap)` knots per axis and
+is refined, up to `g_cap`, until it resolves the fitted cutoff; if the cap stops the refinement,
+a warning says the fit may be under-resolved. Otherwise the grid `n_fixed` is used as given.
+Returns the axes of the final grid, the fitted interior coefficients (Float64, column-major
+over the grid) and `(lambda, noise)`, with `noise` the estimated standard deviation of the
+data about the fit, √(‖A c − f‖²/(n − tr H)). On adaptive grids the cutoff criterion is
+applied to the knot count, i.e. to the grid's average resolution.
 """
 function _fit_smooth(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTuple{D,Symbol},
-                     eqs::NTuple{D,Int}, ng::NTuple{D,Int}, G::NTuple{D,Matrix{Float64}},
-                     ns::NTuple{D,Int}, qv::NTuple{D,Int}, lo::NTuple{D,Float64},
-                     hi::NTuple{D,Float64}, n_fixed::Union{Nothing,NTuple{D,Int}},
+                     qv::NTuple{D,Int}, make_axes, n_fixed::Union{Nothing,NTuple{D,Int}},
                      g_cap::NTuple{D,Int}, λ, verbose::Bool) where {D}
     n      = size(pts, 2)
     n_int  = n_fixed === nothing ? ntuple(d -> min(_SMOOTH_G0, g_cap[d]), D) : n_fixed
     λ_prev = nothing
-    local fit
+    local fit, axes
     for pass in 1:_SMOOTH_MAX_PASSES
-        sys = _smooth_system(pts, f, kernels, eqs, ng, G, ns, qv, lo, hi, n_int)
-        fit = _smooth_gcv(sys, f, λ, λ_prev)
+        axes = make_axes(n_int)
+        sys  = _smooth_system(pts, f, kernels, qv, axes)
+        fit  = _smooth_gcv(sys, f, λ, λ_prev)
         if verbose
             k_c = join((round(_smooth_cutoff(fit.λ, qv[d]); sigdigits = 3) for d in 1:D), " × ")
             σ̂   = fit.edf < n ? sqrt(fit.rss / (n - fit.edf)) : NaN
@@ -258,11 +258,14 @@ function _fit_smooth(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTuple{D
         if !any(grow)
             if any(short)                                       # too coarse, but stopped by the cap
                 need = join((short[d] ? ceil(Int, want[d]) : n_int[d] for d in 1:D), "×")
+                hint = axes isa NTuple{D,<:AbstractRange} ?
+                       " If the points are clustered where the data vary, `grid = :adaptive` " *
+                       "concentrates the knots there and may resolve the fit at this knot count." : ""
                 @warn "fit_scattered (:smooth): the grid ($(join(n_int, "×")) knots) is limited " *
                       "by `oversample` but the fitted smoothing needs about $need knots; the fit " *
                       "may be under-resolved, which also inflates the noise estimate. Increase " *
                       "`oversample` or pass a larger `gridsize`; if the data are noise-free, " *
-                      "use `mode = :exact`."
+                      "use `mode = :exact`." * hint
             end
             break
         end
@@ -270,5 +273,5 @@ function _fit_smooth(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTuple{D
         λ_prev = fit.λ                                          # warm start on the next grid
     end
     σ̂ = fit.edf < n ? sqrt(fit.rss / (n - fit.edf)) : NaN
-    return n_int, fit.c, (lambda = fit.λ, noise = σ̂)
+    return axes, fit.c, (lambda = fit.λ, noise = σ̂)
 end

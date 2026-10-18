@@ -35,6 +35,7 @@ Random.seed!(20260924)
     include("test_scattered_to_grid.jl")
     include("test_resample.jl")
     include("test_fit_scattered.jl")
+    include("test_fit_scattered_adaptive.jl")
     include("test_show.jl")
     include("test_deprecations.jl")
 end

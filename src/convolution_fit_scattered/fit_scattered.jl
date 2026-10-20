@@ -76,10 +76,13 @@ Two modes:
 - `gridsize::Union{Symbol,Int,NTuple{D,Int}}=:auto`: interior knots per
   dimension. An `Int` or tuple is used as given in both modes. With `:auto`,
   both modes size the grid from `oversample` and the data count. `:smooth`
-  uses that grid directly rather than a coarser one: a grid that cannot
-  represent part of the signal absorbs it into the residual, where nothing in
-  the fit reveals it, while the smoothing itself is set by `lambda`, not by
-  the knot count. With user axes the knot counts are those of the axes, and
+  fits on that grid first — a coarser grid could absorb part of the signal
+  into the residual, where nothing in the fit reveals it — and then, when the
+  fitted smoothing needs far fewer knots, refits on the grid that resolves its
+  cutoff (about eight knots per cycle), warm-started from `lambda`. The
+  returned grid is therefore as coarse as the fit allows; a grid much finer
+  than the fit is ill-conditioned and would hold the smoothing short of its
+  optimum. With user axes the knot counts are those of the axes, and
   `gridsize` must be `:auto`.
 - `oversample::Real=0.0`: grid knots per data spacing when `gridsize=:auto`.
   `0.0` selects the mode default: 0.8 for `:smooth`; for `:exact` 1.6 in 1D,

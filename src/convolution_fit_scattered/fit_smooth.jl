@@ -37,10 +37,13 @@ const _SMOOTH_T_COARSE   = 2.0             # coarse scan and extension step (dec
 const _SMOOTH_T_WARM     = 1.0             # scan step around a warm-start λ (decades)
 const _SMOOTH_T_TOL      = 0.1             # golden-section tolerance (decades)
 const _SMOOTH_FLAT_TOL   = 1e-6            # relative change of V that ends an extension
+const _SMOOTH_RESID_TOL  = 1e-3            # relative residual above which a Cholesky solve is rejected
 const _SMOOTH_GOLDEN     = (sqrt(5) - 1) / 2
 const _SMOOTH_PROBES     = 10              # Hutchinson probe vectors
 const _SMOOTH_GAMMA      = 8               # knots per cycle of the cutoff
-const _SMOOTH_REFINE     = 1.25            # refine only when the needed grid is this much larger
+const _SMOOTH_REFINE     = 1.25            # a grid within this factor of the needed one is kept
+const _SMOOTH_MIN_KNOTS  = 32              # the coarsest grid the fit coarsens to (knots per axis)
+const _SMOOTH_MAX_PASSES = 5               # fits on successively coarser grids, at most
 
 """SplitMix64 bit mixer: deterministic probe signs without a random-number dependency."""
 function _splitmix64(x::UInt64)
@@ -120,7 +123,14 @@ function _smooth_gcv(sys, f::Vector{Float64}, λ, λ_start)
             return nothing
         end
         F   = Fref[]
-        c   = dv .* (F \ (dv .* (W .* sys.Atf)))
+        bs  = dv .* (W .* sys.Atf)                              # the equilibrated right-hand side
+        cs  = F \ bs
+        # a factorisation can complete and still be wrong: when W·AᵀA is far below R̃ᵀR̃ the
+        # penalty's nullspace (low-degree polynomials) is resolved from rounding noise, and the
+        # solve is inaccurate before Cholesky fails outright. The residual of the equilibrated
+        # system catches it; such a λ goes to the QR fallback like a failed factorisation
+        norm(Hs * cs .- bs) <= _SMOOTH_RESID_TOL * norm(bs) || return nothing
+        c   = dv .* cs
         rss = sum(abs2, sys.Ae * c .- f)
         edf = W * sum(sys.U .* (dv .* (F \ (dv .* sys.U)))) / K # Hutchinson tr H
         V   = edf < n ? n * rss / (n - edf)^2 : Inf
@@ -129,16 +139,20 @@ function _smooth_gcv(sys, f::Vector{Float64}, λ, λ_start)
 
     # sparse QR of the stacked system [√W·A; R̃]: K[prow, pcol] = Q·R, so that
     # uᵀ(KᵀK)⁻¹u = ‖R⁻ᵀ·u[pcol]‖²
+    # the columns are scaled by the same Jacobi factors as the normal equations, so that the
+    # stacked matrix has unit column norms and the data rows are not dropped by SPQR's rank
+    # tolerance when W is small: K·D = Q·R, c = D·(K·D)⁻¹·b, and uᵀ(KᵀK)⁻¹u = ‖R⁻ᵀ·(D·u)[pcol]‖²
     function by_qr(t)
         W  = 1 / (n * sys.λref * 10.0^t)
-        Fq = qr(vcat(sqrt(W) .* sys.Ae, sys.Re))
+        dv = [1 / sqrt(max(x, eps())) for x in W .* diag(sys.AtA) .+ diag(sys.RtR)]   # Jacobi scaling
+        Fq = qr(vcat(sqrt(W) .* sys.Ae, sys.Re) * spdiagm(0 => dv))
         nqr[] += 1
         size(Fq.R) == (nu, nu) || return failed(t)              # rank deficient
         any(iszero, diag(Fq.R)) && return failed(t)             # rank truncated by SPQR
-        c  = Fq \ vcat(sqrt(W) .* f, zeros(size(sys.Re, 1)))
+        c  = dv .* (Fq \ vcat(sqrt(W) .* f, zeros(size(sys.Re, 1))))
         Lt = LowerTriangular(sparse(transpose(Fq.R)))
         Y  = try
-            Lt \ sys.U[Fq.pcol, :]
+            Lt \ (dv .* sys.U)[Fq.pcol, :]
         catch err
             err isa SingularException || rethrow()
             return failed(t)
@@ -221,9 +235,15 @@ end
 
 Penalised fit of `mode = :smooth`. `make_axes(n_int)` builds the knot axes for `n_int` knots
 per axis (uniform ranges, adaptive vectors or the user's own axes, see `_fit_axes`). With
-`n_fixed === nothing` (gridsize = :auto) the grid starts at `min(32, g_cap)` knots per axis and
-is refined, up to `g_cap`, until it resolves the fitted cutoff; if the cap stops the refinement,
-a warning says the fit may be under-resolved. Otherwise the grid `n_fixed` is used as given.
+`n_fixed === nothing` (gridsize = :auto) the first fit is on the largest grid `oversample`
+allows, `g_cap`, so that nothing the points resolve can alias into the residual; the fitted
+cutoff then says how many knots the fit needs, and when the grid is much finer than that the
+fit is repeated on the coarser grid, warm-started from `λ`, until the grid matches the cutoff
+(at most `_SMOOTH_MAX_PASSES` fits, never below `_SMOOTH_MIN_KNOTS` knots per axis). A grid
+much finer than the fit is ill-conditioned — the q-th difference penalty spans (π/g)^(2q) in
+eigenvalue — which stops the λ search short of heavy smoothing; the coarse grid frees it. With
+a given `λ` the grid is chosen from its cutoff directly. If the cap limits the final grid, a
+warning says the fit may be under-resolved. Otherwise the grid `n_fixed` is used as given.
 Returns the axes of the final grid, the fitted interior coefficients (Float64, column-major
 over the grid) and `(lambda, noise)`, with `noise` the estimated standard deviation of the
 data about the fit, √(‖A c − f‖²/(n − tr H)). On adaptive grids the cutoff criterion is
@@ -232,21 +252,34 @@ applied to the knot count, i.e. to the grid's average resolution.
 function _fit_smooth(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTuple{D,Symbol},
                      qv::NTuple{D,Int}, make_axes, n_fixed::Union{Nothing,NTuple{D,Int}},
                      g_cap::NTuple{D,Int}, λ, verbose::Bool) where {D}
-    n     = size(pts, 2)
-    # The grid is the largest `oversample` allows, unless given: a grid coarser than the data can
-    # alias a signal into the residual, and then nothing in the fit reveals it. The cap is set
-    # from the data density, so it resolves whatever the points resolve.
-    n_int = n_fixed === nothing ? g_cap : n_fixed
-    axes  = make_axes(n_int)
-    sys   = _smooth_system(pts, f, kernels, qv, axes)
-    fit   = _smooth_gcv(sys, f, λ, nothing)
-    σ̂     = fit.edf < n ? sqrt(fit.rss / (n - fit.edf)) : NaN
-    if verbose
-        k_c = join((round(_smooth_cutoff(fit.λ, qv[d]); sigdigits = 3) for d in 1:D), " × ")
-        println("  fit_scattered (:smooth) grid $(join(n_int, "×")): lambda = $(round(fit.λ; sigdigits = 4)), " *
-                "cutoff ≈ $k_c cycles per box, edf ≈ $(round(fit.edf; sigdigits = 4)), " *
-                "noise ≈ $(round(σ̂; sigdigits = 3)), $(fit.nchol) Cholesky / $(fit.nqr) QR")
+    n = size(pts, 2)
+    # knots per axis that resolve the cutoff of the smoothing λ, within the cap and the floor
+    wanted(λv) = ntuple(d -> clamp(ceil(Int, min(_SMOOTH_GAMMA * _smooth_cutoff(λv, qv[d]) + 1, 1e9)),
+                                   min(_SMOOTH_MIN_KNOTS, g_cap[d]), g_cap[d]), D)
+    # the first grid: as given; the cap for a GCV search; the cutoff's own grid for a given λ
+    n_int = n_fixed !== nothing ? n_fixed :
+            λ === :gcv          ? g_cap : wanted(λ)
+    λ_start = nothing
+    local axes, fit
+    for pass in 1:_SMOOTH_MAX_PASSES
+        axes = make_axes(n_int)
+        sys  = _smooth_system(pts, f, kernels, qv, axes)
+        fit  = _smooth_gcv(sys, f, λ, λ_start)
+        if verbose
+            k_c = join((round(_smooth_cutoff(fit.λ, qv[d]); sigdigits = 3) for d in 1:D), " × ")
+            σ̂_p = fit.edf < n ? sqrt(fit.rss / (n - fit.edf)) : NaN
+            println("  fit_scattered (:smooth) pass $pass, grid $(join(n_int, "×")): lambda = $(round(fit.λ; sigdigits = 4)), " *
+                    "cutoff ≈ $k_c cycles per box, edf ≈ $(round(fit.edf; sigdigits = 4)), " *
+                    "noise ≈ $(round(σ̂_p; sigdigits = 3)), $(fit.nchol) Cholesky / $(fit.nqr) QR")
+        end
+        # coarsening is for the GCV search on an automatic grid; a given grid or λ is used as is
+        (n_fixed === nothing && λ === :gcv) || break
+        want = wanted(fit.λ)
+        all(n_int[d] <= _SMOOTH_REFINE * want[d] for d in 1:D) && break   # the grid matches the cutoff
+        n_int   = ntuple(d -> min(n_int[d], want[d]), D)                  # never finer than it is
+        λ_start = fit.λ
     end
+    σ̂ = fit.edf < n ? sqrt(fit.rss / (n - fit.edf)) : NaN
     # knots per axis that would resolve the fitted cutoff; more than the grid has means the
     # fit is limited by the grid, not by the data
     want  = ntuple(d -> min(_SMOOTH_GAMMA * _smooth_cutoff(fit.λ, qv[d]) + 1, 1e9), D)

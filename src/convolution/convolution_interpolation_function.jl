@@ -23,9 +23,11 @@ Create a convolution-based interpolation object with automatic optimization and 
   are evaluated exactly, so no kernel tables are precomputed.
 - `B::Float64=-1.0`: If a positive value is provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
 - `extrap=:throw`: Behavior outside the grid domain.
-  Options: `:throw`, `:flat`, `:line` or `:natural`.
-- `bc=:detect`: Boundary condition for kernel evaluation at domain edges.
-  Options: `:detect`, `:poly`, `:linear`, `:quadratic`.
+  Options: `:throw`, `:flat`, `:line` or `:natural` (uniform grids only).
+- `bc=nothing`: Boundary condition for the ghost values at the domain edges. `nothing` lets the
+  grid decide: `:detect` on a uniform grid (see below), and on a nonuniform grid `:kernel`, the
+  kernel's own extrapolation, which is the only rule there. On uniform grids the options are
+  `:detect`, `:poly`, `:linear` and `:quadratic`; giving one on a nonuniform grid is an error.
 - `derivative::Union{Int,NTuple{N,Int}}=0`: Derivative order to evaluate, one value for all
   dimensions or one per dimension. Supported up to 6 for `b`-series kernels. `derivative=-m`
   evaluates the m-fold antiderivative, anchored at zero at the leftmost interior knot (uniform
@@ -84,7 +86,7 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
         values::AbstractArray{T,N};
         kernel::Union{Symbol,NTuple{N,Symbol}}=:auto, fast::Bool=true, precompute=nothing,
         extrap::Union{Symbol,AbstractExtrapolation}=Throw(),
-        bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect,
+        bc::Union{Nothing,Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=nothing,
         derivative::Union{Int,NTuple{N,Int}}=0, subgrid=nothing,
         lazy::Union{Nothing,Bool}=nothing, boundary_fallback=nothing) where {T,N}
 
@@ -108,21 +110,36 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
                     derivative isa Int ? ntuple(_ -> derivative, N) :
                     derivative isa NTuple{1,Int} ? ntuple(_ -> derivative[1], N) : 
                     error("Invalid derivative specification: $derivative.")
+    is_integral = any(d -> derivatives_tuple[d] < 0, 1:N)
+    is_nonuniform = any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || any(d -> kernels_tuple[d] == :n3, 1:N)
+
+    # the boundary condition: `nothing` lets the grid decide — `:detect` on a uniform grid, and
+    # on a nonuniform grid `:kernel`, the kernel's own ghost extrapolation (the Vandermonde ghosts
+    # of the b-kernels, the three-knot rule of :n3), which is the only rule there
+    bc = bc === nothing ? (is_nonuniform ? :kernel : :detect) : bc
     bcs_tuple = bc isa NTuple{N,Tuple{Symbol,Symbol}} ? bc :
                     bc isa Tuple{Symbol,Symbol} ? ntuple(_ -> bc, N) :
                     bc isa NTuple{1,Tuple{Symbol,Symbol}} ? ntuple(_ -> bc[1], N) :
                     bc isa Symbol ? ntuple(_ -> (bc, bc), N) :
                     error("Invalid bc specification: $bc.")
-
-    is_integral = any(d -> derivatives_tuple[d] < 0, 1:N)
-    is_nonuniform = any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || any(d -> kernels_tuple[d] == :n3, 1:N)
+    if is_nonuniform && any(d -> bcs_tuple[d] != (:kernel, :kernel), 1:N)
+        throw(ArgumentError("bc = $bc is not supported on nonuniform grids or with the :n3 kernel: " *
+                            "the ghost values are the kernel's own extrapolation there (bc = :kernel). " *
+                            "Leave bc at its default."))
+    elseif !is_nonuniform && any(d -> :kernel in bcs_tuple[d], 1:N)
+        throw(ArgumentError("bc = :kernel is the ghost rule of nonuniform grids; on a uniform grid " *
+                            "use :detect, :poly, :quadratic or :linear."))
+    end
 
     # lazy by default when eager expansion would build a large coefficient array (uniform grids,
     # fast path, no antiderivatives; see `_default_lazy`)
     lazy = lazy === nothing ? (fast && !is_nonuniform &&
                                _default_lazy(size(values), kernels_tuple, derivatives_tuple)) : lazy
 
-    if is_integral && is_nonuniform
+    if is_nonuniform && (extrap == :natural || extrap == Natural())
+      error("Natural extrapolation (extrap = :natural) is not supported on nonuniform grids: " *
+            "it continues the uniform ghost polynomial linearly beyond the data. Use :flat, :line or :throw.")
+    elseif is_integral && is_nonuniform
       error("Antiderivatives (derivative < 0) are not supported on nonuniform grids.")
     elseif is_integral && !is_nonuniform
       if lazy && fast
@@ -144,9 +161,9 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
         error("For uniform grids, lazy mode ('lazy=true') is only supported for the fast path ('fast=true').")
     end
 
-    # Check sufficiency per dimension
+    # Check sufficiency per dimension (uniform grids: the polynomial ghost tables need enough knots)
     bcs_tuple = ntuple(N) do d
-        if :poly in bcs_tuple[d] && size(values, d) < minimum_polynomial_bc_points[kernels_tuple[d]]
+        if !is_nonuniform && :poly in bcs_tuple[d] && size(values, d) < minimum_polynomial_bc_points[kernels_tuple[d]]
             # replace :poly with :linear
             bcs_tuple[d] == (:poly,:poly) ? (:linear,:linear) : 
                     bcs_tuple[d][1] == :poly ? (:linear, bcs_tuple[d][2]) : (bcs_tuple[d][1], :linear)

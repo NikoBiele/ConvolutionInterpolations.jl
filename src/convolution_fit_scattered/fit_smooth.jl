@@ -66,7 +66,8 @@ images `U = Aᵀ·Z`. `_scattered_operators` returns the roughness in plain-diff
 both grid types (q-th differences on ranges, divided differences rescaled to match them on
 vectors); the physical scaling into normalised coordinates is applied here to both."""
 function _smooth_system(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTuple{D,Symbol},
-                        qv::NTuple{D,Int}, axes::NTuple{D,<:AbstractVector}) where {D}
+                        qv::NTuple{D,Int}, axes::NTuple{D,<:AbstractVector};
+                        bc = ntuple(_ -> (:poly, :poly), D)) where {D}
     n     = size(pts, 2)
     n_int = ntuple(d -> length(axes[d]), D)
     ng    = axes isa NTuple{D,<:AbstractRange} ?
@@ -74,7 +75,9 @@ function _smooth_system(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTupl
             ntuple(d -> kernels[d] === :n3 ? 1 : nonuniform_b_params(kernels[d])[1], D)   # nonuniform: ghosts per side
     n_full = ntuple(d -> n_int[d] + 2ng[d], D)
 
-    Ae, Re = _scattered_operators(pts, kernels, axes, qv)       # interior unknowns
+    Ae, Re = axes isa NTuple{D,<:AbstractRange} ?
+             _scattered_operators(pts, kernels, axes, qv; bc) :  # interior unknowns, uniform: the chosen ghost rule
+             _scattered_operators(pts, kernels, axes, qv)        # nonuniform: the basis's own ghosts
 
     # physical scaling of each axis's block of q-th differences, in normalised coordinates
     ĥ   = ntuple(d -> 1.0 / (n_int[d] - 1), D)
@@ -251,7 +254,8 @@ applied to the knot count, i.e. to the grid's average resolution.
 """
 function _fit_smooth(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTuple{D,Symbol},
                      qv::NTuple{D,Int}, make_axes, n_fixed::Union{Nothing,NTuple{D,Int}},
-                     g_cap::NTuple{D,Int}, λ, verbose::Bool) where {D}
+                     g_cap::NTuple{D,Int}, λ, verbose::Bool;
+                     bc = ntuple(_ -> (:poly, :poly), D)) where {D}
     n = size(pts, 2)
     # knots per axis that resolve the cutoff of the smoothing λ, within the cap and the floor
     wanted(λv) = ntuple(d -> clamp(ceil(Int, min(_SMOOTH_GAMMA * _smooth_cutoff(λv, qv[d]) + 1, 1e9)),
@@ -263,7 +267,7 @@ function _fit_smooth(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTuple{D
     local axes, fit
     for pass in 1:_SMOOTH_MAX_PASSES
         axes = make_axes(n_int)
-        sys  = _smooth_system(pts, f, kernels, qv, axes)
+        sys  = _smooth_system(pts, f, kernels, qv, axes; bc)
         fit  = _smooth_gcv(sys, f, λ, λ_start)
         if verbose
             k_c = join((round(_smooth_cutoff(fit.λ, qv[d]); sigdigits = 3) for d in 1:D), " × ")
@@ -281,10 +285,11 @@ function _fit_smooth(pts::Matrix{Float64}, f::Vector{Float64}, kernels::NTuple{D
     end
     σ̂ = fit.edf < n ? sqrt(fit.rss / (n - fit.edf)) : NaN
     # knots per axis that would resolve the fitted cutoff; more than the grid has means the
-    # fit is limited by the grid, not by the data
+    # fit is limited by the grid, not by the data. On nonuniform axes the knot count says
+    # nothing about the local spacing, so the check applies to uniform grids only
     want  = ntuple(d -> min(_SMOOTH_GAMMA * _smooth_cutoff(fit.λ, qv[d]) + 1, 1e9), D)
     short = ntuple(d -> want[d] >= _SMOOTH_REFINE * n_int[d], D)
-    if any(short)
+    if any(short) && axes isa NTuple{D,<:AbstractRange}
         need  = join((short[d] ? ceil(Int, want[d]) : n_int[d] for d in 1:D), "×")
         limit = n_fixed === nothing ? "`oversample`" : "`gridsize`"
         hint  = axes isa NTuple{D,<:AbstractRange} ?

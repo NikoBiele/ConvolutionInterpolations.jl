@@ -76,6 +76,9 @@ xg4 = range(0, 1, 8);  z4 = [a+b+c+d for a in xg4, b in xg4, c in xg4, d in xg4]
         @testset "extrap=$e" for e in (:line, :flat, :natural, Line(), Flat(), Natural())
             println("    - Extrapolation: ", e)
             check_show(ci(x1u, y1u; kernel=:b5, extrap=e))
+        end
+        @testset "extrap=$e" for e in (:line, :flat, Line(), Flat())
+            println("    - Extrapolation: ", e)
             check_show(ci(x1n, y1n; kernel=:b5, extrap=e))
         end
     end

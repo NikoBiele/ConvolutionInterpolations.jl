@@ -37,34 +37,35 @@ Two modes:
 - `kernel::Union{Symbol,NTuple{D,Symbol}}=:auto`: on a uniform grid any kernel
   with a polynomial boundary-condition table (`:a3`, `:a4`, `:a5`, `:a7`,
   `:b5`...`:b13`); on a nonuniform grid (`grid = :adaptive` or user axes) `:n3`
-  or a `:b` kernel, the kernels that support nonuniform grids. `:auto` uses the
-  scattered-path default. Uniform grid, `:smooth`: `:a4` in every dimension.
-  With noisy data the accuracy is set by the noise and the roughness order
-  rather than the kernel, and `:a4`'s narrow stencil makes the fit 2-3x faster
-  than `:b5` in 2D and 3-9x in 3D at comparable accuracy; at a knot budget too
-  small to resolve the signal, `:b5` is the more accurate choice. Uniform grid,
-  `:exact`: `:b5` for 1-3D (measured to be both the fastest and the
-  deepest-converging choice with the default solver), `:a4` for 4-5D, `:a3`
-  above. Note this differs from the gridded default (`:b7` for 1-2D): for
-  scattered data the boundary-condition tables cap all b-kernels at degree-7
-  reproduction, and `:b5`'s shallower ghost extrapolation gives it the lowest
-  roundoff floor under `:cholesky`. Nonuniform grid: `:n3` for `:smooth` (the
-  counterpart of `:a4`: closed-form weights, a 4-wide stencil and no
-  per-interval precompute) and `:b5` for `:exact`. Interpolate the fitted grid
+  or a `:b` kernel, the kernels that support nonuniform grids. `:auto` is `:b5`
+  in 1-3D for both modes and both grid types: measured to be both the fastest
+  and the deepest-converging choice for `:exact` with the default solver, and
+  for `:smooth` the accuracy of a `:b` kernel at a cost that is small once the
+  fit has coarsened to the grid its smoothing needs. Note this differs from the
+  gridded default (`:b7` for 1-2D): for scattered data the boundary-condition
+  tables cap all b-kernels at degree-7 reproduction, and `:b5`'s shallower
+  ghost extrapolation gives it the lowest roundoff floor under `:cholesky`.
+  In 4D and above the cheap kernels take over: `:a4` for 4-5D and `:a3` above
+  on uniform grids, `:n3` (closed-form weights, a 4-wide stencil and no
+  per-interval precompute) on nonuniform grids. Interpolate the fitted grid
   with the fitting kernel.
 - `mode::Symbol=:smooth`: `:smooth` or `:exact` (see above).
 - `grid::Union{Symbol,Tuple}=:uniform`: the knot axes. `:uniform` is the uniform
-  grid over the bounding box. `:adaptive` places the knots of each axis at the
-  quantiles of the points' coordinates along that axis, blended with the uniform
-  knots by `alpha` and with the ratio of adjacent spacings capped at `ratio`, so
-  a dense band of points gets a dense band of knots. This is what lets `:exact`
-  interpolate clustered points at all, and lets `:smooth` resolve a boundary
-  layer, a step or a log-scaled axis at a knot count a uniform grid cannot. The
-  grid is still a tensor product, so it helps when the point density is roughly
-  separable along the axes, not for isolated clusters; in two or more dimensions
-  points can still share a cell where the clusters of several axes overlap, and
-  `oversample` is the remedy. A tuple of strictly increasing knot vectors, one
-  per axis, is used as given; the vectors must cover the data. Nonuniform grids
+  grid over the bounding box. `:adaptive` places the knots of each axis where
+  they are needed, blended with the uniform knots by `alpha` and with the ratio
+  of adjacent spacings capped at `ratio`. For `:exact` the need is the points: the
+  knots sit at the quantiles of the coordinates along each axis, so a dense band
+  of points gets a dense band of knots, which is what lets `:exact` interpolate
+  clustered points at all. For `:smooth` the need is the signal: the uniform fit
+  is made first, and its curvature along each axis places the knots — dense in a
+  boundary layer, a step or a fast oscillation, sparse where the fit is flat — and
+  the fit is repeated on them, with half the uniform fit's knot count unless
+  `gridsize` says otherwise. The grid is still a tensor product, so it helps when
+  the need is roughly separable along the axes, not for isolated features; in two
+  or more dimensions points can still share a cell of an `:exact` grid where the
+  clusters of several axes overlap, and `oversample` is the remedy. A tuple of
+  strictly increasing knot vectors, one per axis, is used as given; the vectors
+  must cover the data. Nonuniform grids
   give a nonuniform interpolant: no antiderivatives (`derivative = -1`) and
   `lazy` only with `:n3`. With the `:b` kernels construction costs one
   exact-arithmetic projection per interval, so keep their knot counts modest;
@@ -107,6 +108,15 @@ Two modes:
 - `lambda::Union{Symbol,Real}=:gcv` (`:smooth` only): the smoothing parameter,
   or `:gcv` to choose it by generalized cross-validation. The `lambda` returned
   by a fit reproduces that fit when passed back.
+- `bc::Union{Symbol,Tuple}=:poly` (`:smooth` on uniform grids only): the ghost
+  rule at the ends of the grid, `:poly` (the kernel's full-degree extrapolation,
+  as in `:exact`), `:quadratic` or `:linear`, as a Symbol for every end, a
+  `(left, right)` pair for every axis, or one pair per axis, as in
+  `convolution_interpolation`. A lower degree amplifies the noise less at an
+  end but biases the fit where the signal is steep there; the right choice
+  depends on the data, so `:poly` is the default and a fit that is noisy at a
+  flat end is worth repeating with `:linear` there. Interpolate the fitted
+  grid with the same `bc`. On nonuniform grids the ghosts are the basis's own.
 - `solver::Symbol=:cholesky` (`:exact` only): `:cholesky` (default) factors the
   Jacobi-equilibrated SPD normal system with CHOLMOD: fast, and with the
   default `:b5` kernel it is truncation-limited (no visible roundoff floor
@@ -152,12 +162,24 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
                        oversample::Real=0.0,
                        q::Union{Int,Symbol}=:auto,
                        lambda::Union{Symbol,Real}=:gcv,
+                       bc::Union{Symbol,Tuple}=:poly,
                        solver::Symbol=:cholesky,
                        W::Real=1e6, iters::Int=20, tol::Real=1e-11,
                        verbose::Bool=false)
 
     solver in (:nullspace, :qr, :cholesky) ||
         throw(ArgumentError("solver must be :nullspace, :qr or :cholesky, got $solver."))
+    # the ghost rule per axis and end, normalised to ((left, right), …): a Symbol applies
+    # everywhere, a pair of Symbols to both ends of every axis, a tuple of pairs per axis
+    D_bc = size(points, 1)
+    bcs = bc isa Symbol ? ntuple(_ -> (bc, bc), D_bc) :
+          bc isa Tuple{Symbol,Symbol} ? ntuple(_ -> bc, D_bc) :
+          length(bc) == D_bc && all(b -> b isa Tuple{Symbol,Symbol}, bc) ? NTuple{D_bc,Tuple{Symbol,Symbol}}(bc) :
+          throw(ArgumentError("bc must be a Symbol, a (left, right) pair of Symbols, or one pair per axis; got $bc."))
+    for (l, r) in bcs, b in (l, r)
+        b in (:poly, :quadratic, :linear) ||
+            throw(ArgumentError("bc must be :poly, :quadratic or :linear, got :$b."))
+    end
     D  = size(points, 1)
     Np = size(points, 2)
     Np == length(values) ||
@@ -180,6 +202,32 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
             "Points are COLUMNS (D x Np); for 1D scattered data use " *
             "reshape(x, 1, :). For gridded/nonuniform data at known knots, " *
             "pass knots as a Vector, not a Matrix."))
+
+    # ---- :smooth on an adaptive grid: the knots follow the signal ---------------
+    # The uniform fit first (coarsened by the package to the grid its smoothing needs);
+    # its curvature places the knots, and the fit is repeated on them. The uniform pass
+    # uses the uniform default kernel; the adaptive passes use `kernel` (default :b5).
+    if mode === :smooth && grid === :adaptive
+        ku, vu, _ = fit_scattered(points, values; mode = :smooth, grid = :uniform,
+                                  gridsize, oversample, q, lambda, bc, verbose)
+        s  = convolution_interpolation(ku, vu; kernel = _default_scattered_kernel(D, :smooth, false), bc = bc)
+        # the adaptive knot count per axis: a fraction of the uniform fit's, but at least the
+        # 1D floor where the uniform fit has that many, and never more than the uniform fit
+        g  = gridsize isa Int ? ntuple(_ -> gridsize, D) :
+             gridsize isa Tuple ? NTuple{D,Int}(gridsize) :
+             ntuple(d -> max(min(_SMOOTH_MIN_KNOTS, length(ku[d])), round(Int, _SIGNAL_BUDGET * length(ku[d]))), D)
+        lo = ntuple(d -> minimum(view(points, d, :)), D)
+        hi = ntuple(d -> maximum(view(points, d, :)), D)
+        local knots, vals, info
+        for pass in 1:_SIGNAL_PASSES
+            axes = _signal_axes(s, g, lo, hi; alpha, ratio)
+            knots, vals, info = fit_scattered(points, values; kernel, mode = :smooth, grid = axes,
+                                              q, lambda, verbose)
+            kern = kernel === :auto ? _default_scattered_kernel(D, :smooth, true) : kernel
+            s = convolution_interpolation(knots, vals; kernel = kern)
+        end
+        return knots, vals, info
+    end
     nonuniform = grid !== :uniform
 
     F = float(promote_type(eltype(points), eltype(values)))
@@ -214,7 +262,7 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
                                     "boundary-condition table; :$k is not supported."))
         end
         G  = ntuple(d -> get_polynomial_ghost_coeffs(:poly, kernels[d]), D)
-        ns = ntuple(d -> size(G[d], 2), D)                           # BC stencil width
+        ns = ntuple(d -> size(G[d], 2), D)                           # BC stencil width (:poly is the widest rule)
         qv = ntuple(d -> q !== :auto ? q::Int :                      # roughness orders
                         mode === :smooth ? 5 : ns[d] - 1, D)
     end
@@ -256,7 +304,7 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
         hi64  = ntuple(d -> Float64(hi[d]), D)
         make_axes = n_int -> _fit_axes(pts64, n_int, lo64, hi64, grid; alpha, ratio)
         axes, c_int, info = _fit_smooth(pts64, Float64.(f), kernels, qv, make_axes,
-                                        n_given, g_cap, lambda, verbose)
+                                        n_given, g_cap, lambda, verbose; bc = bcs)
         n_int = ntuple(d -> length(axes[d]), D)
         knots = nonuniform ? ntuple(d -> F.(axes[d]), D) :
                              ntuple(d -> range(lo[d], hi[d], length = n_int[d]), D)
@@ -377,8 +425,8 @@ in benchmarks), `:a4` for 4-5D, `:a3` above. Nonuniform grid — `:smooth`: `:n3
 nonuniform counterpart of `:a4`'s role (closed-form weights, no per-interval
 precompute); `:exact`: `:b5`."""
 _default_scattered_kernel(D::Int, mode::Symbol = :smooth, nonuniform::Bool = false) =
-    nonuniform ? (mode === :smooth ? :n3 : :b5) :
-        mode === :smooth ? :a4 : D <= 3 ? :b5 : D <= 5 ? :a4 : :a3
+    D <= 3 ? :b5 :                                          # one default for both modes and grids
+    nonuniform ? :n3 : D <= 5 ? :a4 : :a3                   # the cheap kernels in high dimensions
 
 """Collocation and roughness operators of the fit on the interior unknowns, `(A*S, R*S)`,
 for the given axes. Ranges mean a uniform grid: the uniform kernels with the `:poly` ghost
@@ -387,18 +435,19 @@ nonuniform kernels (`:n3` or the b-kernels) through the per-axis bases of `_nu_a
 divided-difference roughness in plain-difference units; `_smooth_system` applies the same
 `rowscale` to both grid types."""
 function _scattered_operators(pts::AbstractMatrix{F}, kernels::NTuple{D,Symbol},
-                              axes::NTuple{D,<:AbstractRange}, qv::NTuple{D,Int}) where {F,D}
+                              axes::NTuple{D,<:AbstractRange}, qv::NTuple{D,Int};
+                              bc::NTuple{D,Tuple{Symbol,Symbol}} = ntuple(_ -> (:poly, :poly), D)) where {F,D}
     eqs = ntuple(d -> get_equations_for_degree(kernels[d]), D)
     ng  = ntuple(d -> eqs[d] - 1, D)                       # ghosts per side
-    G   = ntuple(d -> get_polynomial_ghost_coeffs(:poly, kernels[d]), D)
-    ns  = ntuple(d -> size(G[d], 2), D)                    # BC stencil width
+    Gl  = ntuple(d -> get_polynomial_ghost_coeffs(bc[d][1], kernels[d]), D)   # left ghost rule per axis
+    Gr  = ntuple(d -> get_polynomial_ghost_coeffs(bc[d][2], kernels[d]), D)   # right ghost rule per axis
     n_int   = ntuple(d -> length(axes[d]), D)
     h       = ntuple(d -> F(step(axes[d])), D)
     n_full  = ntuple(d -> n_int[d] + 2ng[d], D)
     x0_full = ntuple(d -> F(first(axes[d])) - ng[d] * h[d], D)
 
     A = _scattered_collocation(pts, kernels, eqs, n_full, x0_full, h)
-    S = _scattered_extension(n_full, n_int, ng, ns, G, F)
+    S = _scattered_extension(n_full, n_int, ng, Gl, Gr, F)
     R = _scattered_roughness(n_full, qv, F)
     return A * S, R * S
 end
@@ -534,20 +583,21 @@ end
 """Per-dimension extension operators (interior -> full grid via the polynomial
 BC), combined column-major: S = kron(E_D, ..., E_1)."""
 function _scattered_extension(n_full::NTuple{D,Int}, n_int::NTuple{D,Int},
-                              ng::NTuple{D,Int}, ns::NTuple{D,Int},
-                              G::NTuple{D,Matrix{Float64}}, ::Type{F}) where {F,D}
+                              ng::NTuple{D,Int}, Gl::NTuple{D,Matrix{Float64}},
+                              Gr::NTuple{D,Matrix{Float64}}, ::Type{F}) where {F,D}
     Es = ntuple(D) do d
+        nl, nr = size(Gl[d], 2), size(Gr[d], 2)      # stencil widths of the two ends' ghost rules
         I_ = Int[]; J_ = Int[]; V_ = F[]
         for j in 1:n_int[d]                          # interior identity
             push!(I_, ng[d] + j); push!(J_, j); push!(V_, one(F))
         end
-        for g in 1:ng[d], j in 1:ns[d]               # left ghosts, nearest-first
-            push!(I_, ng[d] + 1 - g); push!(J_, j); push!(V_, F(G[d][g, j]))
+        for g in 1:ng[d], j in 1:nl                  # left ghosts, nearest-first
+            push!(I_, ng[d] + 1 - g); push!(J_, j); push!(V_, F(Gl[d][g, j]))
         end
-        for g in 1:ng[d], j in 1:ns[d]               # right ghosts, mirrored
+        for g in 1:ng[d], j in 1:nr                  # right ghosts, mirrored
             push!(I_, n_full[d] - ng[d] + g)
-            push!(J_, n_int[d] - ns[d] + j)
-            push!(V_, F(G[d][g, ns[d] + 1 - j]))
+            push!(J_, n_int[d] - nr + j)
+            push!(V_, F(Gr[d][g, nr + 1 - j]))
         end
         sparse(I_, J_, V_, n_full[d], n_int[d])
     end

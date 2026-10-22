@@ -97,23 +97,39 @@ end
         rng = MersenneTwister(4)                                        # noise only; the points are deterministic
         x = clustered_1d(2000)
         pts = reshape(x, 1, :)
-        noisy = layer.(x) .+ 1e-3 .* randn(rng, 2000)
+        sharp(t) = exp(-50t)                                            # a layer the uniform 40-knot grid cannot resolve
+        noisy = sharp.(x) .+ 1e-3 .* randn(rng, 2000)
         ev = range(x[1], x[end], length = 1001)
-        # uniform grid with its :smooth default kernel (:a4), the comparison the docs make
+        # uniform grid with its :smooth default kernel (:b5), the comparison the docs make
         ku, vu, iu = fit_scattered(pts, noisy; mode = :smooth, grid = :uniform, gridsize = 40)
-        su = convolution_interpolation(ku, vu; kernel = :a4, bc = :poly)
-        eu = maximum(abs(su(t) - layer(t)) for t in ev)
+        su = convolution_interpolation(ku, vu; kernel = :b5, bc = :poly)
+        eu = maximum(abs(su(t) - sharp(t)) for t in ev)
         for kern in (:n3, :b5)                                          # :n3 is the adaptive :smooth default
             ka, va, ia = fit_scattered(pts, noisy; mode = :smooth, grid = :adaptive, gridsize = 40, kernel = kern)
             sa = convolution_interpolation(ka, va; kernel = kern)
-            ea = maximum(abs(sa(t) - layer(t)) for t in ev)
+            ea = maximum(abs(sa(t) - sharp(t)) for t in ev)
             @test ea < 0.7 * eu                                         # adaptive resolves the layer better; the noise draw moves the ratio
             @test 0.5e-3 < ia.noise < 2e-3                              # noise estimate in range
             @test maximum(abs.(sa.(ka[1]) .- va)) < 1e-10               # cardinality: ghosts match the constructor
         end
-        # the default kernel on an adaptive grid is :n3 for :smooth
+        # the default kernel on an adaptive grid is :b5 for :smooth in 1D and 2D
         itp = convolution_interpolation(pts, noisy; grid = :adaptive, gridsize = 40)
-        @test occursin("n3", sprint(show, itp))
+        @test occursin("b5", sprint(show, itp))
+        # uniformly sampled points: the point density says nothing, the knots follow the
+        # signal's curvature into the layer, with fewer knots than the uniform fit
+        xu = collect(range(0.0, 1.0, length = 2000))
+        pu = reshape(xu, 1, :)
+        nu = layer.(xu) .+ 1e-3 .* randn(rng, 2000)
+        kuu, vuu, _ = fit_scattered(pu, nu; mode = :smooth, grid = :uniform)
+        suu = convolution_interpolation(kuu, vuu; kernel = :b5, bc = :poly)
+        kau, vau, iau = fit_scattered(pu, nu; mode = :smooth, grid = :adaptive)
+        sau = convolution_interpolation(kau, vau; kernel = :b5)
+        euu = maximum(abs(suu(t) - layer(t)) for t in ev)
+        eau = maximum(abs(sau(t) - layer(t)) for t in ev)
+        @test eau < 2 * euu                                             # on this gently varying signal, within a factor of the uniform fit
+        @test length(kau[1]) < length(kuu[1])                           # on about half the knots
+        @test 0.5e-3 < iau.noise < 2e-3
+        @test maximum(abs.(sau.(kau[1]) .- vau)) < 1e-10                # cardinality: ghosts match the constructor
     end
 
     @testset "guardrails" begin

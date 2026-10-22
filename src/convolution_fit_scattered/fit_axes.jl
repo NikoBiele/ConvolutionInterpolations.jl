@@ -100,3 +100,38 @@ function _fit_axes(pts::AbstractMatrix{T}, n_int::NTuple{D,Int}, lo::NTuple{D,T}
         throw(ArgumentError("grid must be :uniform, :adaptive or a tuple of knot vectors, got $grid."))
     end
 end
+
+# number of fine-grid points per axis on which the curvature monitor is sampled
+_signal_fine(D::Int) = D == 1 ? 4001 : D == 2 ? 401 : D == 3 ? 101 : 31
+const _SIGNAL_FLOOR  = 0.003                               # monitor floor, relative to the largest curvature
+const _SIGNAL_BUDGET = 0.5                                 # adaptive knots per axis, as a fraction of the uniform fit's
+const _SIGNAL_PASSES = 2                                   # refits on curvature-placed knots
+
+"""
+    _signal_axes(s, g, lo, hi; alpha, ratio)
+
+Knot axes that follow the signal: on each axis, the knots equidistribute `√(|∂²s/∂x_d²| + ε)`,
+the curvature of the fitted interpolant `s` averaged over the other axes, with the floor `ε`
+a fraction `_SIGNAL_FLOOR` of the largest curvature so that flat regions keep knots. The
+curvature is sampled on a fine tensor grid by second differences; a sample with the
+monitor's density is drawn by inverting its cumulative integral, and `_fit_axis_adaptive`
+places `g[d]` knots at that sample's quantiles, blended with uniform knots by `alpha` and with
+the spacing ratio capped at `ratio`.
+"""
+function _signal_axes(s, g::NTuple{D,Int}, lo::NTuple{D,T}, hi::NTuple{D,T};
+                      alpha::Real = 1.0, ratio::Real = 2.0) where {D,T<:Real}
+    nf   = _signal_fine(D)
+    fine = ntuple(d -> range(lo[d], hi[d], length = nf), D)
+    V    = [s(c...) for c in Iterators.product(fine...)]      # the fit on the fine tensor grid
+    return ntuple(D) do d
+        h   = step(fine[d])
+        S2  = abs.(diff(diff(V; dims = d); dims = d)) ./ h^2  # |∂²s/∂x_d²| by second differences
+        m   = vec(maximum(S2; dims = Tuple(k for k in 1:D if k != d)))   # the largest over the other axes: an isolated feature needs its knot lines too
+        m   = vcat(m[1], m, m[end])                           # padded to the fine axis
+        m   = sqrt.(m .+ _SIGNAL_FLOOR * maximum(m))          # the monitor, floored
+        C   = cumsum(m) .- m[1]                               # its cumulative integral, normalised
+        C ./= C[end]
+        coords = [fine[d][searchsortedfirst(C, p)] for p in range(0, 1, length = nf)]   # a sample with density m
+        _fit_axis_adaptive(coords, g[d], lo[d], hi[d]; alpha, ratio)
+    end
+end

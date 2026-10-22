@@ -86,7 +86,7 @@ end
 
         # grid point reproduction with random data
         vals_rand = rand(N_nu_4d, N_nu_4d, N_nu_4d, N_nu_4d)
-        itp_rand = convolution_interpolation((x_nu, y_nu, z_nu, w_nu), vals_rand; kernel=kernel, bc=:linear)
+        itp_rand = convolution_interpolation((x_nu, y_nu, z_nu, w_nu), vals_rand; kernel=kernel)
         interpolated = [itp_rand.itp(x_nu[i], y_nu[j], z_nu[k], w_nu[l]) for i in 1:N_nu_4d for j in 1:N_nu_4d for k in 1:N_nu_4d for l in 1:N_nu_4d]
         true_vals = [vals_rand[i,j,k,l] for i in 1:N_nu_4d for j in 1:N_nu_4d for k in 1:N_nu_4d for l in 1:N_nu_4d]
         @test interpolated ≈ true_vals atol=tolerance_nu

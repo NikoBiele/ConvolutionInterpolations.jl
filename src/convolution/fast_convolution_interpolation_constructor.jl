@@ -19,8 +19,10 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
   are evaluated exactly, so no kernel tables are precomputed.
 - `B::Float64=-1.0`: If a positive value is provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
   Forces eager mode.
-- `bc=:detect`: Boundary condition for kernel evaluation at domain edges.
-  Options: `:detect`, `:poly`, `:linear`, `:quadratic`.
+- `bc=nothing`: Boundary condition for the ghost values at the domain edges: `:detect`, `:poly`,
+  `:linear` or `:quadratic`, as a Symbol, a `(left, right)` pair or one pair per dimension.
+  `nothing` means `:detect`, as in `convolution_interpolation`, which on nonuniform grids
+  resolves it to `:kernel` instead; this constructor is uniform-only.
 - `derivative::Union{Int,NTuple{N,Int}}=0`: Derivative order to evaluate, one value for all
   dimensions or one per dimension. Supported up to 6 for `b`-series kernels. `derivative=-m`
   evaluates the m-fold antiderivative, anchored at zero at the leftmost interior knot, up to
@@ -45,12 +47,11 @@ Does not handle extrapolation — use `convolution_interpolation` or wrap in
 
 See also: [`convolution_interpolation`](@ref), [`ConvolutionInterpolation`](@ref), [`ConvolutionExtrapolation`](@ref).
 """
-
 function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}},
                                       vs::AbstractArray{T,N};
                                       kernel::Union{Symbol,NTuple{N,Symbol}}=:auto,
                                       precompute=nothing,
-                                      bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect,
+                                      bc::Union{Nothing,Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=nothing,
                                       derivative::Union{Int,NTuple{N,Int}}=0,
                                       subgrid=nothing,
                                       lazy::Union{Nothing,Bool}=nothing, boundary_fallback=nothing) where {T,N}
@@ -74,12 +75,17 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                     derivative isa Int ? ntuple(_ -> derivative, N) :
                     derivative isa NTuple{1,Int} ? ntuple(_ -> derivative[1], N) : 
                     error("Invalid derivative specification: $derivative.")
+    bc = bc === nothing ? :detect : bc                     # the uniform default; this constructor is uniform-only
     bcs_tuple = bc isa NTuple{N,Tuple{Symbol,Symbol}} ? bc :
                     bc isa Tuple{Symbol,Symbol} ? ntuple(_ -> bc, N) :
                     bc isa NTuple{1,Tuple{Symbol,Symbol}} ? ntuple(_ -> bc[1], N) :
                     bc isa Symbol ? ntuple(_ -> (bc, bc), N) :
                     error("Invalid bc specification: $bc.")
-                    
+    if any(d -> :kernel in bcs_tuple[d], 1:N)
+        throw(ArgumentError("bc = :kernel is the ghost rule of nonuniform grids; on a uniform grid " *
+                            "use :detect, :poly, :quadratic or :linear."))
+    end
+
     if any(==(:n3), kernels_tuple)
         error("The :n3 kernel is not supported by FastConvolutionInterpolation.")
     end

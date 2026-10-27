@@ -35,7 +35,6 @@ rounding for every kernel, derivative and integral order.
 - `eqs::EQ`: Kernel stencil half-widths per dimension
 - `bc::KBC`: Boundary conditions per dimension
 - `derivative_order::DOT`: Derivative orders per dimension
-- `kernel_d1_pre::FD`, `kernel_d2_pre::SD`: Unused placeholders (`nothing`)
 - `lazy::LZ`: If `Val(true)`, ghost points are computed on the fly near the boundaries
 - `anchor::NTuple{N,T}`: Point where antiderivatives are zero, per integral dimension
 - `dim_integral::DI`: Integral dimension type for dispatch

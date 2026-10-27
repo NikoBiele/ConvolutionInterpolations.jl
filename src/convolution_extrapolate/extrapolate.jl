@@ -1,26 +1,22 @@
 """
-    ConvolutionExtrapolation(itp::AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ}, et::ET) where {T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,ET<:BoundaryCondition}
+    ConvolutionExtrapolation(itp::AbstractConvolutionInterpolation, et::AbstractExtrapolation)
 
-Construct a convolution extrapolation object for any interpolation type.
+Wrap an interpolant with an extrapolation rule, so that it can be evaluated outside its grid.
 
 # Arguments
-- `itp::AbstractConvolutionInterpolation`: The interpolation object to extend with extrapolation
-  (works with both `ConvolutionInterpolation` and `FastConvolutionInterpolation`)
-- `et::BoundaryCondition`: The boundary condition to apply outside the interpolation domain
+- `itp`: The interpolant to extend, a `ConvolutionInterpolation` or a `FastConvolutionInterpolation`
+- `et`: The rule applied outside the grid: `Throw()`, `Flat()`, `Line()` or `Natural()`
 
 # Returns
-- `ConvolutionExtrapolation`: An object that extends the interpolation with the specified boundary condition
+- `ConvolutionExtrapolation`: The interpolant with the rule; inside the grid it evaluates `itp`
+  unchanged, and the domain bounds are stored with a tolerance of a few `eps` so that points on
+  the boundary count as inside
 
-# Details
-This constructor creates a `ConvolutionExtrapolation` object by wrapping any subtype of 
-`AbstractConvolutionInterpolation` with a boundary condition. It properly handles the type
-parameters to ensure compatibility with both standard and fast interpolation implementations.
-
-# Recommendation
-These constructors are not simple to use manually, so it is recommended to use the `convolution_interpolation` function.
+`convolution_interpolation` builds this wrapper from its `extrap` keyword, which is the
+recommended way to get one.
 """
-function ConvolutionExtrapolation(itp::AbstractConvolutionInterpolation{T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DOT}, et::ET) where
-                                    {T,N,TCoefs,IT,Axs,KA,DT,DG,EQ,KBC,DOT,ET}
+function ConvolutionExtrapolation(itp::AbstractConvolutionInterpolation{T,N}, et::ET) where
+                                    {T,N,ET<:AbstractExtrapolation}
     lo = ntuple(d -> T(_domain_bounds(itp, d)[1]), N)
     hi = ntuple(d -> T(_domain_bounds(itp, d)[2]), N)
     tol = ntuple(d -> 8 * eps(T) * max(abs(lo[d]), abs(hi[d]), one(T)), N)

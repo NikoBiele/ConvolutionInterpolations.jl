@@ -10,8 +10,8 @@ abstract: >-
   High-order interpolation, differentiation, integration and smoothing on discrete samples in
   arbitrary dimensions.
 license: MIT
-version: 0.28.2
-date-released: 2026-10-14
+version: 1.0.0
+date-released: 2026-10-27
 doi: "10.5281/zenodo.23354656"
 repository-code: "https://github.com/NikoBiele/ConvolutionInterpolations.jl"
 keywords:

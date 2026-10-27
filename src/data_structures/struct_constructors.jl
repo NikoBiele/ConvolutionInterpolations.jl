@@ -36,23 +36,14 @@ HigherDimension(::Val{N}) where N = HigherDimension{N}()
 
 A type representing higher-order convolution kernels (`:a3` and above) for dispatch.
 
-This type is used to distinguish between simple kernels (`:a0` nearest, `:a1` linear)
-and higher-order kernels that require precomputed kernel values and convolution
-operations for evaluation.
+It distinguishes the simple kernels (`:a0` nearest, `:a1` linear), which evaluate directly,
+from the higher-order kernels, which evaluate as a convolution over a stencil of `2*eqs`
+coefficients around the point: each coefficient is weighted by a polynomial in the position
+within the cell, derived exactly from the kernel's pieces (see `_column_rows`), with boundary
+values supplied by ghost points.
 
 # Type Parameters
-- `DG`: The kernel degree symbol (`:a3`, `:a4`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`)
-
-# Details
-Higher-order kernels require:
-- Precomputed kernel values stored in `kernel_pre` matrix
-- Convolution over a support region of size `2*eqs-1`
-- Linear interpolation between precomputed kernel positions
-- Boundary condition handling via ghost points
-
-This type enables specialized dispatch for the fast evaluation methods that use
-precomputed kernels, distinguishing them from `:a0` and `:a1` which use simpler
-direct evaluation.
+- `DG`: The kernel symbol (`:a3`, `:a4`, `:a5`, `:a7`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`)
 
 # Usage
 Used internally for method dispatch in `FastConvolutionInterpolation` evaluation.
@@ -200,12 +191,44 @@ See also: `IntegralOrder`, `DerivativeOrder`.
 """
 struct MixedIntegralOrder{DO} end
 
+"""
+    AbstractExtrapolation
+
+Supertype of the extrapolation rules `Throw`, `Flat`, `Line` and `Natural`, which decide what an
+interpolant returns outside its grid. Passed as `extrap` to `convolution_interpolation`, either
+as an instance (`Line()`) or as the matching symbol (`:line`).
+"""
 abstract type AbstractExtrapolation end
 
+"""
+    Line()
+
+Linear extrapolation: outside the grid, the interpolant continues along the slope it has at the
+nearest boundary point, measured inward from that point. Symbol form `:line`.
+"""
 struct Line <: AbstractExtrapolation end
 
+"""
+    Flat()
+
+Constant extrapolation: outside the grid, the interpolant returns its value at the nearest
+boundary point. Symbol form `:flat`.
+"""
 struct Flat <: AbstractExtrapolation end
 
+"""
+    Throw()
+
+No extrapolation: evaluating outside the grid is an error. The default. Symbol form `:throw`.
+"""
 struct Throw <: AbstractExtrapolation end
 
+"""
+    Natural()
+
+Natural extrapolation: the kernel's own polynomial boundary extension is applied twice, so that
+the interpolant is defined on a domain one ghost region wider than the grid and evaluated there
+as an ordinary interpolant. Smoothest of the rules, uniform grids only, and the one that costs
+most in many dimensions. Symbol form `:natural`.
+"""
 struct Natural <: AbstractExtrapolation end

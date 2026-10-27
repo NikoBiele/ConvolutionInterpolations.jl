@@ -2,28 +2,21 @@
 
 High-order interpolation, differentiation, integration and smoothing on discrete samples in arbitrary dimensions.
 
-[![Performance Comparison](fig/convolution_interpolation_kernels.png)](fig/convolution_interpolation_kernels.png)
+[![Convolution kernels](fig/convolution_interpolation_kernels.png)](fig/convolution_interpolation_kernels.png)
 
-## Why ConvolutionInterpolations.jl?
+ConvolutionInterpolations.jl interpolates data by convolution with a piecewise-polynomial kernel, from nearest-neighbour to a C¹¹ smooth 13th-degree kernel, on uniform and nonuniform grids, in any number of dimensions. The interpolant is differentiated and integrated analytically, smoothed, or built from scattered points by fitting a grid to them, all through one interface.
 
-ConvolutionInterpolations.jl uses a new family of high-order convolution kernels to provide a single unified interface for interpolation, differentiation, integration and smoothing - from nearest-neighbor to C¹¹ smooth 13th-degree polynomial kernels, on uniform and non-uniform grids, in any number of dimensions.
+- **High-order kernels**: 7th-order convergence on uniform grids, up to 14th on nonuniform ones
+- **Exact evaluation**: kernel weights computed exactly from the polynomial pieces, in any precision
+- **O(1) evaluation**: query time independent of grid size, allocation-free
+- **Any dimension**: separable kernels, with lazy construction for large grids
+- **Derivatives up to 7th order** and **repeated integrals up to 8th**, mixed per axis, from the same samples
+- **Scattered data**: smoothing fits with automatically chosen smoothing, or exact interpolation, with derivatives and integrals
+- **Gaussian smoothing** of noisy gridded data and **grid-to-grid resampling**
 
-- **High accuracy kernels**: 7th order convergence for uniform, up to 14th order for non-uniform
-- **Uniform grids**: Kernels are evaluated exactly from their polynomial pieces
-- **Non-uniform grids**: Non-uniform grids are detected automatically
-- **O(1) evaluation (uniform)**: Query time is independent of grid size with allocation-free evaluation
-- **N-dimensional**: Separable kernel design scales naturally from 1D to arbitrary dimensions
-- **Simple API**: A single interface covers nearest-neighbor through 13th-degree polynomial kernels
-- **Derivatives up to 7th order**: Analytically differentiated kernels, stable and allocation-free
-- **Antiderivative support (uniform)**: Compute 7th order accurate smooth indefinite integrals, including repeated integrals up to 8th order, in any dimension
-- **Scattered data smoothing**: Fit noisy scattered data with automatically chosen smoothing, the default for `convolution_interpolation(points, values)`
-- **Scattered data interpolation**: Exact 7th-order interpolation of trusted scattered data via `mode=:exact`, with derivatives and near machine-precision box integrals
-- **Gaussian smoothing**: Recover clean signals from noisy data with `convolution_smooth`
-- **Grid resampling**: High-order separable resampling with `convolution_resample`
+## Documentation
 
-A Python port with a Rust core, by the same author, is available as
-[convinterp](https://github.com/NikoBiele/convinterp) (documentation at
-[convinterp.org](https://convinterp.org), install with `pip install convinterp`).
+The documentation lives at [convinterp.org](https://convinterp.org): concept pages for each capability, [benchmarks](https://convinterp.org/benchmarks/julia/) against Interpolations.jl, BSplineKit.jl, Dierckx.jl and the scattered-data packages, the [theory](https://convinterp.org/theory.html) behind the kernels, the [API reference](https://convinterp.org/julia/api.html) and the [release notes](https://convinterp.org/julia/releases.html). The same site documents [convinterp](https://github.com/NikoBiele/convinterp), the Python port with a Rust core by the same author.
 
 ## Installation
 
@@ -32,673 +25,131 @@ using Pkg
 Pkg.add("ConvolutionInterpolations")
 ```
 
-## Quick Start
+## A first example
 
-### 1D Interpolation
-
-```julia
-using ConvolutionInterpolations, Plots
-
-# Sparse sampling: 6 samples sine wave
-x = range(0, 2π, length=6)
-y = sin.(x)
-itp = convolution_interpolation(x, y) # default :b7 kernel
-
-x_fine = range(0, 2π, length=200)
-p1 = plot(x_fine, sin.(x_fine), label="True function: sin(x)")
-scatter!(p1, x, y, label="6 samples")
-plot!(p1, x_fine, itp.(x_fine), label="Interpolated (6 samples)")
-```
-
-[![1D sine wave interpolation](fig/simple_sine_wave_1D_demonstration.png)](fig/simple_sine_wave_1D_demonstration.png)
-
-### 2D Interpolation
+A sine sampled at fifty points, interpolated with the default `:b7` kernel and evaluated between the samples, with its derivative and its integral from the same fifty values:
 
 ```julia
-using ConvolutionInterpolations, Plots
+using ConvolutionInterpolations
 
-xs = range(-π, π, length=5)
-ys = range(-π, π, length=5)
-zs = sin.(xs) .* sin.(ys')
+x = range(0, 2π, length = 50)                             # fifty uniformly spaced samples
+y = sin.(x)                                               # the values at the samples
 
-itp_2d = convolution_interpolation((xs, ys), zs);
+itp = convolution_interpolation(x, y)                     # the interpolant, default kernel :b7
+d_itp = convolution_interpolation(x, y; derivative = 1)   # the derivative of the interpolant
+i_itp = convolution_interpolation(x, y; derivative = -1)  # its integral, zero at x = 0
 
-xs_fine = range(-π, π, length=100)
-ys_fine = range(-π, π, length=100)
-
-p1 = contourf(xs, ys, zs', title="Original Data")
-p2 = contourf(xs_fine, ys_fine, itp_2d.(xs_fine, ys_fine')', title="Interpolated")
-plot(p1, p2, layout=(1,2), size=(800,300))
+itp(1.0), d_itp(1.0), i_itp(1.0)                          # evaluate between the samples
 ```
 
-[![2D random interpolation](fig/smooth_2D_interpolation.png)](fig/smooth_2D_interpolation.png)
+| | f(1) | f′(1) | ∫₀¹ f |
+|:--|--:|--:|--:|
+| from fifty samples | 0.841470984879974 | 0.540302305515489 | 0.459697694147643 |
+| exact | 0.841470984807897 | 0.540302305868140 | 0.459697694131860 |
 
-### Smoothing Noisy Gridded Data
+Ten correct digits from fifty samples per period, and the error keeps falling as the 7th power of the spacing as samples are added.
 
-`convolution_smooth` applies separable Gaussian kernel smoothing to recover clean signals from noisy data. 
-The kernel is normalized to sum to unity, so the mean signal level is preserved.
-Works in any number of dimensions and is allocation-free in the inner loop.
-The parameter `B` controls the Gaussian width: larger `B` means a narrower kernel (less smoothing),
-smaller `B` means a wider kernel (more smoothing).
-`B ≈ 0.1` is a good default: the optimum is shallow, so precise tuning rarely pays.
-Smaller `B` (wider kernel) over-smooths and attenuates extrema; larger `B` leaves
-noise behind, as visible in the figure below.
+## The interface at a glance
+
+Every capability is a keyword of `convolution_interpolation`, or one of four companion functions. Each call below is complete:
 
 ```julia
-using ConvolutionInterpolations, Plots
+using ConvolutionInterpolations
 
-x = range(0.0, 2π, length=200)
-y = range(0.0, 2π, length=200)
-z_noisy = [cos(xi)*sin(yi) for xi in x, yi in y] .+ 0.1.*randn(200,200);
+# gridded data: a vector or range of knots per axis, and an array of values
+xs = range(-1, 1, length = 41)                            # a uniform axis
+ys = range(0, 2, length = 61)                             # another
+z = [sin(3x) * cos(2y) for x in xs, y in ys]              # values on the 2D grid
 
-B_values = (0.02, 0.05, 0.1, 0.5, 1.0, 2.0)
+itp = convolution_interpolation((xs, ys), z)              # 2D interpolant, default kernel :b7
+itp(0.3, 1.2)                                             # evaluate anywhere inside the grid
 
-# call as 'z_smooth = convolution_smooth((x,y), z_noisy, B)'
-plots = [contourf(x, y, convolution_smooth((x,y), z_noisy, B)',
-                  title="B=$B", colorbar=false, 
-                  clims=(-1.1,1.1)) for B in B_values]
+itp_x = convolution_interpolation((xs, ys), z; derivative = (1, 0))    # ∂/∂x of the interpolant
+itp_I = convolution_interpolation((xs, ys), z; derivative = (-1, -1))  # ∫∫ from the corner of the grid
+itp_a4 = convolution_interpolation((xs, ys), z; kernel = :a4)          # a narrower kernel, cheaper in many dimensions
 
-plot(plots..., layout=(2,3), size=(1200,700),
-     plot_title="Gaussian smoothing with different B values")
+xn = sort(rand(30))                                       # nonuniform knots are detected automatically
+itp_n = convolution_interpolation(xn, sin.(2π .* xn))     # the nonuniform :b7 kernel
+itp_e = convolution_interpolation(xs, sin.(xs); extrap = :line)   # linear extrapolation outside the grid
+
+xl = range(0, 1, length = 400)                            # a large grid is built lazily by default:
+itp_3d = convolution_interpolation((xl, xl, xl), rand(400, 400, 400))   # ghost points computed on the fly at the boundaries
+
+z_smooth = convolution_smooth((xs, ys), z .+ 0.05 .* randn(41, 61), 0.1)   # Gaussian smoothing of noisy gridded data
+z_fine = convolution_resample((xs, ys), (range(-1, 1, length = 201), range(0, 2, length = 301)), z)   # resample to a finer grid
+
+# scattered data: a d × n matrix of points, one per column, and a vector of values
+pts = rand(2, 800)
+vals = [sin(3p[1]) * cos(2p[2]) + 0.05 * randn() for p in eachcol(pts)]   # noisy measurements
+fit = convolution_interpolation(pts, vals)                # smoothing fit, smoothing chosen by cross-validation
+fit_x = convolution_interpolation(pts, vals; derivative = (1, 0))        # and its derivative
+knots, grid, info = fit_scattered(pts, vals)              # the fitted grid itself, with the chosen smoothing and estimated noise
+exact = convolution_interpolation(pts, vals; mode = :exact)   # for trusted data: passes through every point
 ```
 
-[![Gaussian smoothing 2D](fig/gaussian_smooth_2d.png)](fig/gaussian_smooth_2d.png)
-
-Smoothing is performed separably, one dimension at a time, making it fast even in high dimensions:
-
-| Grid | B=0.02 | B=0.05 | B=0.1 |
-|------|--------|--------|-------|
-| 1D n=1000 | 22 μs | 13 μs | 9.6 μs |
-| 2D 200² | 1.7 ms | 0.99 ms | 0.72 ms |
-| 3D 50³ | 9.3 ms | 5.7 ms | 4.4 ms |
-| 4D 40⁴ | 273 ms | 206 ms | 169 ms |
-
-For point-wise Gaussian smoothing that also supports evaluation at arbitrary locations,
-use `convolution_gaussian` directly (works in higher dimensions too):
-
-```julia
-itp = convolution_gaussian(x, y_noisy, 0.1)  # returns an interpolant
-itp(1.5)                                     # evaluate anywhere
-```
-
-Requires `B ≤ 0.34`, since the kernel does not sum to unity between nodes.
-Above `0.34` the relative error between nodes exceeds `10⁻¹²`, so larger `B` errors.
-`convolution_smooth` evaluates on nodes only and is exact at any `B`.
-
-### Grid Resampling
-
-`convolution_resample` resamples data from one uniform grid to another using high-order convolution interpolation.
-It is significantly faster than constructing a full interpolant when only a new grid of values is needed.
-
-```julia
-using ConvolutionInterpolations, Plots
-
-x_coarse = range(0.0, 2π, length=8)
-y_coarse = range(0.0, 2π, length=8)
-z_coarse = [sin(x)*cos(y) for x in x_coarse, y in y_coarse];
-
-x_fine = range(0.0, 2π, length=200)
-y_fine = range(0.0, 2π, length=200)
-z_fine = convolution_resample((x_coarse, y_coarse), (x_fine, y_fine), z_coarse)
-
-p1 = contourf(x_coarse, y_coarse, z_coarse', title="Coarse grid (8²)")
-p2 = contourf(x_fine, y_fine, z_fine', title="Resampled (200²)")
-plot(p1, p2, layout=(1,2), size=(800,350))
-```
-
-[![Grid resampling 2D](fig/resample_2d.png)](fig/resample_2d.png)
-
-The default kernel is `:b13`, a 13th degree polynomial kernel with 7th order convergence.
-Resampling is separable and allocation-free in the inner loop, with alloc count independent of grid size:
-
-| Grid | Time |
-|------|------|
-| 1D 50→100 | 3 μs |
-| 2D 30²→60² | 189 μs |
-| 3D 20³→40³ | 4.2 ms |
-
-Derivatives can be resampled simultaneously:
-
-```julia
-# resample and differentiate in one pass
-z_dx = convolution_resample((x_coarse, y_coarse), (x_fine, y_fine), z_coarse;
-                             kernel=:b13, derivative=(1, 0))  # d/dx only
-```
-
-Antiderivatives (`derivative=-1`) are not supported with resampling, use `convolution_interpolation` with `derivative=-1` instead.
-
-### Scattered Data Interpolation (trusted data)
-
-By default, scattered data are smoothed (see the next section), because they are
-usually measurements with some noise. If your data are exact, for example samples
-of a known function, use `mode=:exact`: the interpolant then passes through every
-data point. Pass a `D x N` matrix (one point per column) and a vector of values;
-the result behaves like any gridded interpolant:
-
-```julia
-n = 800
-points = rand(2, n)
-values = [sin(3p[1]) * cos(2p[2]) for p in eachcol(points)]
-
-itp = convolution_interpolation(points, values; mode=:exact)   # exact at every data point
-itp_dx = convolution_interpolation(points, values; mode=:exact, derivative=(1, 0))
-
-# box integrals via the mixed antiderivative (inclusion-exclusion):
-I = convolution_interpolation(points, values; mode=:exact, derivative=(-1, -1))
-box = I(0.9, 0.8) - I(0.1, 0.8) - I(0.9, 0.2) + I(0.1, 0.2)  # ~1e-13 accurate
-```
-
-Internally the kernel basis lives on a uniform grid over the data's bounding
-box; the data enter as exact constraints on the grid coefficients, so the
-full gridded machinery applies unchanged. Exact to ~1e-12 at the data,
-~7th-order convergence for quasi-uniform point sets; 1D–3D recommended.
-Options: `solver=:cholesky` (default) or `:qr` (lowest roundoff floor).
-`fit_scattered(points, values; mode=:exact)` returns the underlying `(knots, values)`.
-Strongly clustered data trigger a warning, and the fit then degrades gracefully to
-least squares. For noisy data, use the default smoothing described below.
-
-### Scattered Data Smoothing (noisy data)
-
-By default, scattered data are fitted with `mode=:smooth`. Instead of passing through
-every point, the fit balances closeness to the data against smoothness, and chooses
-this balance itself by generalized cross-validation, so there is no smoothing
-parameter to tune. The result is a high-order interpolant like any other: you can
-evaluate, differentiate and integrate it.
-
-```julia
-using ConvolutionInterpolations, Plots
-
-# scattered noisy measurements of sin(x)·sin(y) on [0, 2π]²
-n_points = 1000                                                      # number of measurements
-points = rand(2, n_points) .* 2π                                     # one point per column
-values = sin.(points[1,:]) .* sin.(points[2,:]) .+ 0.1 .* randn(n_points)   # signal plus noise (σ = 0.1)
-
-# smoothed interpolant, with the smoothing chosen automatically (the default mode=:smooth)
-itp = convolution_interpolation(points, values)                      # f(x,y)
-itp_dx = convolution_interpolation(points, values; derivative=(1,0)) # ∂f/∂x
-itp_int = convolution_interpolation(points, values; derivative=-1)   # ∫∫f dx dy
-
-# the chosen smoothing and the estimated noise level of the data
-knots, vals, info = fit_scattered(points, values)                    # the fit behind itp
-info.noise                                                           # ≈ 0.1, the noise we added
-info.lambda                                                          # the smoothing parameter chosen
-
-# plot and verify on the data's bounding box (the fit's domain)
-xs = range(extrema(points[1,:])..., length=100)                      # x across the data
-ys = range(extrema(points[2,:])..., length=100)                      # y across the data
-fitted = [itp(x, y) for x in xs, y in ys]                            # smoothed fit on a plotting grid
-true_signal = [sin(x) * sin(y) for x in xs, y in ys]                 # the signal we sampled
-limits = extrema(values)                                             # one colour scale for the signal panels
-p1 = scatter(points[1,:], points[2,:], zcolor=values, legend=false,
-             title="Scattered noisy data (n=$n_points)",
-             ms=3, markerstrokewidth=0, aspect_ratio=1, clims=limits) # the measurements
-p2 = contourf(xs, ys, fitted', title="Smoothed fit (mode=:smooth)", clims=limits)
-p3 = contourf(xs, ys, true_signal', title="True signal", clims=limits)
-p4 = contourf(xs, ys, abs.(fitted .- true_signal)', title="|fit − true signal|")
-plot(p1, p2, p3, p4, layout=(2,2), size=(900,800), colorbar=false, dpi=300)
-```
-
-[![Scattered Data Smoothing](fig/scattered_data_smoothing.png)](fig/scattered_data_smoothing.png)
-
-Passing `lambda=info.lambda` reproduces a fit exactly, without repeating the search,
-or applies the same smoothing to other data of the same kind. `info.noise` is the
-estimated noise level of the data, a useful check against a known measurement error.
-The fit's grid is refined only as far as the chosen smoothing requires, so heavily
-smoothed fits stay fast; a `gridsize` you pass is used as given. On noise-free data
-the fit approaches interpolation, but `mode=:exact` is more accurate there. Smoothing
-needs more than 5^D data points (25 in 2D, 125 in 3D). For noisy data that is already
-on a grid, use `convolution_smooth`.
-
-### Non-uniform Grid Interpolation
-
-Non-uniform grids are detected automatically if an irregular vector of knots is passed.
-All :b kernels support non-uniform grids, with convergence order degree+1,
-from 6th order (:b5) up to 14th order (:b13), and derivatives up to 7th order.
-
-```julia
-x = [0.0, 0.15, 0.4, 0.7, 1.5, 2.5, 3.8, 4.2, 4.6, 4.8, 5.0,
-     5.3, 5.6, 6.0, 6.5, 7.0, 7.3, 7.8, 8.2, 8.5, 9.0, 9.5, 10.0]
-y = sin.(x) .* exp.(-x/5)
-
-itp   = convolution_interpolation(x, y; kernel=:b11);                # f(x)
-itp_d1 = convolution_interpolation(x, y; kernel=:b11, derivative=1);  # f'(x)
-itp_d2 = convolution_interpolation(x, y; kernel=:b11, derivative=2);  # f''(x)
-itp_d3 = convolution_interpolation(x, y; kernel=:b11, derivative=3);  # f'''(x)
-itp_d4 = convolution_interpolation(x, y; kernel=:b11, derivative=4);  # f⁴(x)
-itp_d5 = convolution_interpolation(x, y; kernel=:b11, derivative=5);  # f⁵(x)
-```
-
-[![Nonuniform derivatives](fig/nonuniform_derivatives.png)](fig/nonuniform_derivatives.png)
-
-Dots are analytical values, solid lines are the `:b11` interpolant.
-Non-uniform grids work in any number of dimensions via tensor products, though precomputation
-cost scales with the number of intervals and grows rapidly in high dimensions. For
-performance-critical or high-dimensional applications, consider constructing the non-uniform
-interpolant once to evaluate onto a uniform grid, then using efficient uniform kernels for
-repeated evaluation.
-
-## Accuracy
-
-### Runge Function Benchmark
-
-The 1D Runge function demonstrates convergence behavior across kernel families:
-
-[![Runge function convergence](fig/convergence_interpolation_1d_runge.png)](fig/convergence_interpolation_1d_runge.png)
-
-- `:b` kernels reach 10⁻¹⁴ at about 900–1300 sample points, and level off at the rounding floor of ~10⁻¹⁵ by about 1100–1900, the wider kernels first
-- `:b7` to `:b13` show 7th order convergence (slope ≈ -7 on the log-log plot), `:b5` 6th order
-- The `:a4` kernel show 4th order convergence, and is similar to cubic splines
-- The fast path evaluates each kernel's polynomial pieces in a local coordinate within the grid cell, which is both fast and numerically stable
-- Chebyshev interpolation shown for reference (requires non-uniform grid points)
-
-### Frequency Response
-
-The `:b`-series kernels approximate the ideal sinc interpolation kernel more closely than previously published convolution kernels, with flatter passbands and steeper stopband rolloff.
-
-[![Kernels spectra](fig/FFT_kernels_spectra.png)](fig/FFT_kernels_spectra.png)
-
-## Speed
-
-Performance across dimensions and kernel families:
-
-[![Kernel performance heatmap](fig/kernel_performance_comparison.png)](fig/kernel_performance_comparison.png)
-
-**Initialization** (left panel): One-time setup cost in eager mode (`lazy=false`). Ranges from ~2 μs for linear kernels to ~0.3 s for 4D `:b` kernels. For kernels higher than `:a1`, setup time scales with the number of boundary points. Benchmarks use 50 grid points per dimension (50, 50², 50³, 50⁴). With `lazy=true`, construction is constant-time regardless of grid size or dimension — see [High-Dimensional Interpolation](#high-dimensional-interpolation) for benchmarks.
-
-**Evaluation** (right panel): Cost per interpolation call with default settings (extrapolation wrapper).
-Lower times are achievable with lower order kernels or by bypassing the extrapolation wrapper (`itp.itp(x)`).
-
-Evaluation cost scales as (stencil)ᴺ across dimensions due to tensor product structure.
-
-### Resampling Performance
-
-`convolution_resample` is faster than constructing a full interpolant and evaluating
-at each output point, with the advantage growing with dimension. Note that the default
-kernel for `convolution_resample` is `:b13` while `convolution_interpolation` uses the
-dimension-dependent default kernel, so resampling also provides higher accuracy by default:
-
-| Grid | `convolution_resample` (:b13) | construct + eval (default kernel) | Speedup |
-|------|------------------------------|-----------------------------------|---------|
-| 1D 500→1000 | 25 μs | 31 μs | 1.2× |
-| 2D 100²→200² | 2.0 ms | 8.0 ms | 4.0× |
-| 3D 30³→60³ | 14 ms | 2.27 s | 160× |
-
-## Kernel Reference
-
-### Available Kernels
-
-Uniform grid kernels
-
-| Kernel | Degree | Continuity | Derivative range | Convergence | stencil |
-|--------|--------|------------|------------------|-------------|-----|
-| `:a0`  | 0      | —          | -2..0            | 1st order   | 2ᴺ   |
-| `:a1`  | 1      | C⁰         | -2..0            | 2nd order   | 2ᴺ   |
-| `:a3`  | 3      | C¹         | -4..1            | 3rd order   | 4ᴺ   |
-| `:a4`  | 3      | C¹         | -4..1            | 4th order   | 6ᴺ   |
-| `:a5`  | 5      | C³         | -4..1            | 3rd order   | 6ᴺ   |
-| `:a7`  | 7      | C⁵         | -4..1            | 3rd order   | 8ᴺ   |
-| `:b5`  | 5      | C³         | -6..3            | 6th order   | 10ᴺ   |
-| `:b7`  | 7      | C⁵         | -8..5            | 7th order   | 12ᴺ   |
-| `:b9`  | 9      | C⁷         | -8..6            | 7th order   | 14ᴺ   |
-| `:b11` | 11     | C⁹         | -8..7            | 7th order   | 16ᴺ   |
-| `:b13` | 13     | C¹¹        | -8..7            | 7th order   | 18ᴺ   |
-
-Non-uniform grid kernels
-
-| Kernel | Degree | Continuity | Derivative range | Convergence | stencil |
-|--------|--------|------------|------------------|-------------|-----|
-| `:a0`  | 0      | —          | —                | 1st order   | 2ᴺ  |
-| `:a1`  | 1      | C⁰         | 0..0             | 2nd order   | 2ᴺ  |
-| `:n3`  | 3      | C¹         | 0..0             | ~3rd order  | 4ᴺ  |
-| `:b5`  | 5      | C³         | 0..3             | ~6th order   | 10ᴺ |
-| `:b7`  | 7      | C⁵         | 0..5             | ~8th order   | 12ᴺ |
-| `:b9`  | 9      | C⁷         | 0..6             | ~10th order   | 14ᴺ |
-| `:b11` | 11     | C⁹         | 0..7             | ~12th order   | 16ᴺ |
-| `:b13` | 13     | C¹¹        | 0..7             | ~14th order   | 18ᴺ |
-
-The default kernel is `:b7`, which provides at least 7th-order accuracy and C⁵ continuity.
-It works across all modes: uniform, non-uniform, derivatives, antiderivative, lazy, and
-arbitrary dimensions. The non-uniform `:n3` kernel uses cubic weights equivalent to
-non-uniform Catmull-Rom splines with ~3rd order convergence.
-
-The non-uniform b-kernels converge at order degree+1 rather than the uniform design order of 7: 
-the per-interval construction enforces polynomial reproduction up to each kernel's full degree, 
-so convergence order tracks degree directly. For :b7 and above this exceeds the uniform rate; 
-for :b5 both are 6th order, since the uniform :b5 reproduces polynomials up to degree 5.
-
-### Boundary Conditions
-
-Control how ghost point values are computed near domain edges:
-
-```julia
-itp = convolution_interpolation(x, y; bc=:detect);        # Default
-itp = convolution_interpolation(x, y; bc=:poly);   # Optimal for b-series
-itp = convolution_interpolation(x, y; bc=:linear);
-itp = convolution_interpolation(x, y; bc=:quadratic);
-```
-
-It falls back to `:linear` when there are too few grid points, or when the boundary data carries more high-order content than the polynomial extension can reproduce.
-
-Per-dimension and per-direction boundary conditions are supported:
-
-```julia
-bcs = (
-    (:linear, :quadratic),   # First dimension: linear at start, quadratic at end
-    (:detect, :poly)     # Second dimension: detect at start, polynomial at end
-)
-itp = convolution_interpolation((x, y), z; bc=bcs);
-```
-
-### Derivatives
-
-Derivatives are computed through analytically differentiated kernel coefficients, providing stable results without step-size tuning.
-
-```julia
-x = range(0, 2π, length=100)
-y = sin.(x)
-
-itp_d1 = convolution_interpolation(x, y; derivative=1);  # cos(x)
-itp_d2 = convolution_interpolation(x, y; derivative=2);  # -sin(x)
-```
-
-The kernels are C^(degree−2) smooth, but the shipped fast-path derivative range stops
-at the highest order that remains accurate in Float64: beyond it, the chain-rule 
-factor (1/h)ⁿ amplifies roundoff past the signal (see [Kernel Reference](#available-kernels)).
-
-In multiple dimensions, `derivative=1` applies the derivative kernel along all dimensions simultaneously, producing the mixed partial derivative:
-
-```julia
-# 2D mixed partial derivative ∂²f/∂x∂y
-x = range(0, 2π, length=100)
-y = range(0, 2π, length=100)
-data = [sin(xi) * sin(yi) for xi in x, yi in y]
-itp_d1 = convolution_interpolation((x, y), data; derivative=1);
-itp_d1(1.0, 2.0)  # Returns cos(1.0) * cos(2.0)
-```
-
-[![Derivative convergence](fig/kernel_derivatives_1d_runge.png)](fig/kernel_derivatives_1d_runge.png)
-
-Approximately one order of convergence is lost per derivative order.
-
-Every derivative order a kernel supports is available by default and evaluated exactly, including its highest.
-
-Per-dimension derivative orders are supported by passing a tuple to `derivative`:
-
-```julia
-# d/dx only (derivative order 1 in x, 0 in y)
-itp = convolution_interpolation((x, y), data; derivative=(1, 0))
-
-# d²/dx² in x, d/dy in y
-itp = convolution_interpolation((x, y), data; derivative=(2, 1))
-```
-
-Per-dimension kernels are also supported, allowing different accuracy/cost tradeoffs per axis:
-
-```julia
-itp = convolution_interpolation((x, y), data; kernel=(:b9, :b5))
-```
-
-This works on both uniform and non-uniform grids. On non-uniform grids, each dimension
-independently selects its kernel and derivative order, and the ghost point arrays are
-padded per-dimension by each kernel's own stencil radius.
-
-### Antiderivative
-
-Pass `derivative=-1` to compute the indefinite integral of the interpolant:
-
-```julia
-x = range(0.0, 2π, length=100)
-y = sin.(x)
-
-itp = convolution_interpolation(x, y; derivative=-1);
-itp(1.0)   # ≈ 0.4597  (= 1 - cos(1), anchored at x=0)
-```
-
-The result is zero-anchored at the leftmost interior knot: `F(anchor) = 0` exactly.
-With up to three integral dimensions, the contribution of all coefficients left of the stencil is
-precomputed at construction, so evaluation costs about as much as interpolation, independent of grid
-size. With more integral dimensions, evaluation sums over the coefficients up to the evaluation point:
-accurate, but slower for large grids.
-
-**Repeated antiderivatives.** `derivative=-m` gives the m-fold integral of the interpolant, anchored so
-that it and all lower integrals vanish at the leftmost interior knot:
-
-```julia
-x = range(0.0, 2π, length=100)    # uniform grid
-y = sin.(x)                       # data to integrate twice
-
-# second antiderivative: ∫₀ˣ ∫₀ˢ sin(t) dt ds = x − sin(x)
-itp = convolution_interpolation(x, y; derivative=-2);
-itp(1.0)   # ≈ 0.1585  (= 1 - sin(1))
-```
-
-Orders can be chosen per dimension, and combined with interpolation or derivatives in other dimensions:
-
-```julia
-xs = range(0.0, 2π, length=100)            # uniform grid in x
-ys = range(0.0, 1.0, length=50)            # uniform grid in y
-vs = [sin(x) * y for x in xs, y in ys]     # data on the grid
-
-# second antiderivative in x, plain interpolation in y: (x − sin(x)) · y
-itp = convolution_interpolation((xs, ys), vs; derivative=(-2, 0));
-itp(1.0, 0.5)   # ≈ 0.0793  (= (1 - sin(1)) · 0.5)
-```
-
-Every order is computed exactly from the kernels' m-fold antiderivatives, and converges at the kernel's
-full rate. The highest order depends on the kernel: 2 for `:a0` and `:a1`, 4 for the other `:a` kernels,
-6 for `:b5`, and 8 for `:b7` through `:b13`. Memory grows quickly with the orders: with up to three
-integral dimensions of orders m_d, construction stores Π(1 + m_d) − 1 arrays of the grid's size, for
-example m arrays for order m in one dimension, 8 for `derivative=(-2, -2)`, and 728 for order 8 in three
-dimensions.
-
-In N dimensions the result is the iterated antiderivative:
-
-```julia
-xs = range(0.0, 1.0, length=50)
-ys = range(0.0, 1.0, length=50)
-vs = [x + y for x in xs, y in ys]
-
-itp2 = convolution_interpolation((xs, ys), vs; derivative=-1);
-itp2(0.5, 0.5)   # ≈ ∫₀^0.5 ∫₀^0.5 (x+y) dx dy = 0.125
-```
-
-Antiderivative support is available for all uniform-grid kernels.
-It is not yet supported on non-uniform grids. 
-
-Mixed antiderivative/derivative orders are supported on uniform grids via a tuple,
-enabling e.g. Leibniz-rule-style operations — integrate in one variable, differentiate in another:
-
-```julia
-xs = range(0.0, 2π, length=100)
-ys = range(0.0, 2π, length=100)
-vs = [sin(x) * cos(y) for x in xs, y in ys]
-
-# ∂/∂x ∫ f dy  (differentiate x, integrate y)
-itp = convolution_interpolation((xs, ys), vs; kernel=:b7, derivative=(1, -1))
-itp(1.0, 2.0)  # ≈ cos(1.0) * sin(2.0)
-```
-
-The figure below shows convergence of the antiderivative in 1D of Runge's function:
-
-[![Antiderivative convergence](fig/convergence_integration_1d_runge.png)](fig/convergence_integration_1d_runge.png)
-
-### Discontinuous Antiderivatives
-
-The `:a0` kernel supports antiderivatives of piecewise constant and discontinuous functions.
-A delta-like spike integrates to a Heaviside step:
-
-```julia
-using ConvolutionInterpolations, Plots
-
-n = 1001
-x = range(0.0, 2π, length=n)
-h = x[2] - x[1]
-y = [abs(xi - π) ≈ 0.0 ? 1.0/h : 0.0 for xi in x]
-
-itp = convolution_interpolation(x, y; kernel=:a0, derivative=-1)
-
-x_fine = range(0.0, 2π, length=500)
-p1 = plot(x, y, title="Delta-like spike", lw=2, label="f(x)")
-p2 = plot(x_fine, itp.(x_fine), title="∫f dx ≈ Heaviside", lw=2, label="F(x)")
-plot!(x_fine, [xi < π ? 0.0 : 1.0 for xi in x_fine], lw=2, ls=:dash, label="exact")
-plot(p1, p2, layout=(1,2), size=(900,400))
-```
-
-[![Delta spike and Heaviside](fig/delta_heaviside.png)](fig/delta_heaviside.png)
-
-### Multidimensional Integration and Mixed Operations
-
-For general smooth integrands, the antiderivative converges at approximately the 1D rate (~7th order for `:b` kernels) across all dimensions.
-
-Beyond pure antiderivatives, mixed integral/derivative operations are supported on uniform grids - integrate along some dimensions while differentiating or interpolating along others, all in a single O(stencilᴺ) operator:
-
-```julia
-xs = range(0.0, 2π, length=100)
-ys = range(0.0, 2π, length=100)
-zs = range(0.0, 2π, length=100)
-vs = [sin(x)*cos(y)*exp(z/4) for x in xs, y in ys, z in zs]
-
-# antiderivative in x, derivative in y, interpolation in z
-itp = convolution_interpolation((xs,ys,zs), vs; derivative=(-1, 1, 0))
-
-# definite integrals via differences cancel the unknown constant:
-x1, x2 = 1.0, 2.0
-itp(x2, 1.5, 1.0) - itp(x1, 1.5, 1.0)  # ≈ (-cos(x2)+cos(x1)) * (-sin(1.5)) * exp(1.0/4)
-```
-
-The fast path uses tail sums to reduce the integral dimensions to O(1) lookups per axis, so evaluation cost depends only on the stencil width of the derivative/interpolation dimensions, independent of grid size. Up to 3 integral dimensions are accelerated this way; beyond that the package falls back to a general path that is accurate but slower for large grids.
-
-This enables compact expressions for operators like the Leibniz integral rule, iterated integrals, and mixed differential-integral equations in arbitrary dimensions.
-
-### Extrapolation
-
-Define behavior outside the data domain:
-
-```julia
-itp = convolution_interpolation(x, y; extrap=:throw)     # Error (default)
-itp = convolution_interpolation(x, y; extrap=:line)      # Linear
-itp = convolution_interpolation(x, y; extrap=:flat)      # Constant
-itp = convolution_interpolation(x, y; extrap=:natural)   # extrapolates twice, then interpolates past boundary
-```
-The `Natural()` boundary condition is most useful in lower dimensions, as double extrapolation becomes expensive in higher dimensions.
-
-### High-Dimensional Interpolation
-
-The separable kernel design scales to arbitrary dimensions.
-In lazy mode, ghost points are not expanded at construction but computed on the fly in boundary cells,
-so construction is nearly constant-time regardless of grid size, and no enlarged copy of the data is
-made. Eager mode evaluates faster near the boundaries; its costs are memory (a copy of the data plus
-the ghost points) and construction time (mostly the ghost points). By default (`lazy=nothing`), a
-uniform grid is therefore built lazily when eager expansion would exceed either limit: more than 2²⁷
-coefficients in total (1 GiB in `Float64`) or more than 2²⁴ ghost points (roughly a second of
-construction). Antiderivatives always build eagerly. `lazy=true` or `lazy=false` always wins.
-
-| grid (kernel) | eager total | ghost points | default |
-|---|---:|---:|---|
-| 3D 500³ (`:b7`) | 1.33·10⁸ | 7.7·10⁶ | eager |
-| 3D 600³ (`:b7`) | 2.27·10⁸ | 1.1·10⁷ | lazy (memory) |
-| 4D 99⁴ (`:a4`) | 1.13·10⁸ | 1.65·10⁷ | eager |
-| 4D 100⁴ (`:a4`) | 1.17·10⁸ | 1.70·10⁷ | lazy (construction) |
-| 5D 12⁵ (`:a4`) | 1.0·10⁶ | 8.0·10⁵ | eager |
-| 5D 30⁵ (`:a4`) | 4.5·10⁷ | 2.1·10⁷ | lazy (construction) |
-
-#### Construction timings with `lazy=true` (kernel `:b7`, warm start)
-
-| Grid | eager | lazy | speedup |
-|------|------:|-----:|--------:|
-| 1D 100 | 2.7 μs | 1.6 μs | 1.7× |
-| 2D 100² | 81 μs | 2.3 μs | 36× |
-| 3D 100³ | 21 ms | 0.42 ms | 49× |
-| 4D 30⁴ | 79 ms | 0.59 ms | 130× |
-| 5D 12⁵ | 280 ms | 1.2 ms | 240× |
-
-Lazy construction cost is essentially independent of dimensionality (~1 ms from 3D onward),
-while eager scales with the number of ghost points, which grows
-explosively with dimension and kernel width. For wider kernels than `:b7` the eager cost is even more
-extreme, making `lazy=true` increasingly attractive.
-
-#### Lazy mode
-
-Lazy mode computes exactly the same ghost values as eager mode, in every dimension: boundary cells form
-them on a small local patch the way eager construction forms them, including the `:detect` boundary check,
-so lazy and eager interpolants agree to rounding everywhere. Interior evaluation is as fast as eager.
-Boundary cells cost more, since their ghosts are computed at every evaluation; if near-boundary or corner
-evaluations dominate, prefer `lazy=false`, whose construction cost is quickly amortized.
-
-- Derivatives and per-dimension kernels are supported in any dimension.
-- Antiderivatives (`derivative < 0`) require eager mode; the default resolves to eager for them.
-- A lazy interpolant can be evaluated from several threads at once.
-- The `:n3` kernel additionally supports lazy evaluation on nonuniform grids.
-
-```julia
-x = range(0.0, 1.0, length=40)                        # knots along each axis
-data = rand(40, 40, 40)                               # 3D data on the grid
-# lazy 3D interpolant, with the second derivative along the third axis
-itp = convolution_interpolation((x, x, x), data; kernel=:b7, derivative=(0, 0, 2), lazy=true)
-itp(0.01, 0.5, 0.99)                                  # a boundary cell: agrees with eager mode to rounding
-```
-
-### Exact Kernel Evaluation
-
-On uniform grids, every kernel weight is computed exactly from the kernel's polynomial pieces.
-For a point at fractional position `t` within its grid cell, each coefficient in the stencil is
-weighted by a single polynomial in `t`. These polynomials are derived in exact rational
-arithmetic from each kernel's definition, for every derivative and integral order, and rounded
-once to the working precision. At evaluation time, the weights of all stencil coefficients are
-computed together with Horner's scheme.
-
-The result is exact to rounding for every kernel, derivative and integral order, in any
-precision (`Float32`, `Float64`, `BigFloat`), with no precomputed tables and nothing written
-to disk.
-
-## Performance Guidelines
-
-- **Default `:b7` works everywhere**: 7th-order accuracy on uniform grids, non-uniform grids, high-order derivatives
-- **Lazy mode for large grids**: Chosen automatically when eager expansion would be costly; saves memory and construction time
-- **Use `:a0`, `:a1` or `:a3` in high dimensions**: Evaluation time of narrower kernels scale better with dimensions
+The docstrings (`?convolution_interpolation`, `?fit_scattered`, `?convolution_smooth`, `?convolution_resample`, `?convolution_gaussian`) describe every keyword; the [concept pages](https://convinterp.org) show each capability worked through.
+
+## Kernels
+
+Uniform grids:
+
+| Kernel | Degree | Continuity | Derivative range | Convergence | Stencil |
+|--------|--------|------------|------------------|-------------|---------|
+| `:a0`  | 0      | —          | -2..0            | 1st order   | 2ᴺ      |
+| `:a1`  | 1      | C⁰         | -2..0            | 2nd order   | 2ᴺ      |
+| `:a3`  | 3      | C¹         | -4..1            | 3rd order   | 4ᴺ      |
+| `:a4`  | 3      | C¹         | -4..1            | 4th order   | 6ᴺ      |
+| `:a5`  | 5      | C³         | -4..1            | 3rd order   | 6ᴺ      |
+| `:a7`  | 7      | C⁵         | -4..1            | 3rd order   | 8ᴺ      |
+| `:b5`  | 5      | C³         | -6..3            | 6th order   | 10ᴺ     |
+| `:b7`  | 7      | C⁵         | -8..5            | 7th order   | 12ᴺ     |
+| `:b9`  | 9      | C⁷         | -8..6            | 7th order   | 14ᴺ     |
+| `:b11` | 11     | C⁹         | -8..7            | 7th order   | 16ᴺ     |
+| `:b13` | 13     | C¹¹        | -8..7            | 7th order   | 18ᴺ     |
+
+Nonuniform grids:
+
+| Kernel | Degree | Continuity | Derivative range | Convergence | Stencil |
+|--------|--------|------------|------------------|-------------|---------|
+| `:a0`  | 0      | —          | —                | 1st order   | 2ᴺ      |
+| `:a1`  | 1      | C⁰         | 0..0             | 2nd order   | 2ᴺ      |
+| `:n3`  | 3      | C¹         | 0..0             | 3rd order   | 4ᴺ      |
+| `:b5`  | 5      | C³         | 0..3             | 6th order   | 10ᴺ     |
+| `:b7`  | 7      | C⁵         | 0..5             | 8th order   | 12ᴺ     |
+| `:b9`  | 9      | C⁷         | 0..6             | 10th order  | 14ᴺ     |
+| `:b11` | 11     | C⁹         | 0..7             | 12th order  | 16ᴺ     |
+| `:b13` | 13     | C¹¹        | 0..7             | 14th order  | 18ᴺ     |
+
+The default `:b7` works everywhere: uniform and nonuniform grids, derivatives, integrals, lazy mode, any dimension. The nonuniform `b` kernels converge at order degree + 1, since their per-interval weights enforce polynomial reproduction up to the kernel's full degree; `:n3` is the nonuniform form of `:a3`, and the two names are interchangeable.
+
+## Choosing a kernel
+
+- **Default `:b7` works everywhere**: 7th-order accuracy on uniform grids, nonuniform grids, high-order derivatives
+- **Lazy mode for large grids**: chosen automatically when eager expansion would be costly; saves memory and construction time
+- **Use `:a0`, `:a1` or `:a3` in high dimensions**: evaluation time of narrower kernels scales better with dimension
 - **Any precision works out of the box**: `Float32` and `BigFloat` interpolants use the exact kernel coefficients rounded to their own precision
-- **Orthogonal grids assumption**: The separable kernel design requires mutually orthogonal grid axes.
-- **Use `mode=:exact` for trusted scattered data**: Exact 7th-order fit with derivatives and box integrals
-- **Keep the default smoothing for noisy scattered data**: Smoothing chosen automatically, with an estimate of the noise level
-- **Use `convolution_smooth` before interpolating noisy gridded data**: Separable Gaussian smoothing with B ≈ 0.1 recommended
-- **Use `convolution_resample` for grid-to-grid operations**: Faster than construct+eval, exploits separability
+- **Orthogonal grids assumption**: the separable kernel design requires mutually orthogonal grid axes
+- **Use `mode = :exact` for trusted scattered data**: exact fit with derivatives and box integrals
+- **Keep the default smoothing for noisy scattered data**: smoothing chosen automatically, with an estimate of the noise level
+- **Use `convolution_smooth` before interpolating noisy gridded data**: separable Gaussian smoothing with B ≈ 0.1 recommended
+- **Use `convolution_resample` for grid-to-grid operations**: faster than construct + evaluate, exploits separability
 
-## Technical Background
+## Citing
 
-This package introduces four main contributions:
+If you use this package in your work, please cite it. Every release is archived on Zenodo; the DOI below always refers to the latest version, and the Zenodo record lists the DOIs of the individual versions. `CITATION.cff` in this repository has the details, also under "Cite this repository" on GitHub.
 
-**b-series kernel family.** A new family of high-order convolution kernels (b5, b7, b9, b11, b13) discovered through systematic analytical search using symbolic computation (SymPy), generalizing the approach of R. G. Keys (1981). :b7 through :b13 achieve 7th order convergence, and :b5 6th order. Kernel coefficients are stored as exact rational numbers, enabling extended precision arithmetic with BigFloat.
+> Bielefeld, N. M. (2026). *ConvolutionInterpolations.jl: high-order convolution interpolation*. Zenodo. <https://doi.org/10.5281/zenodo.23354656>
 
-**Polynomial boundary conditions.** A boundary handling method that computes optimal ghost point values that preserve each kernel's polynomial reproduction properties. This maintains convergence order across the entire domain rather than degrading near boundaries.
-
-**Non-uniform b-kernel extension.** On non-uniform grids, each interval requires its own weights adapted to the local grid geometry. This is achieved by expanding the kernel in a binomial series around each interval's local coordinate, then projecting through a Vandermonde system to enforce polynomial reproduction up to the kernel's design order. The result is a compact set of polynomial coefficients per interval, evaluated via Horner's method at query time. All weight generation uses exact `Rational{BigInt}` arithmetic to avoid floating-point contamination, with conversion to `Float64` only at the final storage step. The same framework extends to derivatives by applying the binomial expansion to analytically differentiated kernel coefficients. On mixed grids (some dimensions uniform, some not), each dimension independently
-selects the appropriate path through the separable tensor product. Per-dimension kernels are supported on both uniform and non-uniform grids: ghost point arrays are padded per-dimension by each kernel's own stencil radius, and derivative scaling factors are applied independently per axis.
-
-**Antiderivative via kernel integration.** For `derivative=-m`, each kernel `K` is integrated m times
-analytically, with coefficients derived in exact rational arithmetic like those of the derivative
-kernels. The interpolant's antiderivative is the sum of the coefficients times these integrated kernels,
-minus its Taylor polynomial at the anchor (the leftmost interior knot), so that it and all lower integrals
-vanish there. Far from the anchor this correction is a simple polynomial, folded exactly into the column
-tables at construction, so each stencil weight costs one Horner evaluation. Coefficients left of the
-stencil contribute a polynomial in the position within the cell; with up to three integral dimensions,
-these contributions are precomputed at construction for every region left of the stencil, so evaluation
-costs about as much as interpolation, independent of grid size. With more integral dimensions they are
-summed directly, accurate but slower for large grids. In N dimensions the antiderivative is the tensor
-product of per-dimension antiderivatives.
-
-## Comparison with Other Packages
-
-Key differences from existing interpolation packages:
-
-- `:b`-series kernels with 7th order convergence on uniform grids
-- Automatic non-uniform grid support in arbitrary dimensions
-- Exact kernel evaluation in any precision, with nothing written to disk
-- Single interface from nearest-neighbor to 13th-degree kernels
-- Minimal dependencies (LinearAlgebra, SparseArrays, NearestNeighbors.jl)
-- Separable Gaussian smoothing for noisy data in any number of dimensions
-- Scattered data fitting with automatically chosen smoothing, or exact interpolation
-- Grid-to-grid resampling faster than construct+eval, with alloc count independent of grid size
-- Mixed interpolation, differentiation, and integration in a single operator across arbitrary dimensions
+```bibtex
+@software{bielefeld_convolutioninterpolations,
+  author    = {Bielefeld, Nikolaj Maack},
+  title     = {ConvolutionInterpolations.jl: high-order convolution interpolation},
+  year      = {2026},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.23354656},
+  url       = {https://convinterp.org}
+}
+```
 
 ## Acknowledgments
 
@@ -712,3 +163,7 @@ The theoretical foundation builds on:
 ## Declaration of AI Assistance
 
 Parts of this package and its documentation were developed with assistance from Claude (Anthropic). All code, methods, and scientific content have been verified and validated by the author.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

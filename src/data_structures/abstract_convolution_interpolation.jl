@@ -1,25 +1,23 @@
 """
-    AbstractConvolutionInterpolation{T,N,TCoefs,IT<:Union{Tuple{Vararg{ConvolutionMethod}},ConvolutionMethod},Axs,KA,DT,DG,EQ,KBC,DO}
+    AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DO,LZ,DI,SZ}
 
-Abstract supertype for all convolution-based interpolation types.
+Abstract supertype of the two interpolation types, `ConvolutionInterpolation` (direct kernel
+evaluation) and `FastConvolutionInterpolation` (exact polynomial weights on uniform grids).
 
 # Type Parameters
-- `T`: The element type of the interpolated values
-- `N`: The number of dimensions
-- `TCoefs`: The type of the coefficient array
-- `IT`: The interpolation type (or tuple of types for each dimension)
-- `Axs`: The type of the knot points (typically a tuple of ranges)
-- `KA`: The kernel type
-- `DT`: The dimension type (Val{N} for N≤3, HigherDimension{N} otherwise)
-- `DG`: The kernel type (Val{degree})
-- `EQ`: The equation order type
-- `KBC`: The type of the kernel boundary condition
-- `DO`: The derivative order type
-- `LZ`: The type of the lazy grid
-- `NI`: The number of integral dimensions
-- `DI`: The type of the integral dimension
-
-This abstract type serves as the parent type for the concrete implementations
-`ConvolutionInterpolation` and `FastConvolutionInterpolation`.
+- `T`: Element type of the interpolated values
+- `N`: Number of dimensions
+- `NI`: Number of integral dimensions (derivative order −1)
+- `TCoefs`: Type of the coefficient array
+- `Axs`: Type of the knots (a tuple of ranges or vectors)
+- `KA`: Kernel type per dimension
+- `DT`: Dimension type for dispatch (`Val{N}` for N ≤ 3, `HigherDimension{N}` otherwise)
+- `DG`: Kernel symbol type for dispatch
+- `EQ`: Kernel stencil half-widths per dimension
+- `KBC`: Boundary condition type
+- `DO`: Derivative order type
+- `LZ`: Lazy mode flag (`Val{true}` or `Val{false}`)
+- `DI`: Integral dimension type for dispatch
+- `SZ`: Type of the data domain size
 """
 abstract type AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DO,LZ,DI,SZ} end

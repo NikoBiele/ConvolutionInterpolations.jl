@@ -23,7 +23,7 @@ for kernel in kernels
         yg = f.(xg)
         xt = range(-0.9, 0.9, length=1000)
         try
-            itp = convolution_interpolation(xg, yg; degree=kernel)
+            itp = convolution_interpolation(xg, yg; kernel=kernel)
             maxerr = maximum(abs.(itp.(xt) .- f.(xt)))
             if prev_err !== nothing && maxerr > 0 && prev_err > 0
                 order = log2(prev_err / maxerr)
@@ -54,7 +54,7 @@ for kernel in kernels
     max_deriv = 0
     for d in 1:8
         try
-            itp = convolution_interpolation(x_sin, y_sin; degree=kernel, derivative=d, subgrid=:linear)
+            itp = convolution_interpolation(x_sin, y_sin; kernel=kernel, derivative=d)
             itp(1.0)  # just test it works
             max_deriv = d
             @printf("d%d:OK ", d)

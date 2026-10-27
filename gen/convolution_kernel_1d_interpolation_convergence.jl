@@ -11,7 +11,6 @@ yf = runge.(xf)
 
 n = 100
 ns = unique(trunc.(Int, 10.0 .^([1 + 3.0 * i/(n-1) for i in 0:(n-1)])))
-subgrid = :cubic # :linear
 bc = :detect # :poly
 cerrors = zeros(G, length(ns))
 cubic_spline_errors = zeros(G, length(ns))

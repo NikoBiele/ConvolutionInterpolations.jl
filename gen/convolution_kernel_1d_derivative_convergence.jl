@@ -40,22 +40,22 @@ for n in ns
     count += 1
     println("n = $n")
     xr = [-one(G)+G(2)*G(i)/(n-1) for i in 0:(n-1)]
-    itpb5_fast_d0 = convolution_interpolation(xr, runge.(xr); kernel=:b5, fast=true, bc=:poly, derivative=0, subgrid=:quintic);
-    itpb7_fast_d0 = convolution_interpolation(xr, runge.(xr); kernel=:b7, fast=true, bc=:poly, derivative=0, subgrid=:quintic);
-    itpb9_fast_d0 = convolution_interpolation(xr, runge.(xr); kernel=:b9, fast=true, bc=:poly, derivative=0, subgrid=:quintic);
-    itpb11_fast_d0 = convolution_interpolation(xr, runge.(xr); kernel=:b11, fast=true, bc=:poly, derivative=0, subgrid=:cubic);
-    itpb5_fast_d1 = convolution_interpolation(xr, runge.(xr); kernel=:b5, fast=true, bc=:poly, derivative=1, subgrid=:quintic);
-    itpb7_fast_d1 = convolution_interpolation(xr, runge.(xr); kernel=:b7, fast=true, bc=:poly, derivative=1, subgrid=:quintic);
-    itpb9_fast_d1 = convolution_interpolation(xr, runge.(xr); kernel=:b9, fast=true, bc=:poly, derivative=1, subgrid=:quintic);
-    itpb11_fast_d1 = convolution_interpolation(xr, runge.(xr); kernel=:b11, fast=true, bc=:poly, derivative=1, subgrid=:cubic);
-    itpb5_fast_d2 = convolution_interpolation(xr, runge.(xr); kernel=:b5, fast=true, bc=:poly, derivative=2, subgrid=:cubic);
-    itpb7_fast_d2 = convolution_interpolation(xr, runge.(xr); kernel=:b7, fast=true, bc=:poly, derivative=2, subgrid=:quintic);
-    itpb9_fast_d2 = convolution_interpolation(xr, runge.(xr); kernel=:b9, fast=true, bc=:poly, derivative=2, subgrid=:quintic);
-    itpb11_fast_d2 = convolution_interpolation(xr, runge.(xr); kernel=:b11, fast=true, bc=:poly, derivative=2, subgrid=:cubic);
-    itpb5_fast_d3 = convolution_interpolation(xr, runge.(xr); kernel=:b5, fast=true, bc=:poly, derivative=3, subgrid=:linear);
-    itpb7_fast_d3 = convolution_interpolation(xr, runge.(xr); kernel=:b7, fast=true, bc=:poly, derivative=3, subgrid=:cubic);
-    itpb9_fast_d3 = convolution_interpolation(xr, runge.(xr); kernel=:b9, fast=true, bc=:poly, derivative=3, subgrid=:quintic);
-    itpb11_fast_d3 = convolution_interpolation(xr, runge.(xr); kernel=:b11, fast=true, bc=:poly, derivative=3, subgrid=:cubic);
+    itpb5_fast_d0 = convolution_interpolation(xr, runge.(xr); kernel=:b5, bc=:poly, derivative=0);
+    itpb7_fast_d0 = convolution_interpolation(xr, runge.(xr); kernel=:b7, bc=:poly, derivative=0);
+    itpb9_fast_d0 = convolution_interpolation(xr, runge.(xr); kernel=:b9, bc=:poly, derivative=0);
+    itpb11_fast_d0 = convolution_interpolation(xr, runge.(xr); kernel=:b11, bc=:poly, derivative=0);
+    itpb5_fast_d1 = convolution_interpolation(xr, runge.(xr); kernel=:b5, bc=:poly, derivative=1);
+    itpb7_fast_d1 = convolution_interpolation(xr, runge.(xr); kernel=:b7, bc=:poly, derivative=1);
+    itpb9_fast_d1 = convolution_interpolation(xr, runge.(xr); kernel=:b9, bc=:poly, derivative=1);
+    itpb11_fast_d1 = convolution_interpolation(xr, runge.(xr); kernel=:b11, bc=:poly, derivative=1);
+    itpb5_fast_d2 = convolution_interpolation(xr, runge.(xr); kernel=:b5, bc=:poly, derivative=2);
+    itpb7_fast_d2 = convolution_interpolation(xr, runge.(xr); kernel=:b7, bc=:poly, derivative=2);
+    itpb9_fast_d2 = convolution_interpolation(xr, runge.(xr); kernel=:b9, bc=:poly, derivative=2);
+    itpb11_fast_d2 = convolution_interpolation(xr, runge.(xr); kernel=:b11, bc=:poly, derivative=2);
+    itpb5_fast_d3 = convolution_interpolation(xr, runge.(xr); kernel=:b5, bc=:poly, derivative=3);
+    itpb7_fast_d3 = convolution_interpolation(xr, runge.(xr); kernel=:b7, bc=:poly, derivative=3);
+    itpb9_fast_d3 = convolution_interpolation(xr, runge.(xr); kernel=:b9, bc=:poly, derivative=3);
+    itpb11_fast_d3 = convolution_interpolation(xr, runge.(xr); kernel=:b11, bc=:poly, derivative=3);
 
     itpb5_fast_d0_errors[count] = maximum(abs.(itpb5_fast_d0.(xf) - yf))
     itpb7_fast_d0_errors[count] = maximum(abs.(itpb7_fast_d0.(xf) - yf))

@@ -2,12 +2,12 @@
 # ND — per-dimension kernels and derivative orders
 # ==============================================================
 function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},DG,EQ,KBC,
-            DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,N}) where
+            DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,N}) where
             {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
             Axs<:NTuple{N,<:AbstractVector},
             KA<:NTuple{N,<:Nothing},DG<:AbstractMixedConvolutionKernel,
             EQ<:NTuple{N,Int},KBC<:NTuple{N,Tuple{Symbol,Symbol}},
-            DO,FD,SD,SG}
+            DO}
 
     x = T.(x)
     # Grid positions, and τ = diff_right within the cell

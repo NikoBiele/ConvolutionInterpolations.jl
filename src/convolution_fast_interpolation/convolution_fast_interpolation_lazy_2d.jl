@@ -1,7 +1,8 @@
 @inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a0, :a0)},
-                    EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{true},Val{0}})(x::Vararg{Number,2}) where 
+                    EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,2}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
-                    KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+                    KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     # specialized dispatch for 2d nearest neighbor kernel 
@@ -27,9 +28,10 @@
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a1, :a1)},
-                    EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{true},Val{0}})(x::Vararg{Number,2}) where 
+                    EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,2}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
-                    KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+                    KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     # specialized dispatch for 2d linear kernel
@@ -52,9 +54,10 @@ end
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
-            DG,EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{true},Val{0}})(x::Vararg{Number,2}) where
+            DG,EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,2}) where
             {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
-            KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+            KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
+            KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     # first dimension

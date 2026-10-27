@@ -1,7 +1,6 @@
 module ConvolutionInterpolations
 
 using LinearAlgebra
-using NearestNeighbors
 using SparseArrays
 
 include("data_structures/data_structures.jl")
@@ -11,7 +10,6 @@ include("convolution_kernels/convolution_kernels.jl")
 include("convolution_kernel_interpolation/convolution_kernel_interpolation.jl")
 include("convolution_fast_interpolation/convolution_fast_interpolation.jl")
 include("convolution_coefs/convolution_coefs.jl")
-include("scattered_to_grid/scattered_to_grid.jl")
 include("convolution_fit_scattered/fit_axes.jl")
 include("convolution_fit_scattered/fit_scattered.jl")
 include("convolution_fit_scattered/fit_smooth.jl")
@@ -22,7 +20,6 @@ export
     convolution_gaussian,
     convolution_smooth,
     convolution_resample,
-    scattered_to_grid,
     fit_scattered,
 
     # Core interpolation types for advanced users

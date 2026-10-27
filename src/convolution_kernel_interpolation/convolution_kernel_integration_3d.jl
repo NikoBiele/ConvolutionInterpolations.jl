@@ -1,10 +1,10 @@
 @inline function (itp::ConvolutionInterpolation{T,3,3,TCoefs,Axs,KA,Val{3},
-                    DG,EQ,KBC,IntegralOrder,FD,SD,Val{:not_used},NB,Val{false},Val{3}})(x::Vararg{Number,3}) where 
+                    DG,EQ,KBC,IntegralOrder,NB,Val{false},Val{3}})(x::Vararg{Number,3}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel,<:ConvolutionKernel},DG,
                     EQ<:Tuple{Int,Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
-                    FD,SD,NB<:Nothing}
+                    NB<:Nothing}
 
     x = T.(x)
     result = zero(T)

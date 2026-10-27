@@ -1,8 +1,8 @@
 @inline function (itp::ConvolutionInterpolation{T,2,NI,TCoefs,Axs,KA,Val{2},
-                    DG,EQ,KBC,MixedIntegralOrder{DO},FD,SD,Val{:not_used},NB,Val{false},Val{NI}})(x::Vararg{Number,2}) where
+                    DG,EQ,KBC,MixedIntegralOrder{DO},NB,Val{false},Val{NI}})(x::Vararg{Number,2}) where
                     {T<:AbstractFloat,NI,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel},
-                    DG,EQ<:Tuple{Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,NB<:Nothing}
+                    DG,EQ<:Tuple{Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,NB<:Nothing}
 
     x = T.(x)
     n1 = size(itp.coefs, 1)

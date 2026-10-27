@@ -1,5 +1,5 @@
 """
-    AbstractConvolutionInterpolation{T,N,TCoefs,IT<:Union{Tuple{Vararg{ConvolutionMethod}},ConvolutionMethod},Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG}
+    AbstractConvolutionInterpolation{T,N,TCoefs,IT<:Union{Tuple{Vararg{ConvolutionMethod}},ConvolutionMethod},Axs,KA,DT,DG,EQ,KBC,DO}
 
 Abstract supertype for all convolution-based interpolation types.
 
@@ -15,9 +15,6 @@ Abstract supertype for all convolution-based interpolation types.
 - `EQ`: The equation order type
 - `KBC`: The type of the kernel boundary condition
 - `DO`: The derivative order type
-- `FD`: The first derivative type
-- `SD`: The second derivative type
-- `SG`: The subgrid type
 - `LZ`: The type of the lazy grid
 - `NI`: The number of integral dimensions
 - `DI`: The type of the integral dimension
@@ -25,4 +22,4 @@ Abstract supertype for all convolution-based interpolation types.
 This abstract type serves as the parent type for the concrete implementations
 `ConvolutionInterpolation` and `FastConvolutionInterpolation`.
 """
-abstract type AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,LZ,DI,SZ} end
+abstract type AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DO,LZ,DI,SZ} end

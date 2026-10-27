@@ -1,10 +1,10 @@
 @inline function (itp::ConvolutionInterpolation{T,3,NI,TCoefs,Axs,KA,Val{3},
-                    DG,EQ,KBC,MixedIntegralOrder{DO},FD,SD,Val{:not_used},NB,Val{false},Val{NI}})(x::Vararg{Number,3}) where
+                    DG,EQ,KBC,MixedIntegralOrder{DO},NB,Val{false},Val{NI}})(x::Vararg{Number,3}) where
                     {T<:AbstractFloat,NI,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel,<:ConvolutionKernel},
                     DG,EQ<:Tuple{Int,Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
-                    DO,FD,SD,NB<:Nothing}
+                    DO,NB<:Nothing}
 
     x = T.(x)
     ns = ntuple(d -> size(itp.coefs, d), 3)

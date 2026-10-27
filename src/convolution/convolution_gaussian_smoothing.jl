@@ -226,18 +226,15 @@ function convolution_gaussian_itp(knots::NTuple{N,AbstractVector}, values::Abstr
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
     do_type = _build_do_type(Val{DV}())
     n_integral = _count_integrals(Val{DV}())
-    kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, (:not_used))
     nb_wc = nothing
     anchor = ntuple(d -> zero(T), N)
     integral_dimension = n_integral <= 3 ? Val(n_integral) : HigherDimension(Val(n_integral))
 
     return ConvolutionInterpolation{T,N,n_integral,typeof(coefs),typeof(knots_new),typeof(kernel_type),
                             typeof(dimension),typeof(Val{KS}()),typeof(eqs),typeof(bc),
-                            typeof(do_type),typeof(kernel_d1_pre),typeof(kernel_d2_pre),
-                            typeof(Val(subgrid)),typeof(nb_wc),typeof(Val{false}()),
+                            typeof(do_type),typeof(nb_wc),typeof(Val{false}()),
                             typeof(integral_dimension),typeof(domain_size)}(
         coefs, domain_size, knots_new, h, kernel_type, dimension, Val{KS}(), eqs, bc, do_type,
-        kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val{false}(),
-        anchor, integral_dimension
+        nb_wc, Val{false}(), anchor, integral_dimension
     )
 end

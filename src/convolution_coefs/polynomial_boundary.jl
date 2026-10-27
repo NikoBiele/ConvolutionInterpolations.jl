@@ -141,7 +141,6 @@ Returns a `Matrix{Float64}` from `POLYNOMIAL_GHOST_COEFFS`.
 
 See also: `POLYNOMIAL_GHOST_COEFFS`.
 """
-
 function get_polynomial_ghost_coeffs(kernel_bc::Symbol, kernel_type::Symbol)
     if kernel_bc == :linear
         return LINEAR_GHOST_MATRIX

@@ -15,8 +15,6 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
 - `kernel::Symbol=:auto`: Convolution kernel to use (default is N-dependent to reflect tensor product cost).
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a4` (quartic), `:a5` (quintic), `:a7` (septic)
   - `b`-series: `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
-- `precompute`: Deprecated, has no effect, and will be removed in a future release. Kernels
-  are evaluated exactly, so no kernel tables are precomputed.
 - `B::Float64=-1.0`: If a positive value is provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
   Forces eager mode.
 - `bc=nothing`: Boundary condition for the ghost values at the domain edges: `:detect`, `:poly`,
@@ -28,8 +26,6 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
   evaluates the m-fold antiderivative, anchored at zero at the leftmost interior knot, up to
   order 2 for `:a0`/`:a1`, 4 for the other `a`-series kernels, 6 for `:b5` and 8 for
   `:b7`–`:b13`. Orders may be mixed per dimension, e.g. `(-2, 0)` or `(-1, 1)`.
-  - `subgrid`: Deprecated, has no effect, and will be removed in a future release. Kernels
-  are evaluated exactly, so there is no subgrid interpolation.
 - `lazy::Union{Nothing,Bool}=nothing`: When `true`, skip ghost point expansion at construction
   time. The raw values are stored directly and ghost points are computed on the fly during
   evaluation near boundaries, with exactly the values eager expansion would store. When `false`,
@@ -37,8 +33,6 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
   eager expansion would build more than 2²⁷ coefficients (1 GiB in `Float64`) or compute more
   than 2²⁴ ghost points (roughly a second of construction) and there are no antiderivatives, and
   eager mode otherwise. Automatically disabled for `:a0`, `:a1`, and Gaussian kernels.
-- `boundary_fallback`: Deprecated, has no effect; will be removed in v1.0. Lazy interpolants
-  compute the same boundary ghost values as eager ones, in every dimension.
 
 # Returns
 A `FastConvolutionInterpolation` object callable at arbitrary points within the grid domain.
@@ -50,15 +44,9 @@ See also: [`convolution_interpolation`](@ref), [`ConvolutionInterpolation`](@ref
 function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}},
                                       vs::AbstractArray{T,N};
                                       kernel::Union{Symbol,NTuple{N,Symbol}}=:auto,
-                                      precompute=nothing,
                                       bc::Union{Nothing,Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=nothing,
                                       derivative::Union{Int,NTuple{N,Int}}=0,
-                                      subgrid=nothing,
-                                      lazy::Union{Nothing,Bool}=nothing, boundary_fallback=nothing) where {T,N}
-
-    # deprecated keywords: warn if set, then ignore
-    _warn_deprecated_table_keywords(precompute, subgrid)
-    _warn_deprecated_boundary_fallback(boundary_fallback)
+                                      lazy::Union{Nothing,Bool}=nothing) where {T,N}
 
     # check and normalize inputs
     knots_tuple = knots isa AbstractVector ?
@@ -180,11 +168,9 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
                                         typeof(kernel_type),typeof(dimension),typeof(kernels),
                                         typeof(eqs),
                                         typeof(bc),typeof(do_type),
-                                        Nothing,Nothing,Val{:not_used},
                                         typeof(Val{LZ}()),typeof(integral_dimension),typeof(domain_size)}(
         coefs, domain_size, knots_new, h, x0, kernel_type, dimension, kernels, eqs,
-        bc, do_type, nothing, nothing, Val(:not_used),
-        Val{LZ}(), anchor, integral_dimension,
+        bc, do_type, Val{LZ}(), anchor, integral_dimension,
         integral_taylor, integral_entries, integral_tails,
     )
 end

@@ -249,9 +249,6 @@ the fit approaches interpolation, but `mode=:exact` is more accurate there. Smoo
 needs more than 5^D data points (25 in 2D, 125 in 3D). For noisy data that is already
 on a grid, use `convolution_smooth`.
 
-`scattered_to_grid` is deprecated: `mode=:smooth` replaces the gridding-and-smoothing
-pipeline it was used for, and is more accurate.
-
 ### Non-uniform Grid Interpolation
 
 Non-uniform grids are detected automatically if an irregular vector of knots is passed.
@@ -641,10 +638,6 @@ itp = convolution_interpolation((x, x, x), data; kernel=:b7, derivative=(0, 0, 2
 itp(0.01, 0.5, 0.99)                                  # a boundary cell: agrees with eager mode to rounding
 ```
 
-The `boundary_fallback` keyword of earlier versions, which switched lazy boundary cells to linear
-interpolation, no longer has any effect. It is still accepted, with a deprecation warning, and will be
-removed in v1.0.
-
 ### Exact Kernel Evaluation
 
 On uniform grids, every kernel weight is computed exactly from the kernel's polynomial pieces.
@@ -657,9 +650,6 @@ computed together with Horner's scheme.
 The result is exact to rounding for every kernel, derivative and integral order, in any
 precision (`Float32`, `Float64`, `BigFloat`), with no precomputed tables and nothing written
 to disk.
-
-The `precompute` and `subgrid` keywords of earlier versions no longer have any effect.
-They are still accepted, with a deprecation warning, and will be removed in a future release.
 
 ## Performance Guidelines
 

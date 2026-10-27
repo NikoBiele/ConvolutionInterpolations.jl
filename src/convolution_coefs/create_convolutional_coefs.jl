@@ -466,7 +466,6 @@ This is the recommended boundary condition method for most use cases.
 
 See also: `fill_ghost_points_recursive!`, `get_polynomial_ghost_coeffs`.
 """
-
 function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex, 
                                       c_offset::AbstractVector{CartesianIndex{N}},
                                       coef::Matrix, y_offset::T, y_centered::AbstractVector{T},

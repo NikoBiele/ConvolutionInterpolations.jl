@@ -31,8 +31,6 @@ wraps this with extrapolation handling.
   evaluation near boundaries. This saves memory and speeds up construction, especially
   in high dimensions. Automatically disabled for `:a0`, `:a1`, Gaussian kernels, and
   nonuniform `b`-series paths.
-- `boundary_fallback`: Deprecated, has no effect; will be removed in v1.0. Lazy interpolants
-  compute their boundary ghost values in every dimension.
   
 # Grid handling
 Uniform and nonuniform grids are detected automatically per dimension. On nonuniform grids:
@@ -52,10 +50,7 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
                                   kernel::Union{Symbol,NTuple{N,Symbol}}=:auto,
                                   bc::Union{Nothing,Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=nothing,
                                   derivative::Union{Int,NTuple{N,Int}}=0,
-                                  lazy::Bool=false, boundary_fallback=nothing) where {T,N}
-
-    # deprecated keyword: warn if set, then ignore
-    _warn_deprecated_boundary_fallback(boundary_fallback)
+                                  lazy::Bool=false) where {T,N}
 
     # check and normalize inputs
     knots_tuple = knots isa AbstractVector ?
@@ -175,19 +170,15 @@ function _build_uniform_convolution(knots::Tuple{Vararg{AbstractVector}},
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
     do_type = _build_do_type(Val{DV}())
     n_integral = _count_integrals(Val{DV}())
-
-    kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, (:not_used))
     nb_wc = nothing
     integral_dimension = n_integral <= 3 ? Val(n_integral) : HigherDimension(Val(n_integral))
 
     return ConvolutionInterpolation{T,N,n_integral,typeof(coefs),typeof(knots_new),typeof(kernel_type),
                             typeof(dimension),typeof(Val{KS}()),typeof(eqs),typeof(bc),
-                            typeof(do_type),typeof(kernel_d1_pre),typeof(kernel_d2_pre),
-                            typeof(Val(subgrid)),typeof(nb_wc),typeof(Val{LZ}()),
+                            typeof(do_type),typeof(nb_wc),typeof(Val{LZ}()),
                             typeof(integral_dimension),typeof(domain_size)}(
         coefs, domain_size, knots_new, h, kernel_type, dimension, Val{KS}(), eqs, bc, do_type,
-        kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val{LZ}(),
-        anchor, integral_dimension
+        nb_wc, Val{LZ}(), anchor, integral_dimension
     )
 end
 
@@ -221,18 +212,15 @@ function _build_nonuniform_b_convolution(knots::Tuple{Vararg{AbstractVector}},
     anchor = ntuple(d -> zero(T), N)
     do_type = _build_do_type(Val{DV}())
     n_integral = _count_integrals(Val{DV}())
-    kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, (:not_used))
     kernel_sym = NonUniformMixedOrderKernel(Val(KS))
     integral_dimension = n_integral <= 3 ? Val(n_integral) : HigherDimension(Val(n_integral))
 
     return ConvolutionInterpolation{T,N,n_integral,typeof(coefs),typeof(knots_expanded),typeof(kernel_type),
                             typeof(dimension),typeof(kernel_sym),typeof(M_eqs),typeof(bc),
-                            typeof(do_type),typeof(kernel_d1_pre),typeof(kernel_d2_pre),
-                            typeof(Val(subgrid)),typeof(nb_wc),typeof(Val(false)),
+                            typeof(do_type),typeof(nb_wc),typeof(Val(false)),
                             typeof(integral_dimension),typeof(domain_size)}(
         coefs, domain_size, knots_expanded, h, kernel_type, dimension, kernel_sym, M_eqs, bc, do_type,
-        kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val(false),
-        anchor, integral_dimension
+        nb_wc, Val(false), anchor, integral_dimension
     )
 end
 
@@ -267,7 +255,6 @@ function _build_nonuniform_n3_convolution(knots::Tuple{Vararg{AbstractVector}},
     anchor = ntuple(d -> zero(T), N)
     do_type = _build_do_type(Val{DV}())
     n_integral = _count_integrals(Val{DV}())
-    kernel_d1_pre, kernel_d2_pre, subgrid = (nothing, nothing, (:not_used))
     kernel_scalar = kernel[1]
     nb_wc = Val(:nonuniform)
     kernel_sym = kernel_scalar == :n3 ? NonUniformNonMixedHighKernel(Val(kernel_scalar)) :
@@ -276,12 +263,10 @@ function _build_nonuniform_n3_convolution(knots::Tuple{Vararg{AbstractVector}},
 
     return ConvolutionInterpolation{T,N,n_integral,typeof(coefs),typeof(knots_expanded),typeof(kernel_type),
                             typeof(dimension),typeof(kernel_sym),typeof(eqs),typeof(bc),
-                            typeof(do_type),typeof(kernel_d1_pre),typeof(kernel_d2_pre),
-                            typeof(Val(subgrid)),typeof(nb_wc),typeof(Val(lazy_final)),
+                            typeof(do_type),typeof(nb_wc),typeof(Val(lazy_final)),
                             typeof(integral_dimension),typeof(domain_size)}(
         coefs, domain_size, knots_expanded, h, kernel_type, dimension, kernel_sym, eqs, bc, do_type,
-        kernel_d1_pre, kernel_d2_pre, Val(subgrid), nb_wc, Val(lazy_final),
-        anchor, integral_dimension
+        nb_wc, Val(lazy_final), anchor, integral_dimension
     )
 end
 

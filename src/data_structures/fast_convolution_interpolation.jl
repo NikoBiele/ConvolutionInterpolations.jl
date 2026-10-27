@@ -1,7 +1,7 @@
 """
     FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
-                                 Axs<:Tuple,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,DI,SZ} <:
-        AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,DI,SZ}
+                                 Axs<:Tuple,KA,DT,DG,EQ,KBC,DOT,LZ,DI,SZ} <:
+        AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DOT,LZ,DI,SZ}
 
 Convolution interpolation on uniform grids with O(1) evaluation. Kernel weights are computed
 exactly from each kernel's polynomial pieces (see `_column_rows`), so evaluation is exact to
@@ -19,8 +19,6 @@ rounding for every kernel, derivative and integral order.
 - `EQ`: Kernel stencil half-widths per dimension
 - `KBC`: Boundary condition type
 - `DOT`: Derivative order type
-- `FD`, `SD`: Unused placeholders (`Nothing`), shared with `ConvolutionInterpolation`
-- `SG`: Unused placeholder (`Val{:not_used}`), shared with `ConvolutionInterpolation`
 - `LZ`: Lazy mode flag (`Val{true}` or `Val{false}`)
 - `DI`: Integral dimension type for dispatch
 - `SZ`: Type of the data domain size
@@ -38,7 +36,6 @@ rounding for every kernel, derivative and integral order.
 - `bc::KBC`: Boundary conditions per dimension
 - `derivative_order::DOT`: Derivative orders per dimension
 - `kernel_d1_pre::FD`, `kernel_d2_pre::SD`: Unused placeholders (`nothing`)
-- `subgrid::SG`: Unused placeholder (`Val(:not_used)`)
 - `lazy::LZ`: If `Val(true)`, ghost points are computed on the fly near the boundaries
 - `anchor::NTuple{N,T}`: Point where antiderivatives are zero, per integral dimension
 - `dim_integral::DI`: Integral dimension type for dispatch
@@ -51,8 +48,8 @@ rounding for every kernel, derivative and integral order.
   the cell (see `_build_region_tails`)
 """
 struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
-                                Axs<:Tuple,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,DI,SZ} <:
-                                AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DOT,FD,SD,SG,LZ,DI,SZ}
+                                Axs<:Tuple,KA,DT,DG,EQ,KBC,DOT,LZ,DI,SZ} <:
+                                AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DOT,LZ,DI,SZ}
     coefs::TCoefs
     domain_size::SZ
     knots::Axs
@@ -64,9 +61,6 @@ struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
     eqs::EQ
     bc::KBC
     derivative_order::DOT
-    kernel_d1_pre::FD
-    kernel_d2_pre::SD
-    subgrid::SG
     lazy::LZ
     anchor::NTuple{N, T}
     dim_integral::DI

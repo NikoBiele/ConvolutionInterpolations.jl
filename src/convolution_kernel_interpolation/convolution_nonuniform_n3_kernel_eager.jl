@@ -7,7 +7,6 @@ Takes the expanded knot vector (including ghost points) and returns the interval
 and a 4-element weight tuple `w` for the stencil `[i-1, i, i+1, i+2]`. Uses local spacing
 ratios (hm, h0, hp) for the nonuniform cubic weight formula.
 """
-
 @inline function _nonuniform_dim_ghost(knots::AbstractVector{T}, x_val::Number) where T
     # knots is the EXPANDED knot vector (includes ghost positions)
     # Data array also has ghost values at index 1 and end
@@ -34,15 +33,12 @@ tensor product of 1D weights. Ghost points at boundaries eliminate the need for 
 
 This is the fallback path for a-series kernels on nonuniform grids.
 """
-
-# --- 1D with ghost points ---
-
 @inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
                     NonUniformNonMixedHighKernel{DG},EQ,KBC,DerivativeOrder{DO},
-                    FD,SD,SG,Val{:nonuniform},Val{false},Val{0}})(x::Vararg{Number,1}) where
+                    Val{:nonuniform},Val{false},Val{0}})(x::Vararg{Number,1}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
                     KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},
-                    KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
 
     # itp.knots[1] is the expanded knot vector
     # itp.coefs includes ghost values
@@ -56,11 +52,11 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
                     NonUniformNonMixedHighKernel{DG},EQ,KBC,DerivativeOrder{DO},
-                    FD,SD,SG,Val{:nonuniform},Val{false},Val{0}})(x::Vararg{Number,2}) where
+                    Val{:nonuniform},Val{false},Val{0}})(x::Vararg{Number,2}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
-                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     i, wi = _nonuniform_dim_ghost(itp.knots[1], x[1])
@@ -79,12 +75,12 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
                     NonUniformNonMixedHighKernel{DG},EQ,KBC,DerivativeOrder{DO},
-                    FD,SD,SG,Val{:nonuniform},Val{false},Val{0}})(x::Vararg{Number,3}) where
+                    Val{:nonuniform},Val{false},Val{0}})(x::Vararg{Number,3}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
-                    DO,FD,SD,SG}
+                    DO}
 
     x = T.(x)
     i, wi = _nonuniform_dim_ghost(itp.knots[1], x[1])
@@ -106,10 +102,10 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
         NonUniformNonMixedHighKernel{DG},EQ,KBC,DerivativeOrder{DO},
-        FD,SD,SG,Val{:nonuniform},Val{false}})(x::Vararg{Number,N}) where 
+        Val{:nonuniform},Val{false}})(x::Vararg{Number,N}) where 
         {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},Axs<:Tuple{Vararg{AbstractVector}},
         KA<:Tuple{Vararg{Nothing}},DG,EQ<:Tuple{Vararg{Int}},
-        KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG}
+        KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO}
 
     x = T.(x)
     iw = ntuple(d -> _nonuniform_dim_ghost(itp.knots[d], x[d]), N)

@@ -31,12 +31,12 @@ for n in ns
     xr = [G(-1.0)+G(2*i)/G(n-1) for i in 0:(n-1)]
     xr_spline = range(-1.0, 1.0, length=n)
     cubic_spline = Interpolations.cubic_spline_interpolation(xr_spline, runge.(xr))
-    itpa4_fast = convolution_interpolation(xr, runge.(xr); kernel=:a4, fast=true, subgrid=subgrid, bc=bc);
-    itpb5_fast = convolution_interpolation(xr, runge.(xr); kernel=:b5, fast=true, subgrid=subgrid, bc=bc);
-    itpb7_fast = convolution_interpolation(xr, runge.(xr); kernel=:b7, fast=true, subgrid=subgrid, bc=bc);
-    itpb9_fast = convolution_interpolation(xr, runge.(xr); kernel=:b9, fast=true, subgrid=subgrid, bc=bc);
-    itpb11_fast = convolution_interpolation(xr, runge.(xr); kernel=:b11, fast=true, subgrid=subgrid, bc=bc);
-    itpb13_fast = convolution_interpolation(xr, runge.(xr); kernel=:b13, fast=true, subgrid=subgrid, bc=bc);
+    itpa4_fast = convolution_interpolation(xr, runge.(xr); kernel=:a4, bc=bc);
+    itpb5_fast = convolution_interpolation(xr, runge.(xr); kernel=:b5, bc=bc);
+    itpb7_fast = convolution_interpolation(xr, runge.(xr); kernel=:b7, bc=bc);
+    itpb9_fast = convolution_interpolation(xr, runge.(xr); kernel=:b9, bc=bc);
+    itpb11_fast = convolution_interpolation(xr, runge.(xr); kernel=:b11, bc=bc);
+    itpb13_fast = convolution_interpolation(xr, runge.(xr); kernel=:b13, bc=bc);
 
     cerrors[count] = maximum(abs.(c.(xf) - yf))
     cubic_spline_errors[count] = maximum(abs.(cubic_spline.(xf) - yf))

@@ -24,12 +24,12 @@ for n in ns
     count += 1
     println("n = $n")
     xr = [G(-1.0)+G(2*i)/G(n-1) for i in 0:(n-1)]
-    itpa4_fast = convolution_interpolation(xr, runge.(xr); kernel=:a4, fast=true, derivative=-1, subgrid=subgrid, bc=:poly);
-    itpb5_fast = convolution_interpolation(xr, runge.(xr); kernel=:b5, fast=true, derivative=-1, subgrid=subgrid, bc=:poly);
-    itpb7_fast = convolution_interpolation(xr, runge.(xr); kernel=:b7, fast=true, derivative=-1, subgrid=subgrid, bc=:poly);
-    itpb9_fast = convolution_interpolation(xr, runge.(xr); kernel=:b9, fast=true, derivative=-1, subgrid=subgrid, bc=:poly);
-    itpb11_fast = convolution_interpolation(xr, runge.(xr); kernel=:b11, fast=true, derivative=-1, subgrid=subgrid, bc=:poly);
-    itpb13_fast = convolution_interpolation(xr, runge.(xr); kernel=:b13, fast=true, derivative=-1, subgrid=subgrid, bc=:poly);
+    itpa4_fast = convolution_interpolation(xr, runge.(xr); kernel=:a4, derivative=-1, bc=:poly);
+    itpb5_fast = convolution_interpolation(xr, runge.(xr); kernel=:b5, derivative=-1, bc=:poly);
+    itpb7_fast = convolution_interpolation(xr, runge.(xr); kernel=:b7, derivative=-1, bc=:poly);
+    itpb9_fast = convolution_interpolation(xr, runge.(xr); kernel=:b9, derivative=-1, bc=:poly);
+    itpb11_fast = convolution_interpolation(xr, runge.(xr); kernel=:b11, derivative=-1, bc=:poly);
+    itpb13_fast = convolution_interpolation(xr, runge.(xr); kernel=:b13, derivative=-1, bc=:poly);
 
     itpa4_fast_errors[count] = maximum(abs.(itpa4_fast.(xf) - runge_antideriv.(xf)))
     itpb5_fast_errors[count] = maximum(abs.(itpb5_fast.(xf) - runge_antideriv.(xf)))
@@ -96,7 +96,7 @@ for n in ns_2d
     for (errors, deg) in zip(
             [itpb5_2d_errors, itpb7_2d_errors, itpb9_2d_errors, itpb11_2d_errors, itpb13_2d_errors],
             [:b5, :b7, :b9, :b11, :b13])
-        itp = convolution_interpolation((xr, xr), vals; kernel=deg, fast=true, derivative=-1,
+        itp = convolution_interpolation((xr, xr), vals; kernel=deg, derivative=-1,
                                         subgrid=:cubic, bc=:poly)
         errors[count] = abs(itp(1.0, 1.0) - f2_int)
     end
@@ -150,7 +150,7 @@ for n in ns_3d
     for (errors, deg) in zip(
             [itpb5_3d_errors, itpb7_3d_errors, itpb9_3d_errors, itpb11_3d_errors, itpb13_3d_errors],
             [:b5, :b7, :b9, :b11, :b13])
-        itp = convolution_interpolation((xr, xr, xr), vals; kernel=deg, fast=true, derivative=-1,
+        itp = convolution_interpolation((xr, xr, xr), vals; kernel=deg, derivative=-1,
                                         subgrid=:cubic, bc=:poly)
         errors[count] = abs(itp(1.0, 1.0, 1.0) - f3_int)
     end

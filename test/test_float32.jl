@@ -78,7 +78,7 @@ end
 end
 
 @testset "Float32 smoothing, resampling, gridding" begin
-    println("    - convolution_smooth / gaussian / resample / scattered_to_grid")
+    println("    - convolution_smooth / gaussian / resample")
     ynoisy = y32_f .+ 0.1f0 .* randn(Float32, 50)
 
     # regression: Float32 range internals are Float64 (StepRangeLen{Float32,Float64,...});
@@ -91,10 +91,6 @@ end
     @test eltype(convolution_resample(x32_f, x_fine, y32_f)) == Float32
     xf2 = range(0.0f0, Float32(2π), length=60)
     @test eltype(convolution_resample((xs32_f, xs32_f), (xf2, xf2), z32_2d)) == Float32
-
-    pts = rand(Float32, 2, 200) .* Float32(2π)
-    vals = sin.(pts[1,:]) .* cos.(pts[2,:])
-    @test eltype(scattered_to_grid(pts, vals, (xs32_f, xs32_f))) == Float32
 end
 
 @testset "Float32 mixed-type handling" begin

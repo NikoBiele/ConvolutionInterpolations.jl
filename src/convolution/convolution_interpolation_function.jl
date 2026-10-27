@@ -19,8 +19,6 @@ Create a convolution-based interpolation object with automatic optimization and 
   `:a4`, `:a5` and `:a7` are uniform-only and raise an error on nonuniform grids.
 - `fast::Bool=true`: Use the fast uniform-grid evaluation (exact kernel weights from the
   kernels' polynomial pieces, O(1) per evaluation). Automatically disabled for nonuniform grids.
-- `precompute`: Deprecated, has no effect, and will be removed in a future release. Kernels
-  are evaluated exactly, so no kernel tables are precomputed.
 - `B::Float64=-1.0`: If a positive value is provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
 - `extrap=:throw`: Behavior outside the grid domain.
   Options: `:throw`, `:flat`, `:line` or `:natural` (uniform grids only).
@@ -33,8 +31,6 @@ Create a convolution-based interpolation object with automatic optimization and 
   evaluates the m-fold antiderivative, anchored at zero at the leftmost interior knot (uniform
   grids, fast path), up to order 2 for `:a0`/`:a1`, 4 for the other `a`-series kernels, 6 for
   `:b5` and 8 for `:b7`–`:b13`. Orders may be mixed per dimension, e.g. `(-2, 0)` or `(-1, 1)`.
-- `subgrid`: Deprecated, has no effect, and will be removed in a future release. Kernels
-  are evaluated exactly, so there is no subgrid interpolation.
 - `lazy::Union{Nothing,Bool}=nothing`: When `true`, skip ghost point expansion at construction
   time. Ghost values are computed on the fly only when evaluating near boundaries, with exactly
   the values eager expansion would store, saving memory and construction time. When `false`, all
@@ -42,8 +38,6 @@ Create a convolution-based interpolation object with automatic optimization and 
   grids (fast path, no antiderivatives) when eager expansion would build more than 2²⁷
   coefficients (1 GiB in `Float64`) or compute more than 2²⁴ ghost points (roughly a second of
   construction), and eager mode otherwise.
-- `boundary_fallback`: Deprecated, has no effect; will be removed in v1.0. Lazy interpolants
-  compute the same boundary ghost values as eager ones, in every dimension.
 
 # Returns
 A `ConvolutionExtrapolation` object callable at arbitrary points within (or, depending on
@@ -84,15 +78,11 @@ See also: [`FastConvolutionInterpolation`](@ref), [`ConvolutionInterpolation`](@
 """
 function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}},
         values::AbstractArray{T,N};
-        kernel::Union{Symbol,NTuple{N,Symbol}}=:auto, fast::Bool=true, precompute=nothing,
+        kernel::Union{Symbol,NTuple{N,Symbol}}=:auto, fast::Bool=true,
         extrap::Union{Symbol,AbstractExtrapolation}=Throw(),
         bc::Union{Nothing,Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=nothing,
-        derivative::Union{Int,NTuple{N,Int}}=0, subgrid=nothing,
-        lazy::Union{Nothing,Bool}=nothing, boundary_fallback=nothing) where {T,N}
-
-    # deprecated keywords: warn if set, then ignore
-    _warn_deprecated_table_keywords(precompute, subgrid)
-    _warn_deprecated_boundary_fallback(boundary_fallback)
+        derivative::Union{Int,NTuple{N,Int}}=0,
+        lazy::Union{Nothing,Bool}=nothing) where {T,N}
 
     # check and normalize inputs
     knots_tuple = knots isa AbstractVector ?

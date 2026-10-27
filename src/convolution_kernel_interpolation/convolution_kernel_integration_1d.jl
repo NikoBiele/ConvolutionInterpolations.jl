@@ -1,8 +1,8 @@
 @inline function (itp::ConvolutionInterpolation{T,1,1,TCoefs,Axs,KA,Val{1},
-                    DG,EQ,KBC,IntegralOrder,FD,SD,Val{:not_used},NB,Val{false},Val{1}})(x::Vararg{Number,1}) where 
+                    DG,EQ,KBC,IntegralOrder,NB,Val{false},Val{1}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
                     KA<:Tuple{<:ConvolutionKernel},DG,EQ<:Tuple{Int},
-                    KBC<:Tuple{<:Tuple{Symbol,Symbol}},FD,SD,NB<:Nothing}
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol}},NB<:Nothing}
 
     x = T.(x)
     result = zero(T)

@@ -78,17 +78,4 @@ println("-"^60)
         @test maximum(abs.(result .- analytical)) < 1e-3
     end
 
-    @testset "deprecated subgrid keyword is ignored" begin
-        println("    - Deprecated subgrid keyword is ignored")
-        xs_in  = range(0.0, 2π, length=50)
-        xs_out = range(0.0, 2π, length=100)
-        signal = sin.(xs_in)
-        # Without the keyword: the reference result
-        r_default = convolution_resample((xs_in,), (xs_out,), signal; kernel=:a1)
-        # With the deprecated keyword: a warning, and an identical result
-        r_subgrid = @test_logs (:warn, r"`subgrid` no longer has any effect") convolution_resample(
-            (xs_in,), (xs_out,), signal; kernel=:a1, subgrid=:cubic)
-        @test r_subgrid == r_default
-    end
-
 end

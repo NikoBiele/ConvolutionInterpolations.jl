@@ -1,6 +1,6 @@
 """
     (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},DG,EQ,KBC,
-            DerivativeOrder{DO},FD,SD,Val{:not_used},NB,Val{false},Val{0}})(x::Vararg{Number,3}) where 
+            DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,3}) where 
             {KA<:Tuple{<:GaussianConvolutionKernel,<:GaussianConvolutionKernel,<:GaussianConvolutionKernel}}
 
 Evaluate a 3D Gaussian smoothing interpolant at position `(x[1], x[2], x[3])`.
@@ -27,12 +27,12 @@ itp(1.0, 2.0, 3.0)
 See also: [`convolution_gaussian`](@ref), [`convolution_smooth`](@ref)
 """
 @inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
-                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,Val{:not_used},NB,Val{false},Val{0}})(x::Vararg{Number,3}) where 
+                    DG,EQ,KBC,DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,3}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:GaussianConvolutionKernel,<:GaussianConvolutionKernel,<:GaussianConvolutionKernel},DG,
                     EQ<:Tuple{Int,Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
-                    DO,FD,SD,NB<:Nothing}
+                    DO,NB<:Nothing}
 
     x = T.(x)
     i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)

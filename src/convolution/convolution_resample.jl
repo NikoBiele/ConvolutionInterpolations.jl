@@ -16,8 +16,6 @@ high-order separable convolution interpolation.
 - `derivative`: derivative order, default `0`. An `Int` applies to all dimensions;
   an `NTuple{N,Int}` specifies per-dimension orders. Negative values compute antiderivatives.
 - `bc`: boundary condition, default `:detect`. See [Boundary Conditions] for options.
-- `subgrid`, `precompute`: deprecated, have no effect, and will be removed in a future release.
-  Kernels are evaluated exactly, so there are no precomputed tables or subgrid interpolation.
 
 # Default kernels by dimension
 The convenience wrappers (called without keywords) use dimension-appropriate defaults:
@@ -151,14 +149,9 @@ end
 function convolution_resample(knots_in::NTuple{N,AbstractVector},
                                knots_out::NTuple{N,AbstractVector},
                                values::AbstractArray{T,N};
-                               precompute=nothing,
                                kernel::Union{Symbol,NTuple{N,Symbol}}=:b13,
                                derivative::Union{Int,NTuple{N,Int}}=0,
-                               bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect,
-                               subgrid=nothing) where {T,N}
-
-    # deprecated keywords: warn if set, then ignore
-    _warn_deprecated_table_keywords(precompute, subgrid)
+                               bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect) where {T,N}
 
     # check and normalize inputs
     knots_in_tuple = knots_in isa AbstractVector ? (T.(knots_in),) : 

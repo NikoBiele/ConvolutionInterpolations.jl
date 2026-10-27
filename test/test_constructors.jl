@@ -11,11 +11,11 @@ println("-"^60)
         println("        - kernel: $kernel")
 
         # Direct constructor
-        itp_direct = ConvolutionInterpolation((x,), vs, kernel=(kernel,))
+        itp_direct = ConvolutionInterpolation(x, vs, kernel=kernel)
         @test itp_direct(1.0) ≈ sin(1.0) atol=0.1
 
         # Fast constructor
-        itp_fast = FastConvolutionInterpolation((x,), vs, kernel=(kernel,))
+        itp_fast = FastConvolutionInterpolation(x, vs, kernel=kernel)
         @test itp_fast(1.0) ≈ sin(1.0) atol=0.1
 
         # Direct and fast agree

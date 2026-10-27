@@ -20,11 +20,11 @@ Results scaled by `(-1/h_x)^derivative * (-1/h_y)^derivative`.
 
 See also: `FastConvolutionInterpolation`, `_column_weights_per_dim`.
 """
-
 @inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a0, :a0)},
-                    EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,2}) where 
+                    EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,2}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
-                    KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+                    KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     # specialized dispatch for 2d nearest neighbor kernel 
@@ -50,9 +50,10 @@ See also: `FastConvolutionInterpolation`, `_column_weights_per_dim`.
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a1, :a1)},
-                    EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,2}) where 
+                    EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,2}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
-                    KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+                    KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     # specialized dispatch for 2d linear kernel
@@ -75,9 +76,10 @@ end
 end
 
 function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
-            HigherOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},Val{false},Val{0}})(x::Vararg{Number,2}) where 
+            HigherOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,2}) where 
             {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
-            KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+            KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
+            KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     # First dimension (x)

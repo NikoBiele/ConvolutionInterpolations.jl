@@ -98,10 +98,10 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
                     NonUniformMixedOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
-                    FD,SD,SG,NB,Val{false},Val{0}})(x::Vararg{Number,1}) where 
+                    NB,Val{false},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
                     KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},
-                    KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,FD,SD,SG,
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,
                     NB<:Tuple{Vector{<:AbstractMatrix{<:AbstractFloat}}}}
 
     x = T.(x)
@@ -120,11 +120,11 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
                     NonUniformMixedOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
-                    FD,SD,SG,NB,Val{false},Val{0}})(x::Vararg{Number,2}) where
+                    NB,Val{false},Val{0}})(x::Vararg{Number,2}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
-                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,FD,SD,SG,
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,
                     NB<:NTuple{2,Vector{<:AbstractMatrix{<:AbstractFloat}}}}
 
     x = T.(x)
@@ -148,13 +148,12 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
                     NonUniformMixedOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
-                    FD,SD,SG,NB,Val{false},Val{0}})(x::Vararg{Number,3}) where
+                    NB,Val{false},Val{0}})(x::Vararg{Number,3}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
-                    DO,FD,SD,SG,
-                    NB<:NTuple{3,Vector{<:AbstractMatrix{<:AbstractFloat}}}}
+                    DO,NB<:NTuple{3,Vector{<:AbstractMatrix{<:AbstractFloat}}}}
 
     x = T.(x)
     M_eqs_x = _nb_M_eqs_perdim(itp.kernel_sym, 1)
@@ -182,12 +181,12 @@ end
 # ── ND per-dim (N > 3) ───────────────────────────────────────
 
 @inline function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-                    NonUniformMixedOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},FD,SD,
-                    SG,NB,Val{false},Val{0}})(x::Vararg{Number,N}) where
+                    NonUniformMixedOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    NB,Val{false},Val{0}})(x::Vararg{Number,N}) where
                     {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
                     Axs<:Tuple{Vararg{AbstractVector}},
                     KA<:Tuple{Vararg{Nothing}},DG,EQ<:Tuple{Vararg{Int}},
-                    KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,FD,SD,SG,
+                    KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,
                     NB<:Tuple{Vararg{Vector{<:AbstractMatrix{<:AbstractFloat}}}}} # Float64
 
     x = T.(x)

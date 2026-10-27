@@ -1,6 +1,6 @@
 """
     (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},DG,EQ,KBC,
-            DerivativeOrder{DO},FD,SD,Val{:not_used},NB,Val{false},Val{0}})(x::Vararg{Number,N}) where 
+            DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,N}) where 
             {KA<:NTuple{N,GaussianConvolutionKernel}}
 
 Evaluate an N-dimensional Gaussian smoothing interpolant at position `(x[1], ..., x[N])`.
@@ -25,10 +25,10 @@ itp(1.0, 2.0, 3.0, 4.0)
 See also: [`convolution_gaussian`](@ref), [`convolution_smooth`](@ref)
 """
 @inline function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,Val{:not_used},NB,Val{false},Val{0}})(x::Vararg{Number,N}) where 
+                    DG,EQ,KBC,DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,N}) where 
                     {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},KA<:NTuple{N,GaussianConvolutionKernel},
                     Axs<:NTuple{N,<:AbstractVector},DG,EQ<:NTuple{N,Int},
-                    KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO,FD,SD,NB<:Nothing}
+                    KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO,NB<:Nothing}
 
     x = T.(x)
     i_floats = ntuple(d -> (x[d] - itp.knots[d][1]) / itp.h[d] + one(T), N)

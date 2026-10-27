@@ -360,13 +360,12 @@ Unlike the gridded constructors, which always interpolate, the scattered path
 smooths by default, because scattered data are usually measurements.
 All `fit_scattered` keyword arguments are accepted, including `grid`, `alpha`
 and `ratio` for adaptive or user-supplied knot axes, plus `derivative`, which
-is forwarded to the interpolant, and `extrap`. The deprecated `precompute` and
-`subgrid` keywords are still accepted and forwarded, but have no effect. On a
-uniform grid the boundary condition is fixed to `:poly` for consistency with
-the fit; on a nonuniform grid the interpolant's own ghost extrapolation is the
-one the fit used. A nonuniform grid gives a nonuniform interpolant (`:n3` by
-default for `:smooth`, `:b5` for `:exact`): no antiderivatives
-(`derivative = -1`), and `lazy` only with `:n3`.
+is forwarded to the interpolant, and `extrap`. On a uniform grid the boundary
+condition is fixed to `:poly` for consistency with the fit; on a nonuniform
+grid the interpolant's own ghost extrapolation is the one the fit used.
+A nonuniform grid gives a nonuniform interpolant (`:n3` by default for
+`:smooth`, `:b5` for `:exact`): no antiderivatives (`derivative = -1`), 
+and `lazy` only with `:n3`.
 
 ```julia
 pts = rand(2, 500)                                        # 500 scattered points in 2D, one per column
@@ -393,9 +392,7 @@ function convolution_interpolation(points::AbstractMatrix, values::AbstractVecto
                                    solver::Symbol=:cholesky,
                                    W::Real=1e6, iters::Int=20, tol::Real=1e-11,
                                    verbose::Bool=false,
-                                   precompute=nothing,
                                    derivative::Union{Int,Tuple{Vararg{Int}}}=0,
-                                   subgrid=nothing,
                                    extrap::Union{Symbol,AbstractExtrapolation}=Throw())
     D = size(points, 1)
     nonuniform = grid !== :uniform
@@ -409,8 +406,7 @@ function convolution_interpolation(points::AbstractMatrix, values::AbstractVecto
         return convolution_interpolation(knots, vals; kernel = kernel_res, derivative, extrap)
     end
     itp = FastConvolutionInterpolation(knots, vals;
-                                       kernel = kernel_res, bc = :poly,
-                                       precompute, derivative, subgrid)
+                                       kernel = kernel_res, bc = :poly, derivative)
     return ConvolutionExtrapolation(itp, _extrap_type(extrap))
 end
 

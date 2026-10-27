@@ -183,11 +183,11 @@ function _lazy_patch_sum(itp::FastConvolutionInterpolation{T,N}, pos::NTuple{N,I
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-                    LowerOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},
+                    LowerOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
                     Val{true},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
                     KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},DG,
                     EQ<:NTuple{N,Int},KBC<:NTuple{N,Tuple{Symbol,Symbol}},
-                    DO,FD,SD,SG}
+                    DO}
 
     x = T.(x)
     # same as eager path
@@ -199,11 +199,11 @@ end
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-                    DG,EQ,KBC,DerivativeOrder{DO},FD,SD,Val{SG},
+                    DG,EQ,KBC,DerivativeOrder{DO},
                     Val{true},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
                     KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},DG,
                     EQ<:NTuple{N,Int},
-                    KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO,FD,SD,SG}
+                    KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO}
 
     # specialized dispatch for N-dimensional higher-order kernel
     x = T.(x)

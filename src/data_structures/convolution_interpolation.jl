@@ -35,9 +35,9 @@ This implementation evaluates the convolution kernel at each point directly,
 providing accurate results but potentially slower performance than `FastConvolutionInterpolation`.
 """
 struct ConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
-                                Axs<:Tuple,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,NB,LZ,DI,SZ} <: 
+                                Axs<:Tuple,KA,DT,DG,EQ,KBC,DO,NB,LZ,DI,SZ} <: 
                                 AbstractConvolutionInterpolation{T,N,NI,TCoefs,
-                                Axs,KA,DT,DG,EQ,KBC,DO,FD,SD,SG,LZ,DI,SZ}
+                                Axs,KA,DT,DG,EQ,KBC,DO,LZ,DI,SZ}
     coefs::TCoefs
     domain_size::SZ
     knots::Axs
@@ -48,9 +48,6 @@ struct ConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
     eqs::EQ
     bc::KBC
     derivative_order::DO
-    kernel_d1_pre::FD
-    kernel_d2_pre::SD
-    subgrid::SG
     nb_weight_coeffs::NB
     lazy::LZ
     anchor::NTuple{N, T}

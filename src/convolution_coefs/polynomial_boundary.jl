@@ -26,24 +26,24 @@ allocations during `mul!` in the boundary condition computation.
 See also: `get_polynomial_ghost_coeffs`, `fill_ghost_points_polynomial!`.
 """
 
-const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Float64}}(
+const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
     
     # a3: Reproduces polynomials up to degree 3
     # Support: [-2, 2], needs 2 ghost points
     # Uses 4 interior points (degree + 1)
     :a3 => [
-        4.0  -6  4  -1;  # g_{-1}
+        4  -6  4  -1;  # g_{-1}
         10  -20  15  -4;   # g_{-2}
     ],
 
     # dummy entry
-    :n3 => Matrix{Float64}(undef, 2, 2),
+    :n3 => Matrix{Int}(undef, 2, 2),
 
     # b3: Reproduces polynomials up to degree 3
     # Support: [-3, 3], needs 3 ghost points
     # Uses 4 interior points (degree + 1)
     :a4 => [
-        4.0  -6  4  -1;  # g_{-1}
+        4  -6  4  -1;  # g_{-1}
         10  -20  15  -4;  # g_{-2}
         20  -45  36  -10;   # g_{-3}
     ],
@@ -52,7 +52,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Float64}}(
     # Support: [-3, 3], needs 3 ghost points
     # Uses 4 interior points (degree + 1)
     :a5 => [
-        4.0  -6   4  -1;     # g_{-1} = 4*f0 - 6*f1 + 4*f2 - 1*f3
+        4  -6   4  -1;     # g_{-1} = 4*f0 - 6*f1 + 4*f2 - 1*f3
         10 -20  15  -4;    # g_{-2} = 10*f0 - 20*f1 + 15*f2 - 4*f3
         20 -45  36 -10;    # g_{-3} = 20*f0 - 45*f1 + 36*f2 - 10*f3
     ],
@@ -61,7 +61,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Float64}}(
     # Support: [-4, 4], needs 4 ghost points
     # Uses 4 interior points (degree + 1)
     :a7 => [
-        4.0  -6  4  -1;  # g_{-1}
+        4  -6  4  -1;  # g_{-1}
         10  -20  15  -4;  # g_{-2}
         20  -45  36  -10;  # g_{-3}
         35  -84  70  -20;   # g_{-4}
@@ -71,7 +71,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Float64}}(
     # Support: [-5, 5], needs 5 ghost points
     # Uses 6 interior points (degree + 1)
     :b5 => [
-        6.0    -15    20   -15    6   -1;      # g_{-1}
+        6    -15    20   -15    6   -1;      # g_{-1}
         21   -70   105   -84   35   -6;      # g_{-2}
         56  -210   336  -280  120  -21;      # g_{-3}
         126 -504   840  -720  315  -56;      # g_{-4}
@@ -82,7 +82,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Float64}}(
     # Support: [-6, 6], needs 6 ghost points
     # Uses 8 interior points (degree + 1)
     :b7 => [
-        8.0  -28  56  -70  56  -28  8  -1;  # g_{-1}
+        8  -28  56  -70  56  -28  8  -1;  # g_{-1}
         36  -168  378  -504  420  -216  63  -8;  # g_{-2}
         120  -630  1512  -2100  1800  -945  280  -36;  # g_{-3}
         330  -1848  4620  -6600  5775  -3080  924  -120;  # g_{-4}
@@ -94,7 +94,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Float64}}(
     # Support: [-7, 7], needs 7 ghost points
     # Uses 8 interior points (degree + 1)
     :b9 => [
-        8.0  -28  56  -70  56  -28  8  -1;  # g_{-1}
+        8  -28  56  -70  56  -28  8  -1;  # g_{-1}
         36  -168  378  -504  420  -216  63  -8;  # g_{-2}
         120  -630  1512  -2100  1800  -945  280  -36;  # g_{-3}
         330  -1848  4620  -6600  5775  -3080  924  -120;  # g_{-4}
@@ -107,7 +107,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Float64}}(
     # Support: [-8, 8], needs 8 ghost points
     # Uses 8 interior points (degree + 1)
     :b11 => [
-        8.0  -28  56  -70  56  -28  8  -1;  # g_{-1}
+        8  -28  56  -70  56  -28  8  -1;  # g_{-1}
         36  -168  378  -504  420  -216  63  -8;  # g_{-2}
         120  -630  1512  -2100  1800  -945  280  -36;  # g_{-3}
         330  -1848  4620  -6600  5775  -3080  924  -120;  # g_{-4}
@@ -121,7 +121,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Float64}}(
     # Support: [-9, 9], needs 9 ghost points
     # Uses 8 interior points (degree + 1)
     :b13 => [
-        8.0  -28  56  -70  56  -28  8  -1;  # g_{-1}
+        8  -28  56  -70  56  -28  8  -1;  # g_{-1}
         36  -168  378  -504  420  -216  63  -8;  # g_{-2}
         120  -630  1512  -2100  1800  -945  280  -36;  # g_{-3}
         330  -1848  4620  -6600  5775  -3080  924  -120;  # g_{-4}
@@ -157,25 +157,25 @@ function get_polynomial_ghost_coeffs(kernel_bc::Symbol, kernel_type::Symbol)
 end
 
 const LINEAR_GHOST_MATRIX = [
-     2.0   -1.0
-     3.0   -2.0
-     4.0   -3.0
-     5.0   -4.0
-     6.0   -5.0
-     7.0   -6.0
-     8.0   -7.0
-     9.0   -8.0
-    10.0   -9.0
+     2   -1
+     3   -2
+     4   -3
+     5   -4
+     6   -5
+     7   -6
+     8   -7
+     9   -8
+    10   -9
 ]
 
 const QUADRATIC_GHOST_MATRIX = [
-     3.0   -3.0    1.0
-     6.0   -8.0    3.0
-    10.0  -15.0    6.0
-    15.0  -24.0   10.0
-    21.0  -35.0   15.0
-    28.0  -48.0   21.0
-    36.0  -63.0   28.0
-    45.0  -80.0   36.0
-    55.0  -99.0   45.0
+     3   -3    1
+     6   -8    3
+    10  -15    6
+    15  -24   10
+    21  -35   15
+    28  -48   21
+    36  -63   28
+    45  -80   36
+    55  -99   45
 ]

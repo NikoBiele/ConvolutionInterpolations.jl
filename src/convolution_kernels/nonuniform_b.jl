@@ -120,12 +120,12 @@ The three key operations for derivative support:
    For d0 this is diagonal (E[m,m] = h₀^m).
    For d1 this is sub-diagonal (E[m, m-1] = m · h₀^m).
 """
-function precompute_nonuniform_b_interval(knots_r::Vector{Rational{BigInt}}, i::Int,
+function precompute_nonuniform_b_interval(::Type{F}, knots_r::Vector{Rational{BigInt}}, i::Int,
                                            kernel_coefs::Dict{Int,Vector{Rational{BigInt}}},
                                            M_eqs::Int, p_deg::Int, derivative::Int;
-                                           precision_bits=256)
+                                           precision_bits=256) where {F<:AbstractFloat}
     setprecision(BigFloat, precision_bits) do
-        T = BigFloat # Rational{BigInt}
+        T = BigFloat # the working precision of the projection; F is the element type stored
         n_stencil = 2 * M_eqs
         n_poly = p_deg + 1
         h0 = knots_r[i+1] - knots_r[i]
@@ -221,12 +221,13 @@ function precompute_nonuniform_b_interval(knots_r::Vector{Rational{BigInt}}, i::
         end
 
         # Projection: coeffs = target - V · Λ where Λ = (V'V)⁻¹ (V'·target - E)
-        F = qr(V)
-        Λ = (F.R' * F.R) \ (V' * target - E)
+        Fact = qr(V)
+        Λ = (Fact.R' * Fact.R) \ (V' * target - E)
         coeffs_rational = target - V * Λ
 
-        # Convert to Float64 for fast evaluation
-        return Float64.(coeffs_rational)
+        # Round once to the element type of the interpolant: Float64 for fast evaluation, or
+        # BigFloat (at the caller's precision) for an interpolant that is to go beyond it
+        return F.(coeffs_rational)
     end
 end
 
@@ -268,11 +269,11 @@ function precompute_nonuniform_b_all(knots::AbstractVector{T}, degree::Symbol,
 
     # Precompute for each interval
     # weight_coeffs = Vector{Matrix{Float64}}(undef, n_intervals)
-    weight_coeffs = Vector{Matrix{Float64}}(undef, n_intervals)
+    weight_coeffs = Vector{Matrix{T}}(undef, n_intervals)
     Threads.@threads for k in 1:n_intervals
         i = k + M_eqs  # index in expanded knots (1-based)
         weight_coeffs[k] = precompute_nonuniform_b_interval(
-            knots_exp_r, i, kernel_coefs, M_eqs, p_deg, derivative)
+            T, knots_exp_r, i, kernel_coefs, M_eqs, p_deg, derivative)
     end
 
     # Expanded knots as Float64

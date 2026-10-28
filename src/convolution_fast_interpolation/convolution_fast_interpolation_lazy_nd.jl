@@ -11,7 +11,7 @@ end
 # :detect the polynomial matrix with detect = true (then decided per line between it and the linear
 # matrix); and how many interior values along the axis, from the boundary inward, the rule reads.
 # `poly` is the kernel's polynomial ghost matrix (`_poly_ghost_matrix`).
-function _lazy_side_rule(bc::Symbol, poly::Matrix{Float64}, n::Int, eqs::Int)
+function _lazy_side_rule(bc::Symbol, poly::Matrix{Int}, n::Int, eqs::Int)
     eqs == 1 && return LINEAR_GHOST_MATRIX, false, 0      # no ghost points on this axis: never used
     few_points = n < size(poly, 2)                        # too few values for the polynomial matrix
     if bc === :linear

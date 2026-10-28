@@ -140,10 +140,12 @@ end
 
 Compute ghost point extrapolation coefficients for nonuniform b-kernel boundaries.
 
-Uses Vandermonde system to express each ghost point as a linear combination of
-`poly_degree + 1` nearest interior points, enforcing polynomial reproduction.
-The system is set up in the local coordinate `(x - x_boundary) / h_end`, which leaves
-the coefficients unchanged and keeps it well conditioned on grids far from the origin.
+Uses a Vandermonde system to express each ghost point as a linear combination of the
+`poly_degree + 1` nearest interior points, enforcing polynomial reproduction. The system is
+set up in the local coordinate `(x - x_boundary) / h_end`, which leaves the coefficients
+unchanged and keeps it independent of where the grid lies, and solved in `BigFloat` at 256
+bits, since a Vandermonde on up to 14 nodes is ill-conditioned in any coordinate; the
+coefficients are rounded to `T` once, at the end.
 
 # Arguments
 - `knots`: Original (unexpanded) knot vector
@@ -160,47 +162,54 @@ function nonuniform_b_ghost_coefficients(knots::AbstractVector{T}, num_ghost::In
     n = length(knots)
     n_stencil = poly_degree + 1
 
-    coef_matrix = zeros(T, num_ghost, n_stencil)
-
     # Positions are mapped to ξ = (x - x_boundary) / h_end, with x_boundary the boundary knot
     # and h_end the spacing of the end interval (the ghost spacing). Polynomial reproduction is
     # invariant under this affine map, so the coefficients are unchanged, but the Vandermonde
-    # entries become O(1) … O(p) instead of x^p for wherever the grid happens to lie, which is
-    # what keeps the solve well conditioned for the wide kernels (p up to 13).
-    if side == :left
-        x0 = knots[1]
-        h  = knots[2] - knots[1]
-        ξ  = [(knots[k] - x0) / h for k in 1:n_stencil]          # 0, h1/h, …
-        ghost_ξ = g -> -T(g)                                      # ghost g at x_1 - g*h
-    else  # :right
-        x0 = knots[end]
-        h  = knots[end] - knots[end-1]
-        ξ  = [(knots[k] - x0) / h for k in (n - n_stencil + 1):n] # …, -h_n/h, 0
-        ghost_ξ = g -> T(g)                                       # ghost g at x_n + g*h
-    end
-
-    # Vandermonde in ξ: V[k, m] = ξ[k]^(m-1), the same for every ghost
-    V = zeros(T, n_stencil, n_stencil)
-    for k in 1:n_stencil
-        V[k, 1] = one(T)
-        for m in 2:n_stencil
-            V[k, m] = V[k, m-1] * ξ[k]
+    # entries become O(1) … O(p) instead of x^p for wherever the grid happens to lie. The solve
+    # itself runs in BigFloat: the extrapolation coefficients of the wide kernels are large and
+    # of alternating sign, and a Vandermonde on up to 14 nodes loses more digits than Float64
+    # has, so a Float64 solve would leave errors in the ghosts far above rounding. The knots
+    # are widened to BigFloat exactly (Float64 → BigFloat is exact), and the coefficients are
+    # rounded to T once, at the end.
+    coef_big = setprecision(BigFloat, 256) do
+        B = BigFloat
+        if side == :left
+            x0 = B(knots[1])
+            h  = B(knots[2]) - x0
+            ξ  = [(B(knots[k]) - x0) / h for k in 1:n_stencil]          # 0, h1/h, …
+            ghost_ξ = g -> -B(g)                                        # ghost g at x_1 - g*h
+        else  # :right
+            x0 = B(knots[end])
+            h  = x0 - B(knots[end-1])
+            ξ  = [(B(knots[k]) - x0) / h for k in (n - n_stencil + 1):n] # …, -h_n/h, 0
+            ghost_ξ = g -> B(g)                                         # ghost g at x_n + g*h
         end
-    end
-    Vt = factorize(V')
 
-    for g in 1:num_ghost
-        # Target: ghost_ξ^(m-1) for m = 1, ..., n_stencil
-        target = zeros(T, n_stencil)
-        gp_pow = one(T)
-        for m in 1:n_stencil
-            target[m] = gp_pow
-            gp_pow *= ghost_ξ(g)
+        # Vandermonde in ξ: V[k, m] = ξ[k]^(m-1), the same for every ghost
+        V = zeros(B, n_stencil, n_stencil)
+        for k in 1:n_stencil
+            V[k, 1] = one(B)
+            for m in 2:n_stencil
+                V[k, m] = V[k, m-1] * ξ[k]
+            end
         end
-        coef_matrix[g, :] = Vt \ target
+        Vt = factorize(V')
+
+        coef = zeros(B, num_ghost, n_stencil)
+        for g in 1:num_ghost
+            # Target: ghost_ξ^(m-1) for m = 1, ..., n_stencil
+            target = zeros(B, n_stencil)
+            gp_pow = one(B)
+            for m in 1:n_stencil
+                target[m] = gp_pow
+                gp_pow *= ghost_ξ(g)
+            end
+            coef[g, :] = Vt \ target
+        end
+        coef
     end
 
-    return coef_matrix
+    return T.(coef_big)
 end
 
 
@@ -220,7 +229,6 @@ Tuple `(coefs, knots_expanded)` where:
 - `coefs`: Array with `M_eqs` ghost points per side per dimension
 - `knots_expanded`: Tuple of expanded knot vectors including ghost positions
 """
-
 function create_nonuniform_b_coefs_perdim(vs::AbstractArray{T,N},
                                            knots::NTuple{N,AbstractVector},
                                            degrees::NTuple{N,Symbol}) where {T,N}
@@ -245,26 +253,21 @@ function create_nonuniform_b_coefs_perdim(vs::AbstractArray{T,N},
         n_interior_pts = size(gc_left, 2)
         n_dim = size(vs, dim)
  
-        # Iterate over all slices perpendicular to dim
+        # Iterate over all slices perpendicular to dim. The ghost sums are compensated (Dot2):
+        # the extrapolation coefficients of the wide kernels are large and of alternating sign,
+        # and a plain sum would leave rounding errors in the ghosts of the size of the largest
+        # term, far above rounding in the value itself.
         for idx in CartesianIndices(ntuple(d -> d == dim ? (1:1) : (1:new_dims[d]), N))
             for g in 1:ng
                 ghost_idx = ntuple(d -> d == dim ? ng + 1 - g : idx[d], N)
-                val = zero(T)
-                for k_idx in 1:n_interior_pts
-                    src_idx = ntuple(d -> d == dim ? ng + k_idx : idx[d], N)
-                    val += gc_left[g, k_idx] * c[src_idx...]
-                end
-                c[ghost_idx...] = val
+                src = k_idx -> c[ntuple(d -> d == dim ? ng + k_idx : idx[d], N)...]
+                c[ghost_idx...] = _compensated_row_dot(gc_left, g, src, n_interior_pts, T)
             end
  
             for g in 1:ng
                 ghost_idx = ntuple(d -> d == dim ? ng + n_dim + g : idx[d], N)
-                val = zero(T)
-                for k_idx in 1:n_interior_pts
-                    src_idx = ntuple(d -> d == dim ? ng + n_dim - n_interior_pts + k_idx : idx[d], N)
-                    val += gc_right[g, k_idx] * c[src_idx...]
-                end
-                c[ghost_idx...] = val
+                src = k_idx -> c[ntuple(d -> d == dim ? ng + n_dim - n_interior_pts + k_idx : idx[d], N)...]
+                c[ghost_idx...] = _compensated_row_dot(gc_right, g, src, n_interior_pts, T)
             end
         end
     end

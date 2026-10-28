@@ -17,7 +17,6 @@ and all boundary points, making the boundary coefficient computation allocation-
 
 See also: `BoundaryWorkspace(T, N, max_eqs, max_dim_size)`.
 """
-# Workspace for boundary condition computation
 struct BoundaryWorkspace{T,N}
     ghost_vals::Vector{T}
     y_temp::Vector{T}
@@ -44,7 +43,6 @@ Construct a preallocated workspace for boundary condition computation.
 Creates workspace arrays sized to handle the worst-case scenario across all dimensions,
 enabling allocation-free boundary computation throughout the interpolation setup.
 """
-
 function BoundaryWorkspace(T::Type, ::Val{N}, max_eqs::Int, max_dim_size::Int) where N
     BoundaryWorkspace{T,N}(
         zeros(T, max_eqs - 1),
@@ -63,7 +61,6 @@ Returns a tuple `(left_indices, right_indices)` of `CartesianIndices` objects.
 
 Uses `ntuple` with `Val(N)` for compile-time specialization — zero allocations.
 """
-
 function get_boundary_indices(c_size::NTuple{N,Int}, dim::Int, eqs::Int) where N
     left_ranges = ntuple(d -> d == dim ? ((eqs):(eqs)) : (1:c_size[d]), Val(N))
     right_ranges = ntuple(d -> d == dim ? ((c_size[d] - (eqs-1)):(c_size[d] - (eqs-1))) : (1:c_size[d]), Val(N))
@@ -127,7 +124,6 @@ coefs = create_convolutional_coefs(vs, h, 5, bc, :b5)
 
 See also: `apply_boundary_conditions_for_dim!`, `boundary_coefs`.
 """
-
 function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, 
                                     eqs::NTuple{N,Int},
                                     kernel_bc::NTuple{N,Tuple{Symbol,Symbol}}, 

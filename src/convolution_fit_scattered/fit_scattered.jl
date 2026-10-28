@@ -579,8 +579,8 @@ end
 """Per-dimension extension operators (interior -> full grid via the polynomial
 BC), combined column-major: S = kron(E_D, ..., E_1)."""
 function _scattered_extension(n_full::NTuple{D,Int}, n_int::NTuple{D,Int},
-                              ng::NTuple{D,Int}, Gl::NTuple{D,Matrix{Float64}},
-                              Gr::NTuple{D,Matrix{Float64}}, ::Type{F}) where {F,D}
+                              ng::NTuple{D,Int}, Gl::NTuple{D,Matrix{Int}},
+                              Gr::NTuple{D,Matrix{Int}}, ::Type{F}) where {F,D}
     Es = ntuple(D) do d
         nl, nr = size(Gl[d], 2), size(Gr[d], 2)      # stencil widths of the two ends' ghost rules
         I_ = Int[]; J_ = Int[]; V_ = F[]

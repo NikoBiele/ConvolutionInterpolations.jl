@@ -154,7 +154,9 @@ coefficients are rounded to `T` once, at the end.
 - `side`: `:left` or `:right`
 
 # Returns
-`Matrix{T}` of size `(num_ghost, poly_degree+1)`.
+`Matrix{BigFloat}` of size `(num_ghost, poly_degree+1)`, at 256 bits, whatever `T` is: the
+coefficients are applied in `BigFloat` (see `create_nonuniform_b_coefs_perdim`), since
+rounding them to `T` first is what limits the wide kernels near the boundary.
 Row `g` gives coefficients for ghost point `g` (g=1 is closest to boundary).
 """
 function nonuniform_b_ghost_coefficients(knots::AbstractVector{T}, num_ghost::Int,
@@ -209,7 +211,7 @@ function nonuniform_b_ghost_coefficients(knots::AbstractVector{T}, num_ghost::In
         coef
     end
 
-    return T.(coef_big)
+    return coef_big
 end
 
 
@@ -253,21 +255,32 @@ function create_nonuniform_b_coefs_perdim(vs::AbstractArray{T,N},
         n_interior_pts = size(gc_left, 2)
         n_dim = size(vs, dim)
  
-        # Iterate over all slices perpendicular to dim. The ghost sums are compensated (Dot2):
-        # the extrapolation coefficients of the wide kernels are large and of alternating sign,
-        # and a plain sum would leave rounding errors in the ghosts of the size of the largest
-        # term, far above rounding in the value itself.
-        for idx in CartesianIndices(ntuple(d -> d == dim ? (1:1) : (1:new_dims[d]), N))
-            for g in 1:ng
-                ghost_idx = ntuple(d -> d == dim ? ng + 1 - g : idx[d], N)
-                src = k_idx -> c[ntuple(d -> d == dim ? ng + k_idx : idx[d], N)...]
-                c[ghost_idx...] = _compensated_row_dot(gc_left, g, src, n_interior_pts, T)
-            end
+        # Iterate over all slices perpendicular to dim. The ghost values are formed in BigFloat:
+        # the extrapolation coefficients of the wide kernels are large and of alternating sign
+        # (of order 10⁷ for :b13), so rounding them to T, or summing in T, leaves errors in the
+        # ghosts far above rounding in the value itself. The coefficients come from the solve
+        # in BigFloat, the data are widened exactly, and each ghost is rounded to T once.
+        setprecision(BigFloat, 256) do
+            for idx in CartesianIndices(ntuple(d -> d == dim ? (1:1) : (1:new_dims[d]), N))
+                for g in 1:ng
+                    ghost_idx = ntuple(d -> d == dim ? ng + 1 - g : idx[d], N)
+                    val = zero(BigFloat)
+                    for k_idx in 1:n_interior_pts
+                        src_idx = ntuple(d -> d == dim ? ng + k_idx : idx[d], N)
+                        val += gc_left[g, k_idx] * BigFloat.(c[src_idx...])
+                    end
+                    c[ghost_idx...] = T(val)
+                end
  
-            for g in 1:ng
-                ghost_idx = ntuple(d -> d == dim ? ng + n_dim + g : idx[d], N)
-                src = k_idx -> c[ntuple(d -> d == dim ? ng + n_dim - n_interior_pts + k_idx : idx[d], N)...]
-                c[ghost_idx...] = _compensated_row_dot(gc_right, g, src, n_interior_pts, T)
+                for g in 1:ng
+                    ghost_idx = ntuple(d -> d == dim ? ng + n_dim + g : idx[d], N)
+                    val = zero(BigFloat)
+                    for k_idx in 1:n_interior_pts
+                        src_idx = ntuple(d -> d == dim ? ng + n_dim - n_interior_pts + k_idx : idx[d], N)
+                        val += gc_right[g, k_idx] * BigFloat.(c[src_idx...])
+                    end
+                    c[ghost_idx...] = T(val)
+                end
             end
         end
     end

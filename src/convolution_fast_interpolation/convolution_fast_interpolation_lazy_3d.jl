@@ -79,10 +79,10 @@ end
                     (-one(T)/itp.h[3])^DO[3]
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},DG,
+@inline function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},K,
                 EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,3}) where
                 {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},Axs<:NTuple{3,<:AbstractVector},
-                KA<:NTuple{3,<:Nothing},DG,EQ<:NTuple{3,Int},
+                KA<:NTuple{3,<:Nothing},K,EQ<:NTuple{3,Int},
                 KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                 DO}
 

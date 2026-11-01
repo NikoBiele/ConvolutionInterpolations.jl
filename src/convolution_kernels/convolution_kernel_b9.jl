@@ -1,10 +1,3 @@
-"""
-    (::ConvolutionKernel{:b9,DO})(s)
-
-Nonic b-series kernel. Support [-7, 7], 7 pieces.
-C7 continuous, 7th-order accuracy. Derivatives up to order 6.
-"""
-
 const b9_coefs = Dict(
     # 7 equation nonic, 7th order accurate
     :eq1 => [1//1, 0//1, -1228311859//656862720, 0//1, 2374505273//1970588160, 0//1, -818196437//1970588160, 0//1, 11829761099//110352936960, -2979600563//110352936960], 

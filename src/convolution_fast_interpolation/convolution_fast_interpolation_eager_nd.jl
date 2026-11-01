@@ -24,15 +24,15 @@ Results scaled by `∏ᵢ (-1/hᵢ)^derivative`.
 See also: `FastConvolutionInterpolation`, `_column_weights_per_dim`.
 """
 @inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-                    LowerOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    LowerOrderKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{false},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
-                    KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},DG,EQ<:NTuple{N,Int},
+                    KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},K,EQ<:NTuple{N,Int},
                     KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
-    if DG[1] == :a0
+    if K[1] == :a0
         return _eval_a0_nd(itp, x)
-    elseif DG[1] == :a1
+    elseif K[1] == :a1
         return _eval_a1_nd(itp, x, Val{DO}())
     end
 end
@@ -94,10 +94,10 @@ end
 end
 
 function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-            HigherOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
+            HigherOrderKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{false},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,
                     TCoefs<:AbstractArray{T,N},KA<:NTuple{N,<:Nothing},
-                    Axs<:NTuple{N,<:AbstractVector},DG,EQ<:NTuple{N,Int},
+                    Axs<:NTuple{N,<:AbstractVector},K,EQ<:NTuple{N,Int},
                     KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
@@ -114,7 +114,7 @@ function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{
     diff_right = ntuple(d -> one(T) - diff_left[d], N)
 
     # Kernel weights per dimension at τ = diff_right (column offsets[d] + eqs)
-    w = _column_weights_per_dim(Val(DG), Val(DO), diff_right)
+    w = _column_weights_per_dim(Val(K), Val(DO), diff_right)
 
     result = zero(T)
     @inbounds for offsets in Iterators.product(ntuple(d -> -(itp.eqs[1]-1):itp.eqs[1], N)...) # same kernel in all directions

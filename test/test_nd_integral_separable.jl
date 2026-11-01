@@ -1,9 +1,14 @@
+println("\n" * "-"^60)
+println("Testing ND separable integrals...")
+println("-"^60)
+
 # A pure N-D integral (derivative = -1 in every dimension) of separable data must equal the
 # product of the 1D antiderivatives exactly: the eager ghost extension is linear and acts per
 # dimension, so the N-D interpolant is the product of the 1D interpolants, and so is its
 # anchored N-fold antiderivative. Evaluation points include the last knots, where missing
 # coefficients in the N-D summation would show up first.
 @testset "4D integral of separable data equals product of 1D integrals" begin
+    println("    - separable integrals")
     # A different grid size and function per dimension, so dimensions cannot be confused
     x1 = range(0.0, 2.0, length=12)
     x2 = range(-1.0, 1.0, length=11)

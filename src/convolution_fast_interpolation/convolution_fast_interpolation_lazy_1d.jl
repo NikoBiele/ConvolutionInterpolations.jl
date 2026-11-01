@@ -13,19 +13,19 @@ O(1) evaluation time, allocation-free, exact to rounding for every derivative or
 Results scaled by (-1/h)^derivative for derivative evaluation.
 See also: FastConvolutionInterpolation, _kernel_weights.
 """
-@inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},LowerOrderKernel{DG},
+@inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},LowerOrderKernel{K},
                     EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
-                    KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
+                    KA<:Tuple{<:Nothing},K,EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
-    if DG[1] == :a1
+    if K[1] == :a1
         # specialized dispatch for 1d linear kernel
         i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T)  # +1 for 1-based indexing
         i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
         x_diff_left = (x[1] - itp.knots[1][i]) / itp.h[1]  # Guaranteed in [0,1]
         return @inbounds ((1-x_diff_left) * itp.coefs[i] + x_diff_left * itp.coefs[i+1])
-    elseif DG[1] == :a0
+    elseif K[1] == :a0
         # specialized dispatch for 1d nearest neighbor kernel
         i_float = (x[1] - itp.knots[1][1]) / itp.h[1] + one(T) # +1 for 1-based indexing
         i = clamp(floor(Int, i_float), itp.eqs[1], length(itp.knots[1]) - itp.eqs[1])
@@ -39,10 +39,10 @@ See also: FastConvolutionInterpolation, _kernel_weights.
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
-                    HigherOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    HigherOrderKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{true},Val{0}})(x::Vararg{Number,1}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},
-                    Axs<:Tuple{<:AbstractVector},KA<:Tuple{<:Nothing},DG,
+                    Axs<:Tuple{<:AbstractVector},KA<:Tuple{<:Nothing},K,
                     EQ<:Tuple{Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
 
@@ -56,7 +56,7 @@ end
     x_diff_right = one(T) - x_diff_left
 
     # Kernel weights of all 2·eqs columns at τ = x_diff_right (column k ↔ index i + k − eqs)
-    w = _kernel_weights(Val(DG[1]), Val(DO[1]), x_diff_right)
+    w = _kernel_weights(Val(K[1]), Val(DO[1]), x_diff_right)
 
     result = if is_boundary
         # the stencil reaches past the domain: ghosts formed on a local patch, as eager forms them

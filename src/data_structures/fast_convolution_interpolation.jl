@@ -1,7 +1,7 @@
 """
     FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
-                                 Axs<:Tuple,KA,DT,DG,EQ,KBC,DOT,LZ,DI,SZ} <:
-        AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DOT,LZ,DI,SZ}
+                                 Axs<:Tuple,KA,DT,K,EQ,KBC,DOT,LZ,DI,SZ} <:
+        AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DOT,LZ,DI,SZ}
 
 Convolution interpolation on uniform grids with O(1) evaluation. Kernel weights are computed
 exactly from each kernel's polynomial pieces (see `_column_rows`), so evaluation is exact to
@@ -10,12 +10,12 @@ rounding for every kernel, derivative and integral order.
 # Type Parameters
 - `T`: Element type of the interpolated values
 - `N`: Number of dimensions
-- `NI`: Number of integral dimensions (derivative order −1)
+- `NI`: Number of integral dimensions (derivative order -1)
 - `TCoefs`: Type of the coefficient array
 - `Axs`: Type of the knots (typically a tuple of ranges)
 - `KA`: Kernel type per dimension (`nothing` for polynomial kernels)
 - `DT`: Dimension type for dispatch (`Val{N}` for N ≤ 3, `HigherDimension{N}` otherwise)
-- `DG`: Kernel symbol type for dispatch (e.g. `HigherOrderKernel{(:b5, :b5)}`)
+- `K`: Kernel symbol type for dispatch (e.g. `HigherOrderKernel{(:b5, :b5)}`)
 - `EQ`: Kernel stencil half-widths per dimension
 - `KBC`: Boundary condition type
 - `DOT`: Derivative order type
@@ -31,7 +31,7 @@ rounding for every kernel, derivative and integral order.
 - `x0::NTuple{N,T}`: First (extended) knot per dimension
 - `kernel::KA`: Kernel type per dimension
 - `dimension::DT`: Dimension type for dispatch
-- `kernel_sym::DG`: Kernel symbols for dispatch
+- `kernel_sym::K`: Kernel symbols for dispatch
 - `eqs::EQ`: Kernel stencil half-widths per dimension
 - `bc::KBC`: Boundary conditions per dimension
 - `derivative_order::DOT`: Derivative orders per dimension
@@ -39,7 +39,7 @@ rounding for every kernel, derivative and integral order.
 - `anchor::NTuple{N,T}`: Point where antiderivatives are zero, per integral dimension
 - `dim_integral::DI`: Integral dimension type for dispatch
 - `integral_taylor::NTuple{N,Matrix{T}}`: For each integral dimension of order m, the exact values
-  K_{m−r}(eqs − j) of the coefficients near the anchor (see `_anchor_taylor_table`)
+  K_{m-r}(eqs - j) of the coefficients near the anchor (see `_anchor_taylor_table`)
 - `integral_entries::NTuple{N,Matrix{T}}`: For each integral dimension, the exact polynomials
   (in the position within the cell) that near-anchor coefficients contribute left of the stencil
 - `integral_tails::Vector{Vector{Array{T,N}}}`: For at most 3 integral dimensions, the left tails
@@ -47,8 +47,8 @@ rounding for every kernel, derivative and integral order.
   the cell (see `_build_region_tails`)
 """
 struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
-                                Axs<:Tuple,KA,DT,DG,EQ,KBC,DOT,LZ,DI,SZ} <:
-                                AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DOT,LZ,DI,SZ}
+                                Axs<:Tuple,KA,DT,K,EQ,KBC,DOT,LZ,DI,SZ} <:
+                                AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DOT,LZ,DI,SZ}
     coefs::TCoefs
     domain_size::SZ
     knots::Axs
@@ -56,7 +56,7 @@ struct FastConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
     x0::NTuple{N,T}
     kernel::KA
     dimension::DT
-    kernel_sym::DG
+    kernel_sym::K
     eqs::EQ
     bc::KBC
     derivative_order::DOT

@@ -1,5 +1,5 @@
 """
-    (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},DG,EQ,KBC,
+    (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},K,EQ,KBC,
             DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,3}) where 
             {KA<:Tuple{<:GaussianConvolutionKernel,<:GaussianConvolutionKernel,<:GaussianConvolutionKernel}}
 
@@ -27,10 +27,10 @@ itp(1.0, 2.0, 3.0)
 See also: [`convolution_gaussian`](@ref), [`convolution_smooth`](@ref)
 """
 @inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
-                    DG,EQ,KBC,DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,3}) where 
+                    K,EQ,KBC,DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,3}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
-                    KA<:Tuple{<:GaussianConvolutionKernel,<:GaussianConvolutionKernel,<:GaussianConvolutionKernel},DG,
+                    KA<:Tuple{<:GaussianConvolutionKernel,<:GaussianConvolutionKernel,<:GaussianConvolutionKernel},K,
                     EQ<:Tuple{Int,Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     DO,NB<:Nothing}
 

@@ -1,11 +1,3 @@
-"""
-    (::ConvolutionKernel{:b7,DO})(s)
-
-Septic b-series kernel. Support [-6, 6], 6 pieces.
-C5 continuous, 7th-order accuracy. Higher smoothness than `:b5` with derivatives up
-to order 5.
-"""
-
 const b7_coefs = Dict(
     # 6 equation septic, 7th order accurate
     :eq1 => [1//1, 0//1, -1173431//624240, 0//1, 922243//749088, 0//1, -7587149//14981760, 258097//1664640],

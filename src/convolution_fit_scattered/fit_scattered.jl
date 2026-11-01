@@ -37,17 +37,22 @@ Two modes:
 - `kernel::Union{Symbol,NTuple{D,Symbol}}=:auto`: on a uniform grid any kernel
   with a polynomial boundary-condition table (`:a3`, `:a4`, `:a5`, `:a7`,
   `:b5`...`:b13`); on a nonuniform grid (`grid = :adaptive` or user axes) `:n3`
-  or a `:b` kernel, the kernels that support nonuniform grids. `:auto` is `:b5`
-  in 1-3D for both modes and both grid types: measured to be both the fastest
-  and the deepest-converging choice for `:exact` with the default solver, and
-  for `:smooth` the accuracy of a `:b` kernel at a cost that is small once the
-  fit has coarsened to the grid its smoothing needs. Note this differs from the
-  gridded default (`:b7` for 1-2D): for scattered data the boundary-condition
-  tables cap all b-kernels at degree-7 reproduction, and `:b5`'s shallower
-  ghost extrapolation gives it the lowest roundoff floor under `:cholesky`.
-  In 4D and above the cheap kernels take over: `:a4` for 4-5D and `:a3` above
-  on uniform grids, `:n3` (closed-form weights, a 4-wide stencil and no
-  per-interval precompute) on nonuniform grids. Interpolate the fitted grid
+  or a `:b` kernel, the kernels that support nonuniform grids. `:auto` depends
+  on the mode and the dimension. For `:smooth`, and for `:exact` in 1D, it is
+  `:b5` in 1-3D: the accuracy of a `:b` kernel at a cost that is small once a
+  `:smooth` fit has coarsened to the grid its smoothing needs, and in 1D the
+  fastest and most accurate `:exact` choice. Note this differs from the gridded
+  default (`:b7` for 1-2D): for scattered data the boundary-condition tables
+  cap all b-kernels at degree-7 reproduction, and `:b5`'s shallower ghost
+  extrapolation gives it the lowest roundoff floor under `:cholesky`. For
+  `:exact` on a uniform grid from 2D up the narrow kernels take over, `:a4` in
+  2-3D and `:a3` from 4D: the grid is then mostly gaps between the data points,
+  where the roughness order sets the accuracy and the kernel order hardly
+  matters, so the narrow kernels match the `:b` kernels at two to ten times
+  less factorization time (and `:b5` falls behind them in 3D). For `:smooth` on
+  a uniform grid the cheap kernels take over from 4D: `:a4` for 4-5D and `:a3`
+  above. On nonuniform grids both modes use `:n3` from 4D (closed-form weights,
+  a 4-wide stencil and no per-interval precompute). Interpolate the fitted grid
   with the fitting kernel.
 - `mode::Symbol=:smooth`: `:smooth` or `:exact` (see above).
 - `grid::Union{Symbol,Tuple}=:uniform`: the knot axes. `:uniform` is the uniform
@@ -97,14 +102,22 @@ Two modes:
 - `q::Union{Int,Symbol}=:auto`: roughness (difference) order of the seminorm.
   `:auto` uses, for `:smooth`, 5 for every kernel (higher orders make the
   smoothing system ill-conditioned, lower orders are less accurate); for
-  `:exact`, the ghost extrapolation's stencil width minus one (5 for `:b5`, 7
-  for `:b7`-class tables), which preserves the kernel's convergence order in
-  data gaps. On nonuniform grids the roughness is discretised by divided
-  differences scaled to plain differences on the local spacing, with the same
-  defaults except that `:n3`'s `:exact` default is 2, matching its three-knot
-  ghost extrapolation. For data that oscillate everywhere (a chirp) no `q`
-  smooths without biasing the signal, and GCV then leaves `lambda` near zero:
-  the knot count is the regulariser in that case.
+  `:exact` on a uniform grid, the ghost extrapolation's stencil width minus one
+  but at least 5 (so 5 for `:a3`, `:a4` and `:b5`, 7 for `:b7`-class tables).
+  In data gaps the minimum-roughness completion decides the accuracy, and from
+  2D up the grid is mostly gaps: raising `q` from 3 to 5 gained a factor of 3-20
+  for the narrow kernels in 2-4D at 10-50 % more fit time, while `q >= 8`
+  destabilises the completion on sparse data and `q >= 9` shows in the
+  constraint violation. On nonuniform grids the roughness is discretised by
+  divided differences scaled to plain differences on the local spacing; the
+  `:exact` default is the stencil width minus one for the `:b` kernels (5 for
+  `:b5`) and 4 for `:n3`. Where the data thin out towards the bounds the
+  completion of the sparse cells oscillates at higher orders (and the `:b`
+  kernels' full-degree ghost extrapolation does so at any `q`, so on such data
+  prefer `:n3`); on data that are dense towards the bounds `:n3` gains another
+  factor of 2-3 from `q = 5` or `6`. For data that oscillate everywhere (a
+  chirp) no `q` smooths without biasing the signal, and GCV then leaves `lambda`
+  near zero: the knot count is the regulariser in that case.
 - `lambda::Union{Symbol,Real}=:gcv` (`:smooth` only): the smoothing parameter,
   or `:gcv` to choose it by generalized cross-validation. The `lambda` returned
   by a fit reproduces that fit when passed back.
@@ -254,7 +267,7 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
         pdeg = ntuple(d -> kernels[d] === :n3 ? 2 : nonuniform_b_params(kernels[d])[2], D)   # ghost extrapolation degree
         ns   = ntuple(d -> pdeg[d] + 1, D)                           # knots per ghost
         qv   = ntuple(d -> q !== :auto ? q::Int :                    # roughness orders
-                          mode === :smooth ? 5 : min(pdeg[d], 7), D)
+                          _default_roughness_order(mode, kernels[d], ns[d], true), D)
     else
         for k in kernels
             haskey(POLYNOMIAL_GHOST_COEFFS, k) && k !== :n3 ||
@@ -264,7 +277,7 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
         G  = ntuple(d -> get_polynomial_ghost_coeffs(:poly, kernels[d]), D)
         ns = ntuple(d -> size(G[d], 2), D)                           # BC stencil width (:poly is the widest rule)
         qv = ntuple(d -> q !== :auto ? q::Int :                      # roughness orders
-                        mode === :smooth ? 5 : ns[d] - 1, D)
+                        _default_roughness_order(mode, kernels[d], ns[d], false), D)
     end
 
     # ---- bounding box ---------------------------------------------------------
@@ -363,9 +376,10 @@ and `ratio` for adaptive or user-supplied knot axes, plus `derivative`, which
 is forwarded to the interpolant, and `extrap`. On a uniform grid the boundary
 condition is fixed to `:poly` for consistency with the fit; on a nonuniform
 grid the interpolant's own ghost extrapolation is the one the fit used.
-A nonuniform grid gives a nonuniform interpolant (`:n3` by default for
-`:smooth`, `:b5` for `:exact`): no antiderivatives (`derivative = -1`), 
-and `lazy` only with `:n3`.
+A nonuniform grid gives a nonuniform interpolant (`:b5` by default for
+`:smooth` in 1-3D and for `:exact` in 1D, `:n3` otherwise; see
+`fit_scattered`): no antiderivatives (`derivative = -1`), and `lazy` only
+with `:n3`.
 
 ```julia
 pts = rand(2, 500)                                        # 500 scattered points in 2D, one per column
@@ -414,15 +428,45 @@ end
 # internals
 # =============================================================================
 
-"""Scattered-path default kernel. Uniform grid — `:smooth`: `:a4` in every dimension
-(accuracy is noise-limited, and its narrow stencil keeps the fit fast); `:exact`: `:b5`
-for 1-3D (fastest and, with the default `:cholesky` solver, also the deepest-converging
-in benchmarks), `:a4` for 4-5D, `:a3` above. Nonuniform grid — `:smooth`: `:n3`, the
-nonuniform counterpart of `:a4`'s role (closed-form weights, no per-interval
-precompute); `:exact`: `:b5`."""
-_default_scattered_kernel(D::Int, mode::Symbol = :smooth, nonuniform::Bool = false) =
-    D <= 3 ? :b5 :                                          # one default for both modes and grids
-    nonuniform ? :n3 : D <= 5 ? :a4 : :a3                   # the cheap kernels in high dimensions
+"""Default roughness order of the fit on one axis. `:smooth` uses 5 for every kernel:
+higher orders make the smoothing system ill-conditioned, lower orders are less accurate.
+`:exact` fills the gaps between the data points with the minimum-roughness completion,
+and from 2D up the grid is mostly gaps, so the order decides the accuracy there: the
+ghost extrapolation's stencil width minus one (5 for `:b5`, 7 for the `:b7`-class
+tables), raised to at least 5 for the narrow uniform kernels, which gain from it in every
+dimension; `:n3` on nonuniform grids gets 4, the highest order whose completion stays
+bounded where the data thin out towards the bounds."""
+function _default_roughness_order(mode::Symbol, kernel::Symbol, ns::Int, nonuniform::Bool)
+    mode === :smooth && return 5
+    if nonuniform
+        kernel === :n3 && return 4
+        return min(ns - 1, 7)
+    end
+    return max(ns - 1, 5)
+end
+
+"""Scattered-path default kernel. `:smooth`: `:b5` for 1-3D on both grid types (the fit
+coarsens to the grid its smoothing needs, so the wide kernel stays cheap), then `:a4` for
+4-5D and `:a3` above on uniform grids, `:n3` on nonuniform grids (closed-form weights, no
+per-interval precompute). `:exact`: `:b5` in 1D on both grid types, where it is both the
+fastest and the most accurate choice; from 2D `:a4` (2-3D) and `:a3` (4D+) on uniform
+grids, `:n3` on nonuniform grids. From 2D up the grid is mostly gaps between the data
+points, the roughness order rather than the kernel order sets the accuracy, and the narrow
+kernels match the `:b` kernels at a fraction of the factorization cost; on nonuniform
+grids the `:b` kernels also oscillate where the data thin out towards the bounds, which
+`:n3`'s quadratic ghosts do not. Measured on a Runge bump and a smooth wave, uniform and
+clustered points, 1-4D."""
+function _default_scattered_kernel(D::Int, mode::Symbol = :smooth, nonuniform::Bool = false)
+    if mode === :smooth
+        D <= 3 && return :b5                        # the fit coarsens its grid, so the wide kernel stays cheap
+        nonuniform && return :n3                    # 4D+: the cheap kernels
+        return D <= 5 ? :a4 : :a3
+    else                                            # :exact
+        D == 1 && return :b5                        # fastest and most accurate in 1D
+        nonuniform && return :n3                    # 2D+: the grid is mostly gaps, the narrow kernels win
+        return D <= 3 ? :a4 : :a3
+    end
+end
 
 """Collocation and roughness operators of the fit on the interior unknowns, `(A*S, R*S)`,
 for the given axes. Ranges mean a uniform grid: the uniform kernels with the `:poly` ghost

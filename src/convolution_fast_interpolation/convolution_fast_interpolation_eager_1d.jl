@@ -46,9 +46,9 @@ end
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
-                    HigherOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,1}) where 
+                    HigherOrderKernel{K},EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
-                    KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
+                    KA<:Tuple{<:Nothing},K,EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     # Direct index calculation
@@ -58,7 +58,7 @@ end
     x_diff_right = one(T) - x_diff_left
 
     # Kernel weights of all 2·eqs columns at τ = x_diff_right (column k ↔ coefficient i+k−eqs)
-    rows = _column_rows(Val(DG[1]), Val(DO[1]), T)
+    rows = _column_rows(Val(K[1]), Val(DO[1]), T)
     w = _column_weights(rows, x_diff_right)
 
     # One dot product with the coefficients in the stencil

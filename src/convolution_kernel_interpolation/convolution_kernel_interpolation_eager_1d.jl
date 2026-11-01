@@ -1,7 +1,7 @@
 @inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
-                    DG,EQ,KBC,DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,1}) where 
+                    K,EQ,KBC,DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
-                    KA<:Tuple{<:ConvolutionKernel},DG,EQ<:Tuple{Int},
+                    KA<:Tuple{<:ConvolutionKernel},K,EQ<:Tuple{Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,NB<:Nothing}
 
     x = T.(x)

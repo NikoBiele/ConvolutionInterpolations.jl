@@ -1,7 +1,7 @@
 """
     ConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
-                             Axs<:Tuple,KA,DT,DG,EQ,KBC,DO,NB,LZ,DI,SZ} <:
-        AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,DO,LZ,DI,SZ}
+                             Axs<:Tuple,KA,DT,K,EQ,KBC,DO,NB,LZ,DI,SZ} <:
+        AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DO,LZ,DI,SZ}
 
 Convolution interpolation by direct kernel evaluation: the kernel is evaluated at each point of
 the stencil, which is what makes nonuniform grids, the Gaussian kernel and per-dimension kernels
@@ -10,12 +10,12 @@ possible. Uniform grids with polynomial kernels use `FastConvolutionInterpolatio
 # Type Parameters
 - `T`: Element type of the interpolated values
 - `N`: Number of dimensions
-- `NI`: Number of integral dimensions (derivative order −1)
+- `NI`: Number of integral dimensions (derivative order -1)
 - `TCoefs`: Type of the coefficient array
 - `Axs`: Type of the knots (a tuple of ranges or vectors)
 - `KA`: Kernel type per dimension
 - `DT`: Dimension type for dispatch (`Val{N}` for N ≤ 3, `HigherDimension{N}` otherwise)
-- `DG`: Kernel symbol type for dispatch (e.g. `Val{(:b5, :n3)}`)
+- `K`: Kernel symbol type for dispatch (e.g. `Val{(:b5, :n3)}`)
 - `EQ`: Kernel stencil half-widths per dimension
 - `KBC`: Boundary condition type
 - `DO`: Derivative order type
@@ -31,7 +31,7 @@ possible. Uniform grids with polynomial kernels use `FastConvolutionInterpolatio
 - `h::NTuple{N,T}`: Grid spacing per dimension (one on nonuniform dimensions)
 - `kernel::KA`: Kernel type per dimension
 - `dimension::DT`: Dimension type for dispatch
-- `kernel_sym::DG`: Kernel symbols for dispatch
+- `kernel_sym::K`: Kernel symbols for dispatch
 - `eqs::EQ`: Kernel stencil half-widths per dimension
 - `bc::KBC`: Boundary conditions per dimension
 - `derivative_order::DO`: Derivative orders per dimension
@@ -42,16 +42,16 @@ possible. Uniform grids with polynomial kernels use `FastConvolutionInterpolatio
 - `dim_integral::DI`: Integral dimension type for dispatch
 """
 struct ConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
-                                Axs<:Tuple,KA,DT,DG,EQ,KBC,DO,NB,LZ,DI,SZ} <: 
+                                Axs<:Tuple,KA,DT,K,EQ,KBC,DO,NB,LZ,DI,SZ} <: 
                                 AbstractConvolutionInterpolation{T,N,NI,TCoefs,
-                                Axs,KA,DT,DG,EQ,KBC,DO,LZ,DI,SZ}
+                                Axs,KA,DT,K,EQ,KBC,DO,LZ,DI,SZ}
     coefs::TCoefs
     domain_size::SZ
     knots::Axs
     h::NTuple{N,T}
     kernel::KA
     dimension::DT
-    kernel_sym::DG
+    kernel_sym::K
     eqs::EQ
     bc::KBC
     derivative_order::DO

@@ -3,22 +3,22 @@
 # ═══════════════════════════════════════════════════════════════
 
 @inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
-                    NonUniformNonMixedLowKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    NonUniformNonMixedLowKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{:nonuniform},Val{true},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
-                    KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
+                    KA<:Tuple{<:Nothing},K,EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     n_k = length(itp.knots[1])
     n_c = length(itp.coefs)
     ng = (n_k - n_c) ÷ 2
 
-    if DG === :a0
+    if K === :a0
         i = clamp(searchsortedlast(itp.knots[1], x[1]), 1 + ng, n_k - 1 - ng)
         xi = (x[1] - itp.knots[1][i]) <= (itp.knots[1][i+1] - itp.knots[1][i]) / 2 ? i : i + 1
         return itp.coefs[xi - ng]
 
-    elseif DG === :a1
+    elseif K === :a1
         i = clamp(searchsortedlast(itp.knots[1], x[1]), 1 + ng, n_k - 1 - ng)
         t = (T(x[1]) - itp.knots[1][i]) / (itp.knots[1][i+1] - itp.knots[1][i])
         return (one(T) - t) * itp.coefs[i - ng] + t * itp.coefs[i + 1 - ng]
@@ -30,18 +30,18 @@ end
 # ═══════════════════════════════════════════════════════════════
 
 function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
-                    NonUniformNonMixedLowKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    NonUniformNonMixedLowKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{:nonuniform},Val{true},Val{0}})(x::Vararg{Number,2}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector},
-                    KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
+                    KA<:Tuple{<:Nothing,<:Nothing},K,EQ<:Tuple{Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     DO}
 
     x = T.(x)
     ng = ntuple(d -> (length(itp.knots[d]) - size(itp.coefs,d)) ÷ 2, 2)
 
-    if DG === :a0
+    if K === :a0
         ids = ntuple(2) do d
             i = clamp(searchsortedlast(itp.knots[d], x[d]), 1 + ng[d], length(itp.knots[d]) - 1 - ng[d])
             xi = (x[d] - itp.knots[d][i]) <= (itp.knots[d][i+1] - itp.knots[d][i]) / 2 ? i : i + 1
@@ -49,7 +49,7 @@ function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
         end
         return @inbounds itp.coefs[ids...]
 
-    elseif DG === :a1
+    elseif K === :a1
         iw = ntuple(2) do d
             i = clamp(searchsortedlast(itp.knots[d], x[d]), 1 + ng[d], length(itp.knots[d]) - 1 - ng[d])
             t = (T(x[d]) - itp.knots[d][i]) / (itp.knots[d][i+1] - itp.knots[d][i])
@@ -68,17 +68,17 @@ end
 # ═══════════════════════════════════════════════════════════════
 
 function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
-                    NonUniformNonMixedLowKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    NonUniformNonMixedLowKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{:nonuniform},Val{true},Val{0}})(x::Vararg{Number,3}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
-                    KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},
+                    KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},K,EQ<:Tuple{Int,Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     ng = ntuple(d -> (length(itp.knots[d]) - size(itp.coefs,d)) ÷ 2, 3)
 
-    if DG === :a0
+    if K === :a0
         ids = ntuple(3) do d
             i = clamp(searchsortedlast(itp.knots[d], x[d]), 1 + ng[d], length(itp.knots[d]) - 1 - ng[d])
             xi = (x[d] - itp.knots[d][i]) <= (itp.knots[d][i+1] - itp.knots[d][i]) / 2 ? i : i + 1
@@ -86,7 +86,7 @@ function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
         end
         return @inbounds itp.coefs[ids...]
 
-    elseif DG === :a1
+    elseif K === :a1
         iw = ntuple(3) do d
             i = clamp(searchsortedlast(itp.knots[d], x[d]), 1 + ng[d], length(itp.knots[d]) - 1 - ng[d])
             t = (T(x[d]) - itp.knots[d][i]) / (itp.knots[d][i+1] - itp.knots[d][i])
@@ -108,16 +108,16 @@ end
 # ═══════════════════════════════════════════════════════════════
 
 function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-                    NonUniformNonMixedLowKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    NonUniformNonMixedLowKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{:nonuniform},Val{true},Val{0}})(x::Vararg{Number,N}) where 
                     {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},KA<:Tuple{Vararg{Nothing}},
-                    Axs<:Tuple{Vararg{AbstractVector}},DG,EQ<:Tuple{Vararg{Int}},
+                    Axs<:Tuple{Vararg{AbstractVector}},K,EQ<:Tuple{Vararg{Int}},
                     KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO}
 
     x = T.(x)
     ng = ntuple(d -> (length(itp.knots[d]) - size(itp.coefs,d)) ÷ 2, N)
 
-    if DG === Val{:a0}
+    if K === Val{:a0}
         ids = ntuple(N) do d
             i = clamp(searchsortedlast(itp.knots[d], x[d]), 1 + ng[d], length(itp.knots[d]) - 1 - ng[d])
             xi = (x[d] - itp.knots[d][i]) <= (itp.knots[d][i+1] - itp.knots[d][i]) / 2 ? i : i + 1
@@ -125,7 +125,7 @@ function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
         end
         return @inbounds itp.coefs[ids...]
 
-    elseif DG === Val{:a1}
+    elseif K === Val{:a1}
         iw = ntuple(N) do d
             i = clamp(searchsortedlast(itp.knots[d], x[d]), 1 + ng[d], length(itp.knots[d]) - 1 - ng[d])
             t = (T(x[d]) - itp.knots[d][i]) / (itp.knots[d][i+1] - itp.knots[d][i])

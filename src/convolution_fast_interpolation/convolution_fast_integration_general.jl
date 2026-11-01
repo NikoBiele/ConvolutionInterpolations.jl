@@ -15,9 +15,9 @@ tails (`integral_tails`), so evaluation is independent of grid size. With more i
 dimensions the sum runs directly over the coefficients up to the stencil.
 See also: _build_region_tails, _anchored_stencil_weights.
 """
-function (itp::FastConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,DG,EQ,KBC,
+function (itp::FastConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,
             FastIntegralOrders{DO},Val{false},DI})(x::Vararg{Number,N}) where
-            {T<:AbstractFloat,N,NI,TCoefs<:AbstractArray{T,N},Axs,KA,DT,DG,EQ,KBC,DO,DI}
+            {T<:AbstractFloat,N,NI,TCoefs<:AbstractArray{T,N},Axs,KA,DT,K,EQ,KBC,DO,DI}
 
     x = T.(x)
     # cell and position within it, per dimension

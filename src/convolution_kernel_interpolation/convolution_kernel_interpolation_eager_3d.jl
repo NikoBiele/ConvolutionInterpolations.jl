@@ -1,8 +1,8 @@
 @inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
-                    DG,EQ,KBC,DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,3}) where 
+                    K,EQ,KBC,DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,3}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
-                    KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel,<:ConvolutionKernel},DG,
+                    KA<:Tuple{<:ConvolutionKernel,<:ConvolutionKernel,<:ConvolutionKernel},K,
                     EQ<:Tuple{Int,Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     DO,NB<:Nothing}
 

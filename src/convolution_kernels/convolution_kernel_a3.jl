@@ -1,12 +1,3 @@
-"""
-    (::ConvolutionKernel{:a3,DO})(s)
-
-Keys' cubic kernel (a = -1/2). Support [-2, 2], 2 pieces.
-C1 continuous, 3rd-order accuracy. The classic cubic convolution kernel from Keys (1981).
-Antiderivative (DO = -1): K̃(x) = ∫_{-∞}^{x} K(t) dt - 1/2, odd function, K̃(0) = 0,
-K̃(±∞) = ±1/2. Exact definite integration via K̃(b) - K̃(a).
-"""
-
 const a3_coefs = Dict(
     :eq1 => [1//1, 0//1, -5//2, 3//2],
     :eq2 => [2//1, -4//1, 5//2, -1//2]

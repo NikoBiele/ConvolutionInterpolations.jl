@@ -76,9 +76,9 @@ end
 end
 
 function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
-            HigherOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,2}) where 
+            HigherOrderKernel{K},EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,2}) where 
             {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
-            KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
+            KA<:Tuple{<:Nothing,<:Nothing},K,EQ<:Tuple{Int,Int},
             KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
@@ -95,7 +95,7 @@ function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
     y_diff_right = one(T) - y_diff_left
 
     # Kernel weights per dimension at τ = diff_right (column k ↔ coefficient offset + k)
-    wx, wy = _column_weights_per_dim(Val(DG), Val(DO), (x_diff_right, y_diff_right))
+    wx, wy = _column_weights_per_dim(Val(K), Val(DO), (x_diff_right, y_diff_right))
 
     # Tensor sum: one product per coefficient
     ox = i - itp.eqs[1]

@@ -22,10 +22,13 @@ Only supports uniform grids. For nonuniform grids, use `ConvolutionInterpolation
   `nothing` means `:detect`, as in `convolution_interpolation`, which on nonuniform grids
   resolves it to `:kernel` instead; this constructor is uniform-only.
 - `derivative::Union{Int,NTuple{N,Int}}=0`: Derivative order to evaluate, one value for all
-  dimensions or one per dimension. Supported up to 6 for `b`-series kernels. `derivative=-m`
-  evaluates the m-fold antiderivative, anchored at zero at the leftmost interior knot, up to
-  order 2 for `:a0`/`:a1`, 4 for the other `a`-series kernels, 6 for `:b5` and 8 for
-  `:b7`–`:b13`. Orders may be mixed per dimension, e.g. `(-2, 0)` or `(-1, 1)`.
+  dimensions or one per dimension, up to 1 for the `a` kernels, 3 for `:b5` and 5 for
+  `:b7`–`:b13`: on a uniform grid derivative `k` of a `b` kernel converges at order `7 - k`,
+  and orders above 5 are excluded as sub-second-order (see `convolution_interpolation` and
+  the README kernel tables). `derivative=-m` evaluates the m-fold antiderivative, anchored at
+  zero at the leftmost interior knot, up to order 2 for `:a0`/`:a1`, 4 for the other
+  `a`-series kernels, 6 for `:b5` and 8 for `:b7`–`:b13`. Orders may be mixed per dimension,
+  e.g. `(-2, 0)` or `(-1, 1)`.
 - `lazy::Union{Nothing,Bool}=nothing`: When `true`, skip ghost point expansion at construction
   time. The raw values are stored directly and ghost points are computed on the fly during
   evaluation near boundaries, with exactly the values eager expansion would store. When `false`,
@@ -105,6 +108,17 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
         max_order = _max_integral_order[kernels_tuple[d]]
         M <= max_order || error("Kernel :$(kernels_tuple[d]) supports antiderivatives up to order " *
                                 "$max_order (derivative = -$max_order). Got derivative = -$M.")
+    end
+
+    # derivatives: up to each kernel's highest order on a uniform grid (second-order convergence
+    # or better, and a continuous derivative), in every dimension
+    for d in 1:N
+        derivatives_tuple[d] > 0 || continue
+        max_order = _max_derivative_order(kernels_tuple[d], false)
+        derivatives_tuple[d] <= max_order ||
+            error("Kernel :$(kernels_tuple[d]) supports derivatives up to order $max_order on a " *
+                  "uniform grid (derivative k converges at order 7 - k for the b kernels, so " *
+                  "higher orders are not meaningful there). Got derivative = $(derivatives_tuple[d]).")
     end
 
     return _build_fast_uniform_convolution(knots_tuple, vs, bcs_tuple,

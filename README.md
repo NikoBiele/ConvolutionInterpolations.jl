@@ -10,7 +10,8 @@ ConvolutionInterpolations.jl interpolates data by convolution with a piecewise-p
 - **Exact evaluation**: kernel weights computed exactly from the polynomial pieces, in any precision
 - **O(1) evaluation**: query time independent of grid size, allocation-free
 - **Any dimension**: separable kernels, with lazy construction for large grids
-- **Derivatives up to 7th order** and **repeated integrals up to 8th**, mixed per axis, from the same samples
+- **High-order derivatives**: up to 5th order on uniform grids and up to 11th order on nonuniform grids (≥ 2nd order convergence)
+- **Repeated integrals up to 8th order** on uniform grids, mixed per axis with derivatives, from the same samples
 - **Scattered data**: smoothing fits with automatically chosen smoothing, or exact interpolation, with derivatives and integrals
 - **Gaussian smoothing** of noisy gridded data and **grid-to-grid resampling**
 
@@ -103,9 +104,11 @@ Uniform grids:
 | `:a7`  | 7      | C⁵         | -4..1            | 3rd order   | 8ᴺ      |
 | `:b5`  | 5      | C³         | -6..3            | 6th order   | 10ᴺ     |
 | `:b7`  | 7      | C⁵         | -8..5            | 7th order   | 12ᴺ     |
-| `:b9`  | 9      | C⁷         | -8..6            | 7th order   | 14ᴺ     |
-| `:b11` | 11     | C⁹         | -8..7            | 7th order   | 16ᴺ     |
-| `:b13` | 13     | C¹¹        | -8..7            | 7th order   | 18ᴺ     |
+| `:b9`  | 9      | C⁷         | -8..5            | 7th order   | 14ᴺ     |
+| `:b11` | 11     | C⁹         | -8..5            | 7th order   | 16ᴺ     |
+| `:b13` | 13     | C¹¹        | -8..5            | 7th order   | 18ᴺ     |
+
+Derivative `k` converges at order `7 - k` on a uniform grid, so the range stops where the convergence would fall below second order.
 
 Nonuniform grids:
 
@@ -116,9 +119,11 @@ Nonuniform grids:
 | `:n3`  | 3      | C¹         | 0..0             | 3rd order   | 4ᴺ      |
 | `:b5`  | 5      | C³         | 0..3             | 6th order   | 10ᴺ     |
 | `:b7`  | 7      | C⁵         | 0..5             | 8th order   | 12ᴺ     |
-| `:b9`  | 9      | C⁷         | 0..6             | 10th order  | 14ᴺ     |
-| `:b11` | 11     | C⁹         | 0..7             | 12th order  | 16ᴺ     |
-| `:b13` | 13     | C¹¹        | 0..7             | 14th order  | 18ᴺ     |
+| `:b9`  | 9      | C⁷         | 0..7             | 10th order  | 14ᴺ     |
+| `:b11` | 11     | C⁹         | 0..9             | 12th order  | 16ᴺ     |
+| `:b13` | 13     | C¹¹        | 0..11            | 14th order  | 18ᴺ     |
+
+On a nonuniform grid the `b` kernels reproduce their full degree `p`, so derivative `k` converges at order `p + 1 - k`, and the range extends to the last continuous derivative, `p - 2`. Rounding in the data is amplified by `h^-k` for every kernel and grid, so high orders on fine grids need `BigFloat` data.
 
 The default `:b7` works everywhere: uniform and nonuniform grids, derivatives, integrals, lazy mode, any dimension. The nonuniform `b` kernels converge at order degree + 1, since their per-interval weights enforce polynomial reproduction up to the kernel's full degree; `:n3` is the nonuniform form of `:a3`, and the two names are interchangeable.
 

@@ -1,10 +1,3 @@
-"""
-    (::ConvolutionKernel{:a1,DO})(s)
-
-Linear kernel. Support [-1, 1], 1 piece.
-C0 continuous, 1st-order accuracy. Equivalent to standard linear interpolation.
-"""
-
 const a1_coefs = Dict(
     :eq1 => [1//1, -1//1]
 )

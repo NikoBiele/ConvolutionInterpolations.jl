@@ -87,7 +87,7 @@ end
         f = [layer(pts[1, i]) * (1 + tanh(40 * (pts[2, i] - 0.5))) for i in 1:n]
         ka, va, viol = fit_scattered(pts, f; mode = :exact, grid = :adaptive)
         @test viol < 1e-9
-        itp = convolution_interpolation(ka, va; kernel = :b5)
+        itp = convolution_interpolation(pts, f; mode = :exact, grid = :adaptive)   # same fit, built with its own kernel
         @test maximum(abs(itp(pts[1, i], pts[2, i]) - f[i]) for i in 1:n) < 1e-8
         @test maximum(abs.([itp(x, y) for x in ka[1], y in ka[2]] .- va)) < 1e-10
     end

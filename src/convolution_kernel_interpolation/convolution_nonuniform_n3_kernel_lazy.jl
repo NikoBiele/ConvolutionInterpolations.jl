@@ -121,10 +121,10 @@ Computed once per dimension, reused across all stencil points.
 end
 
 @inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
-                    NonUniformNonMixedHighKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    NonUniformNonMixedHighKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{:nonuniform},Val{true},Val{0}})(x::Vararg{Number,1}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
-                    KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},
+                    KA<:Tuple{<:Nothing},K,EQ<:Tuple{Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
@@ -153,11 +153,11 @@ end
 end
 
 @inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
-                    NonUniformNonMixedHighKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    NonUniformNonMixedHighKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{:nonuniform},Val{true},Val{0}})(x::Vararg{Number,2}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector},
-                    KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
+                    KA<:Tuple{<:Nothing,<:Nothing},K,EQ<:Tuple{Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
@@ -188,11 +188,11 @@ end
 end
 
 @inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
-                    NonUniformNonMixedHighKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    NonUniformNonMixedHighKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{:nonuniform},Val{true},Val{0}})(x::Vararg{Number,3}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
-                    KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},
+                    KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},K,EQ<:Tuple{Int,Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     DO}
 
@@ -232,10 +232,10 @@ end
 end
 
 @inline function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-        NonUniformNonMixedHighKernel{DG},EQ,KBC,DerivativeOrder{DO},
+        NonUniformNonMixedHighKernel{K},EQ,KBC,DerivativeOrder{DO},
         Val{:nonuniform},Val{true},Val{0}})(x::Vararg{Number,N}) where 
         {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},Axs<:Tuple{Vararg{AbstractVector}},
-        KA<:Tuple{Vararg{Nothing}},DG,EQ<:Tuple{Vararg{Int}},
+        KA<:Tuple{Vararg{Nothing}},K,EQ<:Tuple{Vararg{Int}},
         KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO}
 
     x = T.(x)

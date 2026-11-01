@@ -32,7 +32,7 @@ a value type, used for implementing specialized methods based on dimensionality.
 HigherDimension(::Val{N}) where N = HigherDimension{N}()
 
 """
-    HigherOrderKernel{DG}
+    HigherOrderKernel{K}
 
 A type representing higher-order convolution kernels (`:a3` and above) for dispatch.
 
@@ -43,7 +43,7 @@ within the cell, derived exactly from the kernel's pieces (see `_column_rows`), 
 values supplied by ghost points.
 
 # Type Parameters
-- `DG`: The kernel symbol (`:a3`, `:a4`, `:a5`, `:a7`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`)
+- `K`: The kernel symbol (`:a3`, `:a4`, `:a5`, `:a7`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`)
 
 # Usage
 Used internally for method dispatch in `FastConvolutionInterpolation` evaluation.
@@ -51,67 +51,86 @@ Not typically constructed directly by users.
 
 See also: `ConvolutionKernel`, `FastConvolutionInterpolation`.
 """
-struct HigherOrderKernel{DG} <: AbstractNonMixedConvolutionKernel end
+struct HigherOrderKernel{K} <: AbstractNonMixedConvolutionKernel end
 
-struct HigherOrderMixedKernel{DG} <: AbstractMixedConvolutionKernel end
+struct HigherOrderMixedKernel{K} <: AbstractMixedConvolutionKernel end
 
 """
-    HigherOrderKernel(::Val{DG}) where DG
+    HigherOrderKernel(::Val{K}) where K
 
-Construct a `HigherOrderKernel{DG}` type from a `Val{DG}` for dispatch purposes.
+Construct a `HigherOrderKernel{K}` type from a `Val{K}` for dispatch purposes.
 
-This is a convenience constructor that creates a `HigherOrderKernel{DG}` instance from
+This is a convenience constructor that creates a `HigherOrderKernel{K}` instance from
 a value type, used for implementing specialized kernel methods for higher-order
 convolution interpolation.
 """
-HigherOrderKernel(::Val{DG}) where DG = HigherOrderKernel{DG}()
+HigherOrderKernel(::Val{K}) where K = HigherOrderKernel{K}()
 
-HigherOrderMixedKernel(::Val{DG}) where DG = HigherOrderMixedKernel{DG}()
+HigherOrderMixedKernel(::Val{K}) where K = HigherOrderMixedKernel{K}()
 
-struct LowerOrderKernel{DG} <: AbstractNonMixedConvolutionKernel end
-LowerOrderKernel(::Val{DG}) where DG = LowerOrderKernel{DG}()
+struct LowerOrderKernel{K} <: AbstractNonMixedConvolutionKernel end
+LowerOrderKernel(::Val{K}) where K = LowerOrderKernel{K}()
 
-struct LowerOrderMixedKernel{DG} <: AbstractMixedConvolutionKernel end
-LowerOrderMixedKernel(::Val{DG}) where DG = LowerOrderMixedKernel{DG}()
+struct LowerOrderMixedKernel{K} <: AbstractMixedConvolutionKernel end
+LowerOrderMixedKernel(::Val{K}) where K = LowerOrderMixedKernel{K}()
 
-struct FullMixedOrderKernel{DG} <: AbstractMixedConvolutionKernel end
-FullMixedOrderKernel(::Val{DG}) where DG = FullMixedOrderKernel{DG}()
+struct FullMixedOrderKernel{K} <: AbstractMixedConvolutionKernel end
+FullMixedOrderKernel(::Val{K}) where K = FullMixedOrderKernel{K}()
 
-struct NonUniformMixedOrderKernel{DG} <: AbstractMixedConvolutionKernel end
-NonUniformMixedOrderKernel(::Val{DG}) where DG = NonUniformMixedOrderKernel{DG}()
+struct NonUniformMixedOrderKernel{K} <: AbstractMixedConvolutionKernel end
+NonUniformMixedOrderKernel(::Val{K}) where K = NonUniformMixedOrderKernel{K}()
 
-struct NonUniformNonMixedLowKernel{DG} <: AbstractNonMixedConvolutionKernel end
-NonUniformNonMixedLowKernel(::Val{DG}) where DG = NonUniformNonMixedLowKernel{DG}()
+struct NonUniformNonMixedLowKernel{K} <: AbstractNonMixedConvolutionKernel end
+NonUniformNonMixedLowKernel(::Val{K}) where K = NonUniformNonMixedLowKernel{K}()
 
-struct NonUniformNonMixedHighKernel{DG} <: AbstractNonMixedConvolutionKernel end
-NonUniformNonMixedHighKernel(::Val{DG}) where DG = NonUniformNonMixedHighKernel{DG}()
+struct NonUniformNonMixedHighKernel{K} <: AbstractNonMixedConvolutionKernel end
+NonUniformNonMixedHighKernel(::Val{K}) where K = NonUniformNonMixedHighKernel{K}()
 
 """
-    ConvolutionKernel{DG}
+    ConvolutionKernel{K,DO}
 
-A type representing a polynomial convolution kernel of degree `DG`.
+A piecewise-polynomial convolution kernel `K` evaluated at derivative order `DO`: an
+instance is callable, `ConvolutionKernel{K,DO}()(s)`, and returns the `DO`-th derivative of
+the kernel at the normalized offset `s` (`DO = -1` its antiderivative). Each kernel is
+symmetric with compact support, cardinal (one at `s = 0`, zero at the other integers) and
+built from exact rational coefficients, one polynomial per unit piece of `|s|`; the pieces
+and the derivative tables are generated from the base coefficients at precompile time.
 
-This type encapsulates the behavior of a specific degree polynomial kernel used
-for convolution interpolation. Different degrees provide different levels of
-accuracy and smoothness in the interpolated result.
+| Kernel | Degree | Continuity | Pieces | Uniform-grid order | Notes                                    |
+|:-------|:------:|:----------:|:------:|:------------------:|:-----------------------------------------|
+| `:a0`  | 0      | —          | 1      | 1                  | nearest neighbour, support `[-1/2, 1/2]` |
+| `:a1`  | 1      | C⁰         | 1      | 2                  | linear                                   |
+| `:a3`  | 3      | C¹         | 2      | 3                  | Keys cubic; `:n3` on nonuniform grids    |
+| `:a4`  | 3      | C¹         | 3      | 4                  | cubic, 6-wide, reproduces degree 3       |
+| `:a5`  | 5      | C³         | 3      | 3                  | quintic                                  |
+| `:a7`  | 7      | C⁵         | 4      | 3                  | septic                                   |
+| `:b5`  | 5      | C³         | 5      | 6                  | reproduces degree 5                      |
+| `:b7`  | 7      | C⁵         | 6      | 7                  | reproduces degree 6; the default kernel  |
+| `:b9`  | 9      | C⁷         | 7      | 7                  | reproduces degree 6                      |
+| `:b11` | 11     | C⁹         | 8      | 7                  | reproduces degree 6                      |
+| `:b13` | 13     | C¹¹        | 9      | 7                  | reproduces degree 6                      |
+
+On nonuniform grids the `b` kernels are re-projected per interval and reproduce their full
+degree `p`, converging at order `p + 1` (14 for `:b13`); `:n3` is the nonuniform form of
+`:a3`. The supported derivative and antiderivative orders of each kernel on each grid type
+are listed in the kernel tables of the README and enforced by the constructors; the
+construction of the kernels, their reproduction conditions and the convergence results
+are worked through on the documentation site, https://convinterp.org.
 
 # Type Parameters
-- `DG`: The degree of the polynomial kernel (3=cubic, 5=quintic, 7=septic, etc.)
-
-The implementation defines specific behavior for different degrees through
-method specialization.
+- `K` : the kernel symbol, one of the table above.
+- `DO`: the derivative order, `0` for the kernel itself, positive for derivatives and `-1`
+  for the antiderivative.
 """
-struct ConvolutionKernel{DG,DO} end
+struct ConvolutionKernel{K,DO} end
 
 """
-    ConvolutionKernel(::Val{DG}) where {DG}
+    ConvolutionKernel(::Val{K}, ::Val{DO})
 
-Construct a `ConvolutionKernel{DG}` type from a `Val{DG}` for dispatch purposes.
-
-This is a convenience constructor that creates a `ConvolutionKernel{DG}` instance from
-a value type, used for implementing specialized kernel methods based on degree.
+Construct the `ConvolutionKernel{K,DO}` instance for kernel `K` at derivative order `DO`
+from value types, so that the interpolant's kernel and order are fixed at compile time.
 """
-ConvolutionKernel(::Val{DG}, ::Val{DO}) where {DG,DO} = ConvolutionKernel{DG,DO}()
+ConvolutionKernel(::Val{K}, ::Val{DO}) where {K,DO} = ConvolutionKernel{K,DO}()
 
 """
     GaussianConvolutionKernel{B}

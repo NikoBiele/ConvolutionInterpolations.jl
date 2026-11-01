@@ -6,7 +6,6 @@ the respective boundary. Returns a new vector of length `length(x) + 2*n_extra`.
 
 Used internally by `expand_knots` for boundary condition setup.
 """
-
 function extend_vector(x::AbstractVector{T}, n_extra::Integer) where T
     step_start = x[2] - x[1]
     step_end = x[end] - x[end-1]

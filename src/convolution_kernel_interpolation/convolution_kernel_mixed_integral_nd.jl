@@ -1,7 +1,7 @@
 function (itp::ConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,HigherDimension{N},
-                    DG,EQ,KBC,MixedIntegralOrder{DO},NB,Val{false},DI})(x::Vararg{Number,N}) where
+                    K,EQ,KBC,MixedIntegralOrder{DO},NB,Val{false},DI})(x::Vararg{Number,N}) where
                     {T<:AbstractFloat,N,NI,TCoefs<:AbstractArray{T,N},Axs<:NTuple{N,<:AbstractVector},
-                    KA<:NTuple{N,ConvolutionKernel},DG,EQ<:NTuple{N,Int},
+                    KA<:NTuple{N,ConvolutionKernel},K,EQ<:NTuple{N,Int},
                     KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO,DI,NB<:Nothing}
 
     x = T.(x)

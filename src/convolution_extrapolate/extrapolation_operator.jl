@@ -25,8 +25,6 @@ etp.([0.3, 0.5, 0.7, 7.0])      # broadcasting over multiple points
 
 See also: [`convolution_interpolation`](@ref), [`extrapolate_point`](@ref), [`_domain_bounds`](@ref).
 """
-
-# For broadcasting (Adapted from Interpolations.jl)
 @inline function (etp::ConvolutionExtrapolation{T,N,
                 AbstractConvolutionInterpolation,ET})(x::Vararg{Number,N}) where 
                             {T,N,AbstractConvolutionInterpolation,ET<:AbstractExtrapolation}
@@ -119,8 +117,6 @@ Adapted from [Interpolations.jl](https://github.com/JuliaMath/Interpolations.jl)
 
 See also: `ConvolutionExtrapolation`.
 """
-
-# Vector indexing utilities for broadcasting (Adapted from Interpolations.jl)
 shape(i::Number, rest...)         = shape(rest...)
 shape(v::AbstractVector, rest...) = (axes(v, 1), shape(rest...)...)
 shape(v::LinearAlgebra.Adjoint, rest...) = (axes(v, 1), shape(rest...)...)

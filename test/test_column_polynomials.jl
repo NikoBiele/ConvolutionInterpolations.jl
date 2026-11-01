@@ -1,8 +1,13 @@
+println("\n" * "-"^60)
+println("Testing column polynomials...")
+println("-"^60)
+
 # The exact column polynomials must equal the kernel itself exactly: on every column c
 # (offset o = c − 1 − eqs), the column polynomial at τ equals K⁽ᵈ⁾(o + τ). Both sides are
 # evaluated in exact rational arithmetic, for every kernel and every derivative order from −1
 # (antiderivative) up, at points spread over the column including both ends.
 @testset "Column polynomials equal the kernels exactly" begin
+    println("    - column polynomials equal the kernels")
     CI = ConvolutionInterpolations
     # Exact positions within a column, including both ends
     τs = [big(0)//1, big(1)//7, big(1)//3, big(1)//2, big(5)//8, big(9)//10, big(1)//1]
@@ -27,6 +32,7 @@ end
 # column polynomials exactly, which confirms the per-kernel order caps.
 @testset "Exact integral kernel values at integer offsets" begin
     CI = ConvolutionInterpolations
+    println("    - exact integral kernel values at integer offsets")
     for (kernel, max_order) in CI._max_integral_order
         kernel == :a0 && continue                   # closed form, checked below
         eqs = CI.get_equations_for_degree(kernel)

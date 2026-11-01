@@ -100,10 +100,10 @@ end
                     (-one(T)/itp.h[3])^DO[3]
 end
 
-function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},HigherOrderKernel{DG},
+function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},HigherOrderKernel{K},
                 EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,3}) where 
                 {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
-                Axs<:NTuple{3,<:AbstractVector},KA<:NTuple{3,<:Nothing},DG,EQ<:NTuple{3,Int},
+                Axs<:NTuple{3,<:AbstractVector},KA<:NTuple{3,<:Nothing},K,EQ<:NTuple{3,Int},
                 KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                 DO}
 
@@ -122,7 +122,7 @@ function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},HigherOrd
     z_diff_right = one(T) + T(k) - k_float
 
     # Kernel weights per dimension at τ = diff_right (column c ↔ coefficient offset + c)
-    wx, wy, wz = _column_weights_per_dim(Val(DG), Val(DO), (x_diff_right, y_diff_right, z_diff_right))
+    wx, wy, wz = _column_weights_per_dim(Val(K), Val(DO), (x_diff_right, y_diff_right, z_diff_right))
 
     # Tensor sum: one product per coefficient
     ox = i - itp.eqs[1]

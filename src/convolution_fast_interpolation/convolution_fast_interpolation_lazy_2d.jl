@@ -54,9 +54,9 @@ end
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
-            DG,EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,2}) where
+            K,EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,2}) where
             {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
-            KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
+            KA<:Tuple{<:Nothing,<:Nothing},K,EQ<:Tuple{Int,Int},
             KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)

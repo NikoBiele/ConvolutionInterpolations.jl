@@ -169,7 +169,7 @@ end
     _lazy_patch_sum(itp, pos, w)
 
 Stencil sum of a lazy interpolant in a boundary cell: the sum over the stencil offsets k (per axis
-1 … 2·eqs[d], coefficient index pos[d] + k − eqs[d]) of coefficient · Π_d w[d][k_d], where the
+1 … 2·eqs[d], coefficient index pos[d] + k - eqs[d]) of coefficient · Π_d w[d][k_d], where the
 coefficients outside the domain are eager's ghost values. The patch of `_lazy_fill_patch`,
 contracted with the per-axis weights `w` by `_patch_contract`.
 """
@@ -183,25 +183,25 @@ function _lazy_patch_sum(itp::FastConvolutionInterpolation{T,N}, pos::NTuple{N,I
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-                    LowerOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    LowerOrderKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{true},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
-                    KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},DG,
+                    KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},K,
                     EQ<:NTuple{N,Int},KBC<:NTuple{N,Tuple{Symbol,Symbol}},
                     DO}
 
     x = T.(x)
     # same as eager path
-    if DG[1] == :a0
+    if K[1] == :a0
         return _eval_a0_nd(itp, x)
-    elseif DG[1] == :a1
+    elseif K[1] == :a1
         return _eval_a1_nd(itp, x, Val{DO}())
     end
 end
 
 @inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-                    DG,EQ,KBC,DerivativeOrder{DO},
+                    K,EQ,KBC,DerivativeOrder{DO},
                     Val{true},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
-                    KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},DG,
+                    KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},K,
                     EQ<:NTuple{N,Int},
                     KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO}
 

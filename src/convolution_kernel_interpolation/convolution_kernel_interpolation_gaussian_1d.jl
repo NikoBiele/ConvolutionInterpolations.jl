@@ -1,5 +1,5 @@
 """
-    (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},DG,EQ,KBC,
+    (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},K,EQ,KBC,
             DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,1}) where 
             {KA<:Tuple{<:GaussianConvolutionKernel}}
 
@@ -25,9 +25,9 @@ itp(1.5)
 See also: [`convolution_gaussian`](@ref), [`convolution_smooth`](@ref)
 """
 @inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
-                    DG,EQ,KBC,DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,1}) where 
+                    K,EQ,KBC,DerivativeOrder{DO},NB,Val{false},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
-                    KA<:Tuple{<:GaussianConvolutionKernel},DG,EQ<:Tuple{Int},
+                    KA<:Tuple{<:GaussianConvolutionKernel},K,EQ<:Tuple{Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,NB<:Nothing}
 
     x = T.(x)

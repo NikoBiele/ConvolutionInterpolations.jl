@@ -27,10 +27,18 @@ Create a convolution-based interpolation object with automatic optimization and 
   kernel's own extrapolation, which is the only rule there. On uniform grids the options are
   `:detect`, `:poly`, `:linear` and `:quadratic`; giving one on a nonuniform grid is an error.
 - `derivative::Union{Int,NTuple{N,Int}}=0`: Derivative order to evaluate, one value for all
-  dimensions or one per dimension. Supported up to 6 for `b`-series kernels. `derivative=-m`
-  evaluates the m-fold antiderivative, anchored at zero at the leftmost interior knot (uniform
-  grids, fast path), up to order 2 for `:a0`/`:a1`, 4 for the other `a`-series kernels, 6 for
-  `:b5` and 8 for `:b7`–`:b13`. Orders may be mixed per dimension, e.g. `(-2, 0)` or `(-1, 1)`.
+  dimensions or one per dimension, up to each kernel's limit on the grid of that axis (the
+  kernel tables in the README): on a uniform grid 1 for the `a` kernels, 3 for `:b5` and 5
+  for `:b7`-`:b13`; on a nonuniform grid 3, 5, 7, 9 and 11 for `:b5`-`:b13`. The limits
+  follow from the convergence: on a uniform grid the `b` kernels reproduce polynomials
+  through degree 6, so derivative `k` converges at order `7 - k`, and orders above 5 are
+  excluded as sub-second-order; on a nonuniform grid they reproduce their full degree `p`,
+  derivative `k` converges at order `p + 1 - k`, and the limit is the last continuous
+  derivative, `p - 2`. Rounding in the data is amplified by `h^-k` on every grid, so high
+  orders on fine grids need `BigFloat` data. `derivative=-m` evaluates the m-fold
+  antiderivative, anchored at zero at the leftmost interior knot (uniform grids, fast path),
+  up to order 2 for `:a0`/`:a1`, 4 for the other `a`-series kernels, 6 for `:b5` and 8 for
+  `:b7`-`:b13`. Orders may be mixed per dimension, e.g. `(-2, 0)` or `(-1, 1)`.
 - `lazy::Union{Nothing,Bool}=nothing`: When `true`, skip ghost point expansion at construction
   time. Ghost values are computed on the fly only when evaluating near boundaries, with exactly
   the values eager expansion would store, saving memory and construction time. When `false`, all

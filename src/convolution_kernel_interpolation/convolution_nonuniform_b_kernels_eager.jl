@@ -18,8 +18,6 @@ See also: ConvolutionInterpolation, convolution_nonuniform_interpolation.
 Return the half-stencil size for a nonuniform b-kernel. Compile-time dispatch on kernel
 degree: b5→5, b7→6, b9→7, b11→8, b13→9.
 """
-
-# --- Stencil size from degree (compile-time) ---
 @inline _nb_M_eqs(::Val{:b5})  = 5
 @inline _nb_M_eqs(::Val{:b7})  = 6
 @inline _nb_M_eqs(::Val{:b9})  = 7
@@ -31,8 +29,6 @@ degree: b5→5, b7→6, b9→7, b11→8, b13→9.
 
 Return the full stencil size as `Val(2*M_eqs)` for compile-time `ntuple` specialization.
 """
-
-# Stencil size = 2 * M_eqs, returned as Val for ntuple
 @inline _nb_n_stencil(::Val{:b5})  = Val(10)
 @inline _nb_n_stencil(::Val{:b7})  = Val(12)
 @inline _nb_n_stencil(::Val{:b9})  = Val(14)
@@ -49,10 +45,6 @@ Returns `(i, w, h0)`: interval index, stencil weights as `NTuple{NS,T}`, and loc
 Weights are evaluated via Horner's method from the precomputed coefficient matrices stored
 in `weight_coeffs[k]`, where `k` is the interval index in the original (unexpanded) grid.
 """
-
-# --- Core 1D helper: find interval + evaluate weight polynomials ---
-# NS is the stencil size, known at compile time via Val{NS}
-
 @inline function _nb_dim(knots_expanded::AbstractVector{T},
                           weight_coeffs::Vector{<:AbstractMatrix{<:AbstractFloat}},
                           M_eqs::Int, x_val::Number, 
@@ -87,20 +79,20 @@ end
 
 # ── Per-dim helpers ──────────────────────────────────────────
 
-@inline _nb_M_eqs_perdim(::Val{DGS}, d) where {DGS} = _nb_M_eqs(Val(DGS[d]))
-@inline _nb_n_stencil_perdim(::Val{DGS}, d) where {DGS} = _nb_n_stencil(Val(DGS[d]))
+@inline _nb_M_eqs_perdim(::Val{KS}, d) where {KS} = _nb_M_eqs(Val(KS[d]))
+@inline _nb_n_stencil_perdim(::Val{KS}, d) where {KS} = _nb_n_stencil(Val(KS[d]))
 
-@inline _nb_M_eqs_perdim(::NonUniformMixedOrderKernel{DGS}, d) where {DGS} = _nb_M_eqs(Val(DGS[d]))
-@inline _nb_n_stencil_perdim(::NonUniformMixedOrderKernel{DGS}, d) where {DGS} = _nb_n_stencil(Val(DGS[d]))
+@inline _nb_M_eqs_perdim(::NonUniformMixedOrderKernel{KS}, d) where {KS} = _nb_M_eqs(Val(KS[d]))
+@inline _nb_n_stencil_perdim(::NonUniformMixedOrderKernel{KS}, d) where {KS} = _nb_n_stencil(Val(KS[d]))
 
 # ── Nonuniform b-kernel 1D ───────────────────────────────────
 # Dispatch: NB <: Tuple{Vector{Matrix{Float64}}} (not Nothing)
 
 @inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
-                    NonUniformMixedOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    NonUniformMixedOrderKernel{K},EQ,KBC,DerivativeOrder{DO},
                     NB,Val{false},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
-                    KA<:Tuple{<:Nothing},DG,EQ<:Tuple{Int},
+                    KA<:Tuple{<:Nothing},K,EQ<:Tuple{Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO,
                     NB<:Tuple{Vector{<:AbstractMatrix{<:AbstractFloat}}}}
 
@@ -119,11 +111,11 @@ end
 # ── 2D per-dim ───────────────────────────────────────────────
 
 @inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
-                    NonUniformMixedOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    NonUniformMixedOrderKernel{K},EQ,KBC,DerivativeOrder{DO},
                     NB,Val{false},Val{0}})(x::Vararg{Number,2}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector},
-                    KA<:Tuple{<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int},
+                    KA<:Tuple{<:Nothing,<:Nothing},K,EQ<:Tuple{Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO,
                     NB<:NTuple{2,Vector{<:AbstractMatrix{<:AbstractFloat}}}}
 
@@ -147,11 +139,11 @@ end
 # ── 3D per-dim ───────────────────────────────────────────────
 
 @inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
-                    NonUniformMixedOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    NonUniformMixedOrderKernel{K},EQ,KBC,DerivativeOrder{DO},
                     NB,Val{false},Val{0}})(x::Vararg{Number,3}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
-                    KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},DG,EQ<:Tuple{Int,Int,Int},
+                    KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},K,EQ<:Tuple{Int,Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
                     DO,NB<:NTuple{3,Vector{<:AbstractMatrix{<:AbstractFloat}}}}
 
@@ -181,11 +173,11 @@ end
 # ── ND per-dim (N > 3) ───────────────────────────────────────
 
 @inline function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
-                    NonUniformMixedOrderKernel{DG},EQ,KBC,DerivativeOrder{DO},
+                    NonUniformMixedOrderKernel{K},EQ,KBC,DerivativeOrder{DO},
                     NB,Val{false},Val{0}})(x::Vararg{Number,N}) where
                     {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
                     Axs<:Tuple{Vararg{AbstractVector}},
-                    KA<:Tuple{Vararg{Nothing}},DG,EQ<:Tuple{Vararg{Int}},
+                    KA<:Tuple{Vararg{Nothing}},K,EQ<:Tuple{Vararg{Int}},
                     KBC<:Tuple{Vararg{Tuple{Symbol,Symbol}}},DO,
                     NB<:Tuple{Vararg{Vector{<:AbstractMatrix{<:AbstractFloat}}}}} # Float64
 

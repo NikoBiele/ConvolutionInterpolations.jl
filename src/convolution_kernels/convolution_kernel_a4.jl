@@ -1,11 +1,3 @@
-"""
-    (::ConvolutionKernel{:a4,DO})(s)
-
-Keys' 4th order cubic kernel. Support [-3, 3], 3 pieces.
-C1 continuous, 4th-order accuracy. One extra stencil point over `:a3` for an additional
-order of accuracy — the default kernel.
-"""
-
 const a4_coefs = Dict(
     :eq1 => [1//1, 0//1, -7//3, 4//3],
     :eq2 => [15//6, -59//12, 3//1, -7//12],

@@ -39,56 +39,31 @@ end
 """
     _get_kernel_rational_coefs(degree::Symbol, derivative::Int=0) -> Dict{Int, Vector{Rational{BigInt}}}
 
-Return the kernel piece coefficients as exact rationals.
-For derivative > 0, returns the differentiated kernel coefficients.
+Return the kernel piece coefficients as exact rationals. For derivative > 0 the base
+coefficients are differentiated exactly on the spot (the same `_derivative_coefs` that
+derives the precompiled `_d1`, `_d2`, … tables). Used by both the nonuniform and the
+uniform axes of a b-kernel interpolant that has at least one nonuniform axis; the order is
+checked per axis by the constructor, and here only against the wider nonuniform limit,
+`_max_derivative_order(degree, true)`, as a backstop for internal calls.
 """
 function _get_kernel_rational_coefs(degree::Symbol, derivative::Int=0)
-    coefs_dict = if degree == :b5
-        derivative == 0 ? b5_coefs :
-        derivative == 1 ? b5_coefs_d1 :
-        derivative == 2 ? b5_coefs_d2 :
-        derivative == 3 ? b5_coefs_d3 :
-        error("b5: derivative order $derivative not available (max 3)")
+    base = if degree == :b5
+        b5_coefs
     elseif degree == :b7
-        derivative == 0 ? b7_coefs :
-        derivative == 1 ? b7_coefs_d1 :
-        derivative == 2 ? b7_coefs_d2 :
-        derivative == 3 ? b7_coefs_d3 :
-        derivative == 4 ? b7_coefs_d4 :
-        derivative == 5 ? b7_coefs_d5 :
-        error("b7: derivative order $derivative not available (max 5)")
+        b7_coefs
     elseif degree == :b9
-        derivative == 0 ? b9_coefs :
-        derivative == 1 ? b9_coefs_d1 :
-        derivative == 2 ? b9_coefs_d2 :
-        derivative == 3 ? b9_coefs_d3 :
-        derivative == 4 ? b9_coefs_d4 :
-        derivative == 5 ? b9_coefs_d5 :
-        derivative == 6 ? b9_coefs_d6 :
-        error("b9: derivative order $derivative not available (max 7)")
+        b9_coefs
     elseif degree == :b11
-        derivative == 0 ? b11_coefs :
-        derivative == 1 ? b11_coefs_d1 :
-        derivative == 2 ? b11_coefs_d2 :
-        derivative == 3 ? b11_coefs_d3 :
-        derivative == 4 ? b11_coefs_d4 :
-        derivative == 5 ? b11_coefs_d5 :
-        derivative == 6 ? b11_coefs_d6 :
-        derivative == 7 ? b11_coefs_d7 :
-        error("b11: derivative order $derivative not available (max 9)")
+        b11_coefs
     elseif degree == :b13
-        derivative == 0 ? b13_coefs :
-        derivative == 1 ? b13_coefs_d1 :
-        derivative == 2 ? b13_coefs_d2 :
-        derivative == 3 ? b13_coefs_d3 :
-        derivative == 4 ? b13_coefs_d4 :
-        derivative == 5 ? b13_coefs_d5 :
-        derivative == 6 ? b13_coefs_d6 :
-        derivative == 7 ? b13_coefs_d7 :
-        error("b13: derivative order $derivative not available (max 11)")
+        b13_coefs
     else
         error("_get_kernel_rational_coefs: unsupported kernel $degree")
     end
+    max_order = _max_derivative_order(degree, true)
+    0 <= derivative <= max_order ||
+        error("$degree: derivative order $derivative not available on a nonuniform grid (max $max_order)")
+    coefs_dict = derivative == 0 ? base : _derivative_coefs(base, derivative)
 
     # Convert from Dict{Symbol, Vector} to Dict{Int, Vector{Rational{BigInt}}}
     result = Dict{Int, Vector{Rational{BigInt}}}()

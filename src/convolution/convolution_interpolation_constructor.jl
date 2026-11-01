@@ -23,9 +23,11 @@ wraps this with extrapolation handling.
   grid decide: `:detect` on a uniform grid (see below), and on a nonuniform grid `:kernel`, the
   kernel's own extrapolation, which is the only rule there. On uniform grids the options are
   `:detect`, `:poly`, `:linear` and `:quadratic`; giving one on a nonuniform grid is an error.
-- `derivative::Int=0`: Derivative order to evaluate. Supported up to 6 for `b`-series
-  kernels. For `a`-series kernels the top derivative automatically uses linear interpolation
-  to match the kernel's continuity class.
+- `derivative::Union{Int,NTuple{N,Int}}=0`: Derivative order to evaluate, one value for all
+  dimensions or one per dimension, up to each kernel's limit on the grid of that axis: on a
+  uniform grid 1 for the `a` kernels, 3 for `:b5` and 5 for `:b7`-`:b13`; on a nonuniform
+  grid 3, 5, 7, 9 and 11 for `:b5`-`:b13` (see the kernel tables in the README and
+  `convolution_interpolation` for the convergence orders behind the limits).
 - `lazy::Bool=false`: When `true`, skip ghost point expansion at construction time.
   The raw values are stored directly and ghost points are computed on the fly during
   evaluation near boundaries. This saves memory and speeds up construction, especially
@@ -96,6 +98,33 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
         error("For uniform grids, lazy mode ('lazy=true') is only supported for the fast path ('fast=true').")
     end
 
+    # derivatives: up to each kernel's highest order on the grid of its own axis (second-order
+    # convergence or better, and a continuous derivative). A kernel that its axis does not
+    # support at all is reported by the kernel checks below, not here.
+    for d in 1:N
+        derivatives_tuple[d] > 0 || continue
+        k = kernels_tuple[d]
+        if k === :a3 && !uniform_dims[d]
+            k = :n3                                     # :a3 evaluates as :n3 on a nonuniform axis
+        end
+        table = uniform_dims[d] ? _max_derivative_uniform : _max_derivative_nonuniform
+        haskey(table, k) || continue
+        max_order = _max_derivative_order(k, !uniform_dims[d])
+        grid = uniform_dims[d] ? "uniform" : "nonuniform"
+        derivatives_tuple[d] <= max_order ||
+            error("Kernel :$k supports derivatives up to order $max_order on a $grid grid " *
+                  "(dimension $d). Got derivative = $(derivatives_tuple[d]).")
+    end
+
+    # antiderivatives on the direct path: first order only, summed over the knots at evaluation
+    # (no precomputed tails); higher orders need the fast path
+    for d in 1:N
+        derivatives_tuple[d] < -1 || continue
+        error("The direct path evaluates antiderivatives of order 1 only (derivative = -1); " *
+              "for derivative = $(derivatives_tuple[d]) use the fast path " *
+              "(convolution_interpolation or FastConvolutionInterpolation).")
+    end
+
     if all(uniform_dims)
         return _build_uniform_convolution(knots_tuple, vs, bcs_tuple,
                             Val(kernels_tuple), Val(false), Val(derivatives_tuple))
@@ -113,12 +142,14 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
                   "          - all :a1 kernels.\n" *
                   "Got: $kernel.")
         end
-        if any(d -> derivative[d] == -1, 1:N)
-            error("Nonuniform antiderivative (derivative=-1) is not directly supported.\n" *
-                "Recommended workflow:\n" *
-                "       (1) construct a nonuniform derivative=0 interpolation,\n" *
-                "       (2) resample to a uniform grid,\n" *
-                "       (3) construct a uniform derivative=-1 interpolation.")
+        for d in 1:N
+            if derivatives_tuple[d] < 0
+                error("Nonuniform antiderivative (derivative=$(derivatives_tuple[d]), dimension=$d) is not directly supported.\n" *
+                    "Recommended workflow:\n" *
+                    "       (1) construct a nonuniform derivative=0 interpolation,\n" *
+                    "       (2) resample to a uniform grid,\n" *
+                    "       (3) construct a uniform derivative=$(derivatives_tuple[d]) interpolation.")
+            end
         end
 
         if all_b_kernels

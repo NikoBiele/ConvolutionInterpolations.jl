@@ -1,11 +1,3 @@
-"""
-    (::ConvolutionKernel{:a0,DO})(s)
-
-Nearest neighbor kernel. Support [-0.5, 0.5], 1 piece.
-Returns 1 inside the support, 0 outside. No continuity, 0th-order accuracy.
-Antiderivative (DO=-1): linear ramp through origin, saturates to ±1/2 outside support.
-"""
-
 const a0_coefs = Dict(
     :eq1 => [1//1]
 )

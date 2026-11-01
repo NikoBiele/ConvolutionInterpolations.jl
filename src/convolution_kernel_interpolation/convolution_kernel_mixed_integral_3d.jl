@@ -10,7 +10,7 @@
     ns = ntuple(d -> size(itp.coefs, d), 3)
  
     ids = ntuple(3) do d
-        if DO[d] != -1
+        if DO[d] >= 0
             clamp(floor(Int, (x[d] - itp.knots[d][1]) / itp.h[d] + one(T)),
                   itp.eqs[d], length(itp.knots[d]) - itp.eqs[d])
         else
@@ -19,7 +19,7 @@
     end
  
     ranges = ntuple(3) do d
-        if DO[d] == -1
+        if DO[d] < 0
             1:ns[d]
         else
             (ids[d] - (itp.eqs[d]-1)):(ids[d] + itp.eqs[d])
@@ -28,26 +28,29 @@
  
     result = zero(T)
     @inbounds for i1 in ranges[1]
-        if DO[1] == -1
+        if DO[1] < 0
             xi = itp.knots[1][itp.eqs[1]] + (i1 - itp.eqs[1]) * itp.h[1]
-            kx = itp.kernel[1]((x[1] - xi) / itp.h[1]) -
-                 itp.kernel[1]((itp.anchor[1] - xi) / itp.h[1])
+            kx = _direct_antiderivative_weight(itp.kernel[1],
+                                               (x[1]          - xi) / itp.h[1],
+                                               (itp.anchor[1] - xi) / itp.h[1])
         else
             kx = itp.kernel[1]((x[1] - itp.knots[1][i1]) / itp.h[1])
         end
         for i2 in ranges[2]
-            if DO[2] == -1
+            if DO[2] < 0
                 yj = itp.knots[2][itp.eqs[2]] + (i2 - itp.eqs[2]) * itp.h[2]
-                ky = itp.kernel[2]((x[2] - yj) / itp.h[2]) -
-                     itp.kernel[2]((itp.anchor[2] - yj) / itp.h[2])
+                ky = _direct_antiderivative_weight(itp.kernel[2],
+                                                   (x[2]          - yj) / itp.h[2],
+                                                   (itp.anchor[2] - yj) / itp.h[2])
             else
                 ky = itp.kernel[2]((x[2] - itp.knots[2][i2]) / itp.h[2])
             end
             for i3 in ranges[3]
-                if DO[3] == -1
+                if DO[3] < 0
                     zk = itp.knots[3][itp.eqs[3]] + (i3 - itp.eqs[3]) * itp.h[3]
-                    kz = itp.kernel[3]((x[3] - zk) / itp.h[3]) -
-                         itp.kernel[3]((itp.anchor[3] - zk) / itp.h[3])
+                    kz = _direct_antiderivative_weight(itp.kernel[3],
+                                                       (x[3]          - zk) / itp.h[3],
+                                                       (itp.anchor[3] - zk) / itp.h[3])
                 else
                     kz = itp.kernel[3]((x[3] - itp.knots[3][i3]) / itp.h[3])
                 end
@@ -56,9 +59,10 @@
         end
     end
  
+    # h^m per integral axis, 1/h^k per derivative axis
     scale = one(T)
     for d in 1:3
-        scale *= DO[d] == -1 ? itp.h[d] : one(T) / itp.h[d]^DO[d]
+        scale *= itp.h[d]^(-DO[d])
     end
     return @fastmath result * scale
 end

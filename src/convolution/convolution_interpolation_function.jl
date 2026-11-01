@@ -19,6 +19,9 @@ Create a convolution-based interpolation object with automatic optimization and 
   `:a4`, `:a5` and `:a7` are uniform-only and raise an error on nonuniform grids.
 - `fast::Bool=true`: Use the fast uniform-grid evaluation (exact kernel weights from the
   kernels' polynomial pieces, O(1) per evaluation). Automatically disabled for nonuniform grids.
+  With `fast=false` on a uniform grid, antiderivatives are summed over all coefficients at
+  every evaluation (O(data) per evaluation, no precomputed tails), which avoids the fast
+  path's tail arrays for a few integrals of a large dataset.
 - `B::Float64=-1.0`: If a positive value is provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
 - `extrap=:throw`: Behavior outside the grid domain.
   Options: `:throw`, `:flat`, `:line` or `:natural` (uniform grids only).
@@ -36,9 +39,11 @@ Create a convolution-based interpolation object with automatic optimization and 
   derivative `k` converges at order `p + 1 - k`, and the limit is the last continuous
   derivative, `p - 2`. Rounding in the data is amplified by `h^-k` on every grid, so high
   orders on fine grids need `BigFloat` data. `derivative=-m` evaluates the m-fold
-  antiderivative, anchored at zero at the leftmost interior knot (uniform grids, fast path),
-  up to order 2 for `:a0`/`:a1`, 4 for the other `a`-series kernels, 6 for `:b5` and 8 for
-  `:b7`-`:b13`. Orders may be mixed per dimension, e.g. `(-2, 0)` or `(-1, 1)`.
+  antiderivative, anchored at zero (with its first `m - 1` derivatives) at the leftmost
+  interior knot of each integrated axis, on uniform grids only, up to order 2 for
+  `:a0`/`:a1`, 4 for the other `a`-series kernels, 6 for `:b5` and 8 for `:b7`-`:b13`.
+  Orders may be mixed per dimension, e.g. `(-2, 0)` or `(-1, 1)`, and are available on
+  both the fast and the direct path (see `fast`).
 - `lazy::Union{Nothing,Bool}=nothing`: When `true`, skip ghost point expansion at construction
   time. Ghost values are computed on the fly only when evaluating near boundaries, with exactly
   the values eager expansion would store, saving memory and construction time. When `false`, all
@@ -142,10 +147,6 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
     elseif is_integral && !is_nonuniform
       if lazy && fast
         error("Lazy mode not supported in fast mode for antiderivatives.")
-      end
-      if !fast && any(d -> derivatives_tuple[d] < -1, 1:N)
-        error("Antiderivatives of order 2 and higher (derivative < -1) are only available " *
-              "on the fast path (fast=true).")
       end
     elseif !is_integral && is_nonuniform
       fast = false # nonuniform grids not supported in fast mode

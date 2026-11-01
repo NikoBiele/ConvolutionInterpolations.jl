@@ -12,10 +12,11 @@
         dx = prod(d -> begin
             eqs_d = _eqs_d(itp.eqs, d)
             xd = itp.knots[d][eqs_d] + (idx[d] - eqs_d) * itp.h[d]
-            _kernel_d(itp.kernel, d)((x[d]          - xd) / itp.h[d]) -
-            _kernel_d(itp.kernel, d)((itp.anchor[d] - xd) / itp.h[d])
+            _direct_antiderivative_weight(_kernel_d(itp.kernel, d),
+                                          (x[d]          - xd) / itp.h[d],
+                                          (itp.anchor[d] - xd) / itp.h[d])
         end, 1:N)
         result += itp.coefs[idx...] * dx
     end
-    return result * prod(itp.h[d] for d in 1:N)
+    return result * prod(itp.h[d]^_integral_order(_kernel_d(itp.kernel, d)) for d in 1:N)
 end

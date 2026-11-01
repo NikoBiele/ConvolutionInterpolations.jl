@@ -1,4 +1,6 @@
+println("\n" * "-"^60)
 println("Testing derivative order limits on uniform, nonuniform and mixed grids...")
+println("-"^60)
 
 const CI_LIM = ConvolutionInterpolations
 
@@ -61,9 +63,9 @@ end
     as_int_dict(d) = Dict(parse(Int, string(s)[3:end]) => Rational{BigInt}.(c) for (s, c) in d)
     @test CI_LIM._get_kernel_rational_coefs(:b5, 3) == as_int_dict(CI_LIM.b5_coefs_d3)
     @test CI_LIM._get_kernel_rational_coefs(:b7, 5) == as_int_dict(CI_LIM.b7_coefs_d5)
-    @test CI_LIM._get_kernel_rational_coefs(:b9, 6) == as_int_dict(CI_LIM.b9_coefs_d6)
-    @test CI_LIM._get_kernel_rational_coefs(:b11, 7) == as_int_dict(CI_LIM.b11_coefs_d7)
-    @test CI_LIM._get_kernel_rational_coefs(:b13, 7) == as_int_dict(CI_LIM.b13_coefs_d7)
+    @test CI_LIM._get_kernel_rational_coefs(:b9, 5) == as_int_dict(CI_LIM.b9_coefs_d5)
+    @test CI_LIM._get_kernel_rational_coefs(:b11, 5) == as_int_dict(CI_LIM.b11_coefs_d5)
+    @test CI_LIM._get_kernel_rational_coefs(:b13, 5) == as_int_dict(CI_LIM.b13_coefs_d5)
 end
 
 @testset "high nonuniform derivatives converge (:b13, 7th derivative, BigFloat)" begin

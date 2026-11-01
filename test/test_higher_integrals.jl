@@ -121,8 +121,6 @@ println("    - errors for unsupported combinations")
     # lazy mode, via the constructor directly (order 1 and higher)
     @test_throws ErrorException FastConvolutionInterpolation(x, y; kernel=:b5, derivative=-1, lazy=true)
     @test_throws ErrorException FastConvolutionInterpolation(x, y; kernel=:b5, derivative=-2, lazy=true)
-    # the direct path
-    @test_throws ErrorException convolution_interpolation(x, y; kernel=:b5, derivative=-2, fast=false)
     # nonuniform grids
     xn = sort(vcat(0.0, 0.05:0.1:0.95, 1.0))
     @test_throws ErrorException convolution_interpolation(xn, sin.(xn); kernel=:b5, derivative=-2)

@@ -15,33 +15,11 @@ const b7_coefs_d3 = _derivative_coefs(b7_coefs, 3)
 const b7_coefs_d4 = _derivative_coefs(b7_coefs, 4)
 const b7_coefs_d5 = _derivative_coefs(b7_coefs, 5)
 
-const b7_coefs_i1 = Dict(
-    :eq1 => [big(0)//1, big(1)//1, big(0)//1, big(-1173431)//1872720, big(0)//1, big(922243)//3745440, big(0)//1, big(-7587149)//104872320, big(258097)//13317120],
-    :eq2 => [big(1788173)//69914880, big(106117)//124848, big(834167)//2496960, big(-1709177)//1872720, big(-119839)//998784, big(2712769)//3745440, big(-214769)//499392, big(11023027)//104872320, big(-384481)//39951360],
-    :eq3 => [big(-17253629)//4660992, big(30587)//2448, big(-35785081)//2496960, big(376423)//46818, big(-126025)//58752, big(794957)//7490880, big(13571)//166464, big(-796241)//41948928, big(105457)//79902720],
-    :eq4 => [big(1477795537)//46609920, big(-2861771)//41616, big(325209229)//4993920, big(-129943051)//3745440, big(22764947)//1997568, big(-17736439)//7490880, big(303937)//998784, big(-4645469)//209744640, big(167719)//239708160],
-    :eq5 => [big(-18485422759)//419489280, big(9845663)//124848, big(-908278361)//14981760, big(99126901)//3745440, big(-14343661)//1997568, big(9292729)//7490880, big(-399533)//2996352, big(1710679)//209744640, big(-52123)//239708160],
-    :eq6 => [big(-26753)//4760, big(9711)//1156, big(-29133)//5780, big(39923)//23120, big(-20501)//55488, big(14027)//277440, big(-1079)//249696, big(44239)//209744640, big(-1079)//239708160],
-)
-
 function (::ConvolutionKernel{:b7,DO})(s::T) where {T,DO} # 7th order accurate 7th degree
     s_abs = abs(s)
-    if DO == -1
-        if s_abs >= 6
-            return T(1//2) * T(sign(s))
-        elseif s_abs < 1
-            return horner(s_abs, b7_coefs_i1, :eq1, T, 0) * T(sign(s))
-        elseif s_abs < 2
-            return horner(s_abs, b7_coefs_i1, :eq2, T, 0) * T(sign(s))
-        elseif s_abs < 3
-            return horner(s_abs, b7_coefs_i1, :eq3, T, 0) * T(sign(s))
-        elseif s_abs < 4
-            return horner(s_abs, b7_coefs_i1, :eq4, T, 0) * T(sign(s))
-        elseif s_abs < 5
-            return horner(s_abs, b7_coefs_i1, :eq5, T, 0) * T(sign(s))
-        else
-            return horner(s_abs, b7_coefs_i1, :eq6, T, 0) * T(sign(s))
-        end
+    if DO < 0
+        # antiderivative of order −DO, exact pieces and far field (see column_polynomials.jl)
+        return _kernel_antiderivative(Val(:b7), Val(-DO), s)
     end
     b7_coefs_in = if DO == 0
         b7_coefs
@@ -56,7 +34,7 @@ function (::ConvolutionKernel{:b7,DO})(s::T) where {T,DO} # 7th order accurate 7
     elseif DO == 5
         b7_coefs_d5
     else
-        error("kernel :b7 supports differentiation orders -1, 0, 1, 2, 3, 4, 5, but got $DO")
+        error("kernel :b7 supports differentiation orders -$(_max_integral_order[:b7]) to $(_max_derivative_uniform[:b7]), but got $DO")
     end
     if s_abs < 1.0
         return horner(s_abs, b7_coefs_in, :eq1, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))

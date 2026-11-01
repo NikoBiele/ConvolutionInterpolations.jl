@@ -15,7 +15,6 @@ This kernel has infinite support (truncated in practice) and C∞ continuity, bu
 not reproduce polynomials — it blurs the signal by design. Useful for noisy data where
 exact interpolation is undesirable.
 """
-
 @inline function (::GaussianConvolutionKernel{B,NT})(s) where {B,NT} # Gaussian style smoothing kernel
     return f(s, B, NT)
 end

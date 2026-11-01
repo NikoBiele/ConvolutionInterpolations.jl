@@ -40,7 +40,6 @@ coefs = Dict(
 value = horner(0.5, coefs, :eq1)
 ```
 """
-
 function horner(x::T, coef_dict, key, ::Type{T}, DO::P) where {T,P<:Integer}
     
     coef = coef_dict[key]

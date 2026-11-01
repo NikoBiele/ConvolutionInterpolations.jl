@@ -91,10 +91,11 @@ NonUniformNonMixedHighKernel(::Val{K}) where K = NonUniformNonMixedHighKernel{K}
 
 A piecewise-polynomial convolution kernel `K` evaluated at derivative order `DO`: an
 instance is callable, `ConvolutionKernel{K,DO}()(s)`, and returns the `DO`-th derivative of
-the kernel at the normalized offset `s` (`DO = -1` its antiderivative). Each kernel is
-symmetric with compact support, cardinal (one at `s = 0`, zero at the other integers) and
-built from exact rational coefficients, one polynomial per unit piece of `|s|`; the pieces
-and the derivative tables are generated from the base coefficients at precompile time.
+the kernel at the normalized offset `s` (`DO = -m` its m-fold antiderivative, see
+`_kernel_antiderivative`). Each kernel is symmetric with compact support, cardinal (one at
+`s = 0`, zero at the other integers) and built from exact rational coefficients, one
+polynomial per unit piece of `|s|`; the derivative tables and the antiderivative pieces are
+generated from the base coefficients at precompile time.
 
 | Kernel | Degree | Continuity | Pieces | Uniform-grid order | Notes                                    |
 |:-------|:------:|:----------:|:------:|:------------------:|:-----------------------------------------|
@@ -119,8 +120,8 @@ are worked through on the documentation site, https://convinterp.org.
 
 # Type Parameters
 - `K` : the kernel symbol, one of the table above.
-- `DO`: the derivative order, `0` for the kernel itself, positive for derivatives and `-1`
-  for the antiderivative.
+- `DO`: the derivative order, `0` for the kernel itself, positive for derivatives and `-m`
+  for the m-fold antiderivative.
 """
 struct ConvolutionKernel{K,DO} end
 
@@ -161,10 +162,10 @@ GaussianConvolutionKernel(::Val{B}, ::Val{NT}) where {B,NT} = GaussianConvolutio
 """
     IntegralOrder
 
-Dispatch type indicating that a `ConvolutionInterpolation` or
-`FastConvolutionInterpolation` computes the antiderivative (indefinite integral)
-of the interpolant. Stored in the derivative slot (position 11) of the interpolant
-type when `derivative=-1` is passed at construction.
+Dispatch type indicating that a `ConvolutionInterpolation` computes an antiderivative of
+the interpolant along every dimension, each axis at the order its kernel carries. Stored in
+the derivative slot (position 11) of the interpolant type when every entry of `derivative`
+is negative at construction.
 
 See also: `DerivativeOrder`, `convolution_interpolation`.
 """
@@ -198,13 +199,13 @@ DerivativeOrder(::Val{DO}) where DO = DerivativeOrder{DO}()
 """
     MixedIntegralOrder{DO}
  
-Dispatch type for per-dimension mixed antiderivative/derivative orders.
-`DO` is an `NTuple{N,Int}` where `DO[d] == -1` means integrate along
-dimension `d`, and `DO[d] >= 0` means differentiate to that order.
+Dispatch type for per-dimension mixed antiderivative/derivative orders on the direct path.
+`DO` is an `NTuple{N,Int}` where `DO[d] < 0` means integrate along dimension `d` to order
+`-DO[d]`, and `DO[d] >= 0` means differentiate to that order.
  
-Used when at least one but not all dimensions have `derivative == -1`.
-`IntegralOrder` is still used when ALL dimensions are `-1`.
-`DerivativeOrder{DO}` is still used when NO dimensions are `-1`.
+Used when at least one but not all dimensions have `derivative < 0`.
+`IntegralOrder` is still used when ALL dimensions are negative.
+`DerivativeOrder{DO}` is still used when NO dimensions are negative.
  
 See also: `IntegralOrder`, `DerivativeOrder`.
 """

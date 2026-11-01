@@ -116,13 +116,14 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
                   "(dimension $d). Got derivative = $(derivatives_tuple[d]).")
     end
 
-    # antiderivatives on the direct path: first order only, summed over the knots at evaluation
-    # (no precomputed tails); higher orders need the fast path
+    # antiderivatives of order 2 and higher (derivative = -M, M ≥ 2): up to each kernel's highest
+    # integral order, in every dimension (summed over all knots at evaluation, no precomputed tails)
     for d in 1:N
         derivatives_tuple[d] < -1 || continue
-        error("The direct path evaluates antiderivatives of order 1 only (derivative = -1); " *
-              "for derivative = $(derivatives_tuple[d]) use the fast path " *
-              "(convolution_interpolation or FastConvolutionInterpolation).")
+        M = -derivatives_tuple[d]
+        max_order = _max_integral_order[kernels_tuple[d]]
+        M <= max_order || error("Kernel :$(kernels_tuple[d]) supports antiderivatives up to order " *
+                                "$max_order (derivative = -$max_order). Got derivative = -$M.")
     end
 
     if all(uniform_dims)
@@ -183,18 +184,11 @@ function _build_uniform_convolution(knots::Tuple{Vararg{AbstractVector}},
         _build_eager_coefs(knots, vs, eqs, bc, kernel, h, Val(false))
     end
 
-    if N == 1
-        if derivative[1] == -1
-            anchor = (knots_new[1][eqs[1]],)
-        else
-            anchor = (zero(T),)
-        end
+    # antiderivatives are anchored at the leftmost interior knot of each axis
+    if any(d -> derivative[d] < 0, 1:N)
+        anchor = ntuple(d -> knots_new[d][eqs[d]], N)
     else
-        if any(d -> derivative[d] == -1, 1:N)
-            anchor = ntuple(d -> knots_new[d][eqs[d]], N)
-        else
-            anchor = ntuple(d -> zero(T), N)
-        end
+        anchor = ntuple(d -> zero(T), N)
     end
 
     kernel_type = _build_convolution_kernel_type(Val{KS}(), Val{DV}())
@@ -313,7 +307,7 @@ function _build_eager_coefs(knots::NTuple{N,AbstractVector}, vs::AbstractArray{T
 end
 
 @generated function _build_do_type(::Val{D}) where D
-    n_int = count(==(-1), D)
+    n_int = count(<(0), D)
     N = length(D)
     if n_int == 0
         return :(DerivativeOrder(Val($D)))
@@ -325,7 +319,7 @@ end
 end
 
 @generated function _count_integrals(::Val{D}) where D
-    return :($(count(==(-1), D)))
+    return :($(count(<(0), D)))
 end
 
 @generated function _build_convolution_kernel_type(::Val{KS}, ::Val{DV}) where {KS, DV}

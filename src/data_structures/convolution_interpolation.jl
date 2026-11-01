@@ -10,7 +10,7 @@ possible. Uniform grids with polynomial kernels use `FastConvolutionInterpolatio
 # Type Parameters
 - `T`: Element type of the interpolated values
 - `N`: Number of dimensions
-- `NI`: Number of integral dimensions (derivative order -1)
+- `NI`: Number of integral dimensions (negative derivative order)
 - `TCoefs`: Type of the coefficient array
 - `Axs`: Type of the knots (a tuple of ranges or vectors)
 - `KA`: Kernel type per dimension

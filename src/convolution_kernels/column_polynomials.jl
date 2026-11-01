@@ -505,3 +505,83 @@ dimensions).
 """
 _near_anchor_entries(::Type{T}, kernel::Symbol, m::Int, eqs::Int) where {T} =
     copy(_anchor_tables(Val(kernel), Val(m), T)[2])
+
+# ---------------------------------------------------------------------------------------------
+# Antiderivative kernels for the direct path
+# ---------------------------------------------------------------------------------------------
+
+"""
+    _kernel_antiderivative(Val(kernel), Val(m), s)
+
+Kₘ(s), the m-fold antiderivative (m ≥ 1) of `kernel` in the symmetric Cauchy convention of
+`_kernel_pieces_exact`: the exact piece polynomial inside the support, the far field
+sgn(s)·|s|^(m−1)/(2(m−1)!) outside it, and Kₘ(−s) = (−1)^m Kₘ(s). The far field holds for m up
+to `_max_integral_order[kernel]`. `:a0` is given in closed form, ½[(s+½)^m + (s−½)^m]/m! inside
+|s| < ½. Generated once per (kernel, m, T): for bits types the coefficients are rounded once to
+T and are compile-time constants; other types such as BigFloat convert the exact rationals at
+evaluation, at the precision then in effect.
+"""
+@generated function _kernel_antiderivative(::Val{kernel}, ::Val{m}, s::T) where {kernel,m,T}
+    m >= 1 || throw(ArgumentError("integral order must be at least 1, got $m"))
+    # an exact coefficient as a literal of T for bits types, converted at run time otherwise
+    lit(c) = isbitstype(T) ? T(c) : :(T($c))
+    far = :(s_abs^$(m - 1) / $(lit(2 * factorial(big(m - 1)))))
+    if kernel == :a0
+        inside = :(((s_abs + T(1//2))^$m + (s_abs - T(1//2))^$m) / $(lit(2 * factorial(big(m)))))
+        value = Expr(:if, :(s_abs < T(1//2)), inside, far)
+    else
+        pieces = _kernel_pieces_exact(kernel, m)
+        # Horner's scheme for one piece in its local coordinate t = s − (i−1) ∈ [0, 1), which keeps
+        # the coefficients small; in s itself the wide kernels cancel to ~1e-9 (entry k of the
+        # shifted piece multiplies t^(k−1))
+        horner(p, i) = begin
+            q = _shift_polynomial(p, i - 1, 1)
+            foldr((c, acc) -> :(muladd($acc, s_abs - $(i - 1), $(lit(c)))), q[1:end-1];
+                  init = lit(q[end]))
+        end
+        # piece i covers [i−1, i): an if/elseif chain from the innermost piece outwards
+        value = far
+        for i in length(pieces):-1:1
+            value = Expr(:if, :(s_abs < $i), horner(pieces[i], i), value)
+        end
+    end
+    if isodd(m)
+        signed = :(s < 0 ? -value : value)
+    else
+        signed = :(value)
+    end
+    return quote
+        s_abs = abs(s)
+        value = $value
+        return $signed
+    end
+end
+
+"""
+    _direct_antiderivative_weight(kernel::ConvolutionKernel{K,-m}, s_x, s_a)
+
+Weight of one coefficient in the direct evaluation of the m-fold antiderivative along one
+dimension, anchored so that the result and its first m − 1 derivatives vanish at the anchor:
+Kₘ(s_x) − Σ_{l=0}^{m−1} K_{m−l}(s_a)·Δ^l/l!, with s_x and s_a the evaluation point and the anchor
+in knot units relative to the coefficient's knot and Δ = s_x − s_a. Multiplied by the
+coefficient, summed over all coefficients and scaled by h^m, this is the same anchored integral
+the fast path evaluates (`_anchor_taylor_table`). For m = 1 it reduces to K₁(s_x) − K₁(s_a).
+"""
+@generated function _direct_antiderivative_weight(::ConvolutionKernel{K,DO}, s_x::T,
+                                                  s_a::T) where {K,DO,T}
+    DO < 0 || throw(ArgumentError("antiderivative weight needs an integral order, got DO = $DO"))
+    m = -DO
+    kernel = QuoteNode(K)
+    terms = Expr[]
+    push!(terms, :(w = _kernel_antiderivative(Val($kernel), Val($m), s_x)))
+    push!(terms, :(Δ = s_x - s_a))
+    push!(terms, :(p = one(T)))                         # Δ^l / l!, built up over l
+    for l in 0:m-1
+        push!(terms, :(w -= _kernel_antiderivative(Val($kernel), Val($(m - l)), s_a) * p))
+        if l < m - 1
+            push!(terms, :(p *= Δ / T($(l + 1))))
+        end
+    end
+    push!(terms, :(return w))
+    return Expr(:block, terms...)
+end

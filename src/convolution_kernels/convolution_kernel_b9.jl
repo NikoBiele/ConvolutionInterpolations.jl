@@ -15,38 +15,12 @@ const b9_coefs_d2 = _derivative_coefs(b9_coefs, 2)
 const b9_coefs_d3 = _derivative_coefs(b9_coefs, 3)
 const b9_coefs_d4 = _derivative_coefs(b9_coefs, 4)
 const b9_coefs_d5 = _derivative_coefs(b9_coefs, 5)
-const b9_coefs_d6 = _derivative_coefs(b9_coefs, 6)
-
-const b9_coefs_i1 = Dict(
-    :eq1 => [big(0)//1, big(1)//1, big(0)//1, big(-1228311859)//1970588160, big(0)//1, big(2374505273)//9852940800, big(0)//1, big(-818196437)//13794117120, big(0)//1, big(11829761099)//993176432640, big(-2979600563)//1103529369600],
-    :eq2 => [big(-52871109473)//5675293900800, big(238388010589)//220705873920, big(-266459153773)//882823495680, big(33401029)//1334914560, big(-10854702749)//12611764224, big(24832219889)//26274508800, big(-59181928697)//189176463360, big(-204568201)//5517646848, big(44456683841)//882823495680, big(-24478472857)//1986352865280, big(648090097)//630588211200],
-    :eq3 => [big(585544448733451)//119181171916800, big(-911311341191)//44141174784, big(111463951723961)//2648470487040, big(-1187668128659)//24829410816, big(6325760530637)//189176463360, big(-713586937963)//47294115840, big(2538867747637)//567529390080, big(-14292057925)//16552940544, big(274967867411)//2648470487040, big(-1041166915)//148976464896, big(2612454491)//13242352435200],
-    :eq4 => [big(-2413337131422779)//29795292979200, big(970127058913)//3941176320, big(-217673366380741)//662117621760, big(9070101940039)//35470586880, big(-6072819678061)//47294115840, big(2575198645663)//59117644800, big(-1436772883673)//141882347520, big(26408492351)//16552940544, big(-108098000287)//662117621760, big(8353063619)//851294085120, big(-83024333)//315294105600],
-    :eq5 => [big(3673856668527557)//29795292979200, big(-1626189980101)//5517646848, big(207656344018747)//662117621760, big(-16150575419141)//82764702720, big(3723217994899)//47294115840, big(-141514262681)//6568627200, big(575297062439)//141882347520, big(-14311579063)//27588234240, big(28613426497)//662117621760, big(-4207843949)//1986352865280, big(61488029)//1324235243520],
-    :eq6 => [big(3275160756736729)//17025881702400, big(-14928448356433)//44141174784, big(708641710840613)//2648470487040, big(-15536126370899)//124147054080, big(7250268307721)//189176463360, big(-1899309134641)//236470579200, big(662137232881)//567529390080, big(-1371580777)//11823528960, big(20014122263)//2648470487040, big(-867848161)//2979529297920, big(3181151)//630588211200],
-    :eq7 => [big(94147220734681)//17025881702400, big(-230820161411)//31529410560, big(362717396503)//75670585344, big(-32974308773)//17735293440, big(89501695241)//189176463360, big(-19515407233)//236470579200, big(5671965649)//567529390080, big(-1961939)//2364705792, big(17096897)//378352926720, big(-280277)//192227696640, big(280277)//13242352435200],
-)
 
 function (::ConvolutionKernel{:b9,DO})(s::T) where {T,DO} # 7 equation 7th order accurate 9th degree
     s_abs = abs(s)
-    if DO == -1
-        if s_abs >= 7
-            return T(1//2) * T(sign(s))
-        elseif s_abs < 1
-            return horner(s_abs, b9_coefs_i1, :eq1, T, 0) * T(sign(s))
-        elseif s_abs < 2
-            return horner(s_abs, b9_coefs_i1, :eq2, T, 0) * T(sign(s))
-        elseif s_abs < 3
-            return horner(s_abs, b9_coefs_i1, :eq3, T, 0) * T(sign(s))
-        elseif s_abs < 4
-            return horner(s_abs, b9_coefs_i1, :eq4, T, 0) * T(sign(s))
-        elseif s_abs < 5
-            return horner(s_abs, b9_coefs_i1, :eq5, T, 0) * T(sign(s))
-        elseif s_abs < 6
-            return horner(s_abs, b9_coefs_i1, :eq6, T, 0) * T(sign(s))
-        else
-            return horner(s_abs, b9_coefs_i1, :eq7, T, 0) * T(sign(s))
-        end
+    if DO < 0
+        # antiderivative of order −DO, exact pieces and far field (see column_polynomials.jl)
+        return _kernel_antiderivative(Val(:b9), Val(-DO), s)
     end
     b9_coefs_in = if DO == 0
         b9_coefs
@@ -60,10 +34,8 @@ function (::ConvolutionKernel{:b9,DO})(s::T) where {T,DO} # 7 equation 7th order
         b9_coefs_d4
     elseif DO == 5
         b9_coefs_d5
-    elseif DO == 6
-        b9_coefs_d6
     else
-        error("kernel :b9 supports differentiation orders -1, 0, 1, 2, 3, 4, 5, 6, but got $DO")
+        error("kernel :b9 supports differentiation orders -$(_max_integral_order[:b9]) to $(_max_derivative_uniform[:b9]), but got $DO")
     end
     if s_abs < 1.0
         return horner(s_abs, b9_coefs_in, :eq1, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))

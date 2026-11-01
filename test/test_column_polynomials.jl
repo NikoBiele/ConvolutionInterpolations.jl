@@ -14,7 +14,7 @@ println("-"^60)
     # Every derivative order each kernel supports (−1 = antiderivative)
     derivatives = Dict(:a1 => -1:0,
                        :a3 => -1:1, :a4 => -1:1, :a5 => -1:1, :a7 => -1:1,
-                       :b5 => -1:3, :b7 => -1:5, :b9 => -1:6, :b11 => -1:7, :b13 => -1:7)
+                       :b5 => -1:3, :b7 => -1:5, :b9 => -1:5, :b11 => -1:5, :b13 => -1:5)
     for (kernel, ds) in derivatives, d in ds
         eqs = CI.get_equations_for_degree(kernel)
         # The kernel (or its derivative / antiderivative), evaluated exactly

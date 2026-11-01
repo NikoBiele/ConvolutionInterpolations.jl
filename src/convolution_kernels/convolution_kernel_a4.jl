@@ -7,31 +7,18 @@ const a4_coefs = Dict(
 # Derivative coefficients, derived exactly from a4_coefs (see derive_kernel_coefs.jl)
 const a4_coefs_d1 = _derivative_coefs(a4_coefs, 1)
 
-const a4_coefs_i1 = Dict(
-    :eq1 => [0//1, 1//1, 0//1, -7//9, 1//3],
-    :eq2 => [-49//144, 5//2, -59//24, 1//1, -7//48],
-    :eq3 => [23//16, -3//2, 7//8, -2//9, 1//48],
-)
-
 function (::ConvolutionKernel{:a4,DO})(s::T) where {T,DO}
     s_abs = abs(s)
-    if DO == -1
-        if s_abs >= 3
-            return T(1//2) * T(sign(s))
-        elseif s_abs < 1
-            return horner(s_abs, a4_coefs_i1, :eq1, T, 0) * T(sign(s))
-        elseif s_abs < 2
-            return horner(s_abs, a4_coefs_i1, :eq2, T, 0) * T(sign(s))
-        else
-            return horner(s_abs, a4_coefs_i1, :eq3, T, 0) * T(sign(s))
-        end
+    if DO < 0
+        # antiderivative of order −DO, exact pieces and far field (see column_polynomials.jl)
+        return _kernel_antiderivative(Val(:a4), Val(-DO), s)
     end
     a4_coefs_in = if DO == 0
         a4_coefs
     elseif DO == 1
         a4_coefs_d1
     else
-        error("kernel :a4 supports differentiation orders -1, 0, 1, but got $DO")
+        error("kernel :a4 supports differentiation orders -$(_max_integral_order[:a4]) to $(_max_derivative_uniform[:a4]), but got $DO")
     end
     if s_abs < 1.0
         return horner(s_abs, a4_coefs_in, :eq1, T, DO) * (isodd(DO) ? T(sign(s)) : one(T))

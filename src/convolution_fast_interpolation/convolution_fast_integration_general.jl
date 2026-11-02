@@ -29,8 +29,13 @@ function (itp::FastConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,
     W = _integral_stencil_weights(Val(_kernel_sym(itp.kernel_sym)), Val(DO), t, i, itp.eqs,
                                   itp.integral_taylor)
 
-    result = _count_negative(Val(DO)) <= 3 ? _integral_sum_tails(itp, W, i, t, Val(DO)) :
-                                             _integral_sum_direct(itp, W, i, t, Val(DO))
+    # stored region tails when there are any (fast = true, at most 3 integral dimensions),
+    # otherwise the direct sum over the coefficients up to the stencil
+    if _count_negative(Val(DO)) <= 3 && !isempty(itp.integral_tails)
+        result = _integral_sum_tails(itp, W, i, t, Val(DO))
+    else
+        result = _integral_sum_direct(itp, W, i, t, Val(DO))
+    end
     return result * _integral_scale(itp.h, Val(DO))
 end
 

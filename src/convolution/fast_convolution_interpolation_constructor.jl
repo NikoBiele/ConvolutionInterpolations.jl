@@ -40,6 +40,12 @@ knots at construction), all `:n3` (or `:a3`, which evaluates as `:n3` there), al
   than 2²⁴ ghost points (roughly a second of construction) and there are no antiderivatives, and
   eager mode otherwise. Automatically disabled for `:a0` and `:a1`, and not available on
   nonuniform grids.
+- `fast::Bool=true`: Whether antiderivatives store their region tails at construction (the
+  left-of-stencil sums of every region, a few arrays the size of the coefficients per integral
+  dimension), which makes every evaluation independent of the grid size. With `fast = false`
+  nothing beyond the coefficients is stored and each antiderivative evaluation sums over the
+  coefficients up to the stencil instead: O(data) per query, no extra memory. Interpolation
+  and derivatives are identical either way.
 
 # Returns
 A `FastConvolutionInterpolation` object callable at arbitrary points within the grid domain.
@@ -53,7 +59,8 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
                                       kernel::Union{Symbol,NTuple{N,Symbol}}=:auto,
                                       bc::Union{Nothing,Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=nothing,
                                       derivative::Union{Int,NTuple{N,Int}}=0,
-                                      lazy::Union{Nothing,Bool}=nothing) where {T,N}
+                                      lazy::Union{Nothing,Bool}=nothing,
+                                      fast::Bool=true) where {T,N}
 
     # check and normalize inputs
     knots_tuple = knots isa AbstractVector ?
@@ -164,7 +171,7 @@ function FastConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,Abstr
 
     return _build_fast_uniform_convolution(knots_tuple, vs, bcs_tuple,
                                            Val(kernels_tuple), Val(lazy),
-                                           Val(derivatives_tuple))
+                                           Val(derivatives_tuple), Val(fast))
 end
 
 function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
@@ -172,7 +179,8 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
                                          bc::BCT,
                                          ::Val{KS},
                                          ::Val{LZ},
-                                         ::Val{DV}) where {T,N,BCT<:Tuple,KS,LZ,DV}
+                                         ::Val{DV},
+                                         ::Val{FAST}=Val(true)) where {T,N,BCT<:Tuple,KS,LZ,DV,FAST}
 
     kernel = KS
     derivative = DV
@@ -211,8 +219,13 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
         integral_entries = ntuple(d -> derivative[d] < 0 ?
                                   _near_anchor_entries(T, kernel[d], -derivative[d], eqs[d]) :
                                   Matrix{T}(undef, 0, 0), N)
-        integral_tails = count(<(0), derivative) <= 3 ?
-                         _build_region_tails(coefs, kernel, derivative, eqs) : Vector{Array{T,N}}[]
+        # region tails only when asked for (fast = true) and for at most 3 integral dimensions;
+        # without them every antiderivative evaluation sums over the coefficients directly
+        if FAST && count(<(0), derivative) <= 3
+            integral_tails = _build_region_tails(coefs, kernel, derivative, eqs)
+        else
+            integral_tails = Vector{Array{T,N}}[]
+        end
     else
         integral_taylor = ntuple(_ -> Matrix{T}(undef, 0, 0), N)
         integral_entries = ntuple(_ -> Matrix{T}(undef, 0, 0), N)

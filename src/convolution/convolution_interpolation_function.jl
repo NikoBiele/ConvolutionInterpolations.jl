@@ -135,8 +135,9 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
     end
 
     # lazy by default when eager expansion would build a large coefficient array (uniform grids,
-    # fast path, no antiderivatives; see `_default_lazy`)
-    lazy = lazy === nothing ? (fast && !is_nonuniform &&
+    # no antiderivatives; see `_default_lazy`). Lazy ghosts and stored integral tails (`fast`)
+    # are independent choices.
+    lazy = lazy === nothing ? (!is_nonuniform &&
                                _default_lazy(size(values), kernels_tuple, derivatives_tuple)) : lazy
 
     if is_nonuniform && (extrap == :natural || extrap == Natural())
@@ -144,18 +145,8 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
             "it continues the uniform ghost polynomial linearly beyond the data. Use :flat, :line or :throw.")
     elseif is_integral && is_nonuniform
       error("Antiderivatives (derivative < 0) are not supported on nonuniform grids.")
-    elseif is_integral && !is_nonuniform
-      if lazy && fast
-        error("Lazy mode not supported in fast mode for antiderivatives.")
-      end
-    end
-
-    if lazy && any(d -> derivatives_tuple[d] != 0, 1:N) && is_nonuniform
-        error("In lazy mode, derivatives are only supported on uniform grids (the fast path).")
-    end
-
-    if lazy && !fast && !is_nonuniform
-        error("For uniform grids, lazy mode ('lazy=true') is only supported for the fast path ('fast=true').")
+    elseif is_integral && lazy
+      error("Antiderivatives (derivative < 0) are not supported in lazy mode.")
     end
 
     # Check sufficiency per dimension (uniform grids: the polynomial ghost tables need enough knots)
@@ -172,13 +163,9 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
     if extrap == :natural || extrap == Natural()
         return _build_natural(knots_tuple, values, kernels_tuple, fast,
                               bcs_tuple, derivatives_tuple, lazy)
-    elseif fast
-        return _build_fast(knots_tuple, values, kernels_tuple, bcs_tuple,
-                          derivatives_tuple, extrap, lazy)
-    else
-        return _build_slow(knots_tuple, values, kernels_tuple, bcs_tuple, derivatives_tuple,
-                          extrap, lazy)
     end
+    return _build_fast(knots_tuple, values, kernels_tuple, bcs_tuple,
+                       derivatives_tuple, extrap, lazy, fast)
 end
 
 function _build_fast(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N},
@@ -186,20 +173,9 @@ function _build_fast(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N}
                     bc::NTuple{N,Tuple{Symbol,Symbol}},
                     derivative::NTuple{N,Int},
                     extrap::Union{Symbol,AbstractExtrapolation},
-                    lazy::Bool) where {T,N}
+                    lazy::Bool, fast::Bool) where {T,N}
     itp = FastConvolutionInterpolation(knots, values;
-                                  kernel, bc, derivative, lazy)
-    return ConvolutionExtrapolation(itp, _extrap_type(extrap))
-end
-
-function _build_slow(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N}, 
-                    kernel::NTuple{N,Symbol},
-                    bc::NTuple{N,Tuple{Symbol,Symbol}},
-                    derivative::NTuple{N,Int},
-                    extrap::Union{Symbol,AbstractExtrapolation},
-                    lazy::Bool) where {T,N}
-    itp = ConvolutionInterpolation(knots, values; kernel, bc,
-                                  derivative, lazy)
+                                  kernel, bc, derivative, lazy, fast)
     return ConvolutionExtrapolation(itp, _extrap_type(extrap))
 end
 
@@ -208,16 +184,11 @@ function _build_natural(knots::NTuple{N,AbstractVector}, values::AbstractArray{T
                         bc::NTuple{N,Tuple{Symbol,Symbol}},
                         derivative::NTuple{N,Int},
                         lazy::Bool) where {T,N}
-    # Natural extrapolation always uses eager mode (needs double-extrapolation)
-    itp = ConvolutionInterpolation(knots, values; kernel, bc, derivative, lazy=false)
+    # Natural extrapolation extends the data by its ghost values once (eager, with the requested
+    # bc), then interpolates the extended data with linear ghosts beyond them
+    itp = FastConvolutionInterpolation(knots, values; kernel, bc, derivative, lazy=false, fast)
     bc = ntuple(_ -> (:linear,:linear), N) # overwrites
-    if fast
-        itp = FastConvolutionInterpolation(itp.knots, itp.coefs;
-                        kernel, bc, derivative, lazy)
-    else
-        itp = ConvolutionInterpolation(itp.knots, itp.coefs;
-                        kernel, bc, derivative, lazy)
-    end
+    itp = FastConvolutionInterpolation(itp.knots, itp.coefs; kernel, bc, derivative, lazy, fast)
     return ConvolutionExtrapolation(itp, Line())
 end
 

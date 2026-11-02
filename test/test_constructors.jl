@@ -97,7 +97,7 @@ end
     # nonuniform: the keyword-free call equals the call with default keywords
     nf = convolution_interpolation(xn, sin.(xn))
     nk = convolution_interpolation(xn, sin.(xn); kernel=:auto)
-    @test nf.itp isa ConvolutionInterpolation
+    @test nf.itp isa FastConvolutionInterpolation
     for x in (0.05, 1.3, 3.7, 2π - 0.05)
         @test nf(x) == nk(x)
     end

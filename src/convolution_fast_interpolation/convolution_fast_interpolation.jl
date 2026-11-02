@@ -14,3 +14,5 @@ include("convolution_fast_interpolation_perdim_3d.jl")
 include("convolution_fast_interpolation_perdim_nd.jl")
 # general integral order, general dimension, mixed integrals
 include("convolution_fast_integration_general.jl")
+# nonuniform axes: per-axis stencils, one evaluator for any dimension
+include("convolution_fast_interpolation_nonuniform.jl")

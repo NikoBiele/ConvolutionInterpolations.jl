@@ -148,8 +148,6 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
       if lazy && fast
         error("Lazy mode not supported in fast mode for antiderivatives.")
       end
-    elseif !is_integral && is_nonuniform
-      fast = false # nonuniform grids not supported in fast mode
     end
 
     if lazy && any(d -> derivatives_tuple[d] != 0, 1:N) && is_nonuniform

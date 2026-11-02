@@ -77,7 +77,7 @@ LowerOrderMixedKernel(::Val{K}) where K = LowerOrderMixedKernel{K}()
 struct FullMixedOrderKernel{K} <: AbstractMixedConvolutionKernel end
 FullMixedOrderKernel(::Val{K}) where K = FullMixedOrderKernel{K}()
 
-struct NonUniformMixedOrderKernel{K} <: AbstractMixedConvolutionKernel end
+struct NonUniformMixedOrderKernel{K} <: AbstractConvolutionKernel end
 NonUniformMixedOrderKernel(::Val{K}) where K = NonUniformMixedOrderKernel{K}()
 
 struct NonUniformNonMixedLowKernel{K} <: AbstractNonMixedConvolutionKernel end

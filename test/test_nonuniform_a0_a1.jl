@@ -75,16 +75,14 @@ end
     end
 end
 
-@testset "Nonuniform a0/a1 lazy fields" begin
-    println("    - Nonuniform a0/a1 lazy fields")
+@testset "Nonuniform a0/a1 store the raw values" begin
+    println("    - Nonuniform a0/a1 store the raw values")
     knots = [0.0, 0.3, 0.7, 1.2, 1.5, 2.0]
     vs = sin.(knots)
 
     itp_a0 = convolution_interpolation(knots, vs, kernel=:a0)
-    @test itp_a0.itp.lazy == Val{true}()
     @test itp_a0.itp.coefs === vs
 
     itp_a1 = convolution_interpolation(knots, vs, kernel=:a1)
-    @test itp_a1.itp.lazy == Val{true}()
     @test itp_a1.itp.coefs === vs
 end

@@ -103,20 +103,27 @@ end
     end
     itp_ctor = ConvolutionInterpolation(x, f, kernel = :n3)
     @test isapprox(itp_ctor(0.3), itp_a3(0.3), rtol = 1e-12)
+    # on a nonuniform grid the fast constructor keeps :n3, evaluated with the local spacing
     xnu = collect(x); xnu[21] += 1e-6
-    @test_throws ErrorException FastConvolutionInterpolation(xnu, f, kernel = :n3)
+    itp_nu = FastConvolutionInterpolation(xnu, f, kernel = :n3)
+    @test isapprox(itp_nu(0.3), sin(2π * 0.3), atol = 1e-4)
 end
 
 
-@testset "FastConvolutionInterpolation rejects nonuniform grids" begin
+@testset "FastConvolutionInterpolation accepts nonuniform grids" begin
     x = collect(range(0.0, 1.0, length = 41))
     x[21] += 1e-6
     f = sin.(2π .* x)
-    @test_throws ErrorException FastConvolutionInterpolation(x, f, kernel = :b7)
-    # 2D: one nonuniform dimension is enough to reject
+    # the fast constructor and the direct one agree exactly on nonuniform knots
+    itp_fast = FastConvolutionInterpolation(x, f, kernel = :b7)
+    itp_direct = ConvolutionInterpolation(x, f, kernel = :b7)
+    @test itp_fast(0.3) == itp_direct(0.3)
+    # 2D: one nonuniform dimension is enough to take the nonuniform path on every axis
     y = range(0.0, 1.0, length = 21)
     g = [sin(2π * xi) * cos(2π * yi) for xi in x, yi in y]
-    @test_throws ErrorException FastConvolutionInterpolation((x, y), g, kernel = :b7)
+    itp2_fast = FastConvolutionInterpolation((x, y), g, kernel = :b7)
+    itp2_direct = ConvolutionInterpolation((x, y), g, kernel = :b7)
+    @test isapprox(itp2_fast(0.3, 0.7), itp2_direct(0.3, 0.7), rtol = 1e-14)
     # the same knots through the default constructor must still work
     itp = convolution_interpolation(x, f, kernel = :b7)
     @test isapprox(itp(0.3), sin(2π * 0.3), atol = 1e-6)

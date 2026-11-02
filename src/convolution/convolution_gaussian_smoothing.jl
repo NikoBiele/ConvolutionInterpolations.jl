@@ -222,19 +222,26 @@ function convolution_gaussian_itp(knots::NTuple{N,AbstractVector}, values::Abstr
     DV = ntuple(_ -> 0, N)
     KS = ntuple(_ -> :gauss, N)
     coefs, knots_new = _build_eager_coefs(knots, values, eqs, bc, KS, h, Val(true))
+    x0 = ntuple(d -> T(first(knots_new[d])), N)
+    # the Gaussian kernel of every axis; the evaluator dispatches on this field
     kernel_type = ntuple(_ -> GaussianConvolutionKernel(Val(B), Val(eqs_for_gaussian)), N)
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
-    do_type = _build_do_type(Val{DV}())
-    n_integral = _count_integrals(Val{DV}())
-    nb_wc = nothing
+    do_type = _build_fast_do_type(Val{DV}())
     anchor = ntuple(d -> zero(T), N)
-    integral_dimension = n_integral <= 3 ? Val(n_integral) : HigherDimension(Val(n_integral))
+    integral_dimension = Val(0)
+    integral_taylor = ntuple(_ -> Matrix{T}(undef, 0, 0), N)
+    integral_entries = ntuple(_ -> Matrix{T}(undef, 0, 0), N)
+    integral_tails = Vector{Array{T,N}}[]
+    nonuniform = ntuple(_ -> nothing, N)
 
-    return ConvolutionInterpolation{T,N,n_integral,typeof(coefs),typeof(knots_new),typeof(kernel_type),
-                            typeof(dimension),typeof(Val{KS}()),typeof(eqs),typeof(bc),
-                            typeof(do_type),typeof(nb_wc),typeof(Val{false}()),
-                            typeof(integral_dimension),typeof(domain_size)}(
-        coefs, domain_size, knots_new, h, kernel_type, dimension, Val{KS}(), eqs, bc, do_type,
-        nb_wc, Val{false}(), anchor, integral_dimension
+    return FastConvolutionInterpolation{T,N,0,typeof(coefs),typeof(knots_new),
+                                        typeof(kernel_type),typeof(dimension),typeof(Val{KS}()),
+                                        typeof(eqs),
+                                        typeof(bc),typeof(do_type),
+                                        typeof(Val{false}()),typeof(integral_dimension),typeof(domain_size),
+                                        typeof(nonuniform)}(
+        coefs, domain_size, knots_new, h, x0, kernel_type, dimension, Val{KS}(), eqs,
+        bc, do_type, Val{false}(), anchor, integral_dimension,
+        integral_taylor, integral_entries, integral_tails, nonuniform,
     )
 end

@@ -16,3 +16,5 @@ include("convolution_fast_interpolation_perdim_nd.jl")
 include("convolution_fast_integration_general.jl")
 # nonuniform axes: per-axis stencils, one evaluator for any dimension
 include("convolution_fast_interpolation_nonuniform.jl")
+# Gaussian smoothing: kernel weights at the stencil knots, one evaluator for any dimension
+include("convolution_fast_interpolation_gaussian.jl")

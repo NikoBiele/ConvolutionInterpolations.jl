@@ -507,6 +507,59 @@ _near_anchor_entries(::Type{T}, kernel::Symbol, m::Int, eqs::Int) where {T} =
     copy(_anchor_tables(Val(kernel), Val(m), T)[2])
 
 # ---------------------------------------------------------------------------------------------
+# The kernel functors
+# ---------------------------------------------------------------------------------------------
+
+"""
+    (::ConvolutionKernel{K,DO})(s)
+
+The kernel `K` at the normalized offset `s`: its `DO`-th derivative for `DO > 0`, the kernel
+itself for `DO = 0`, and its m-fold antiderivative for `DO = -m` (see `_kernel_antiderivative`).
+Generated once per (kernel, order, T) from the exact pieces of `_kernel_pieces_exact`,
+differentiated exactly: Horner's scheme on each piece in its local coordinate, an if-chain over
+the pieces from the innermost outwards, and the sign of `s` for odd derivatives (the kernel is
+a function of |s|). For bits types the coefficients are rounded once to `T` and are compile-time
+constants; other types such as `Rational{BigInt}` or `BigFloat` convert the exact rationals at
+evaluation. `:a0`, whose single piece breaks at |s| = ½, is given directly.
+"""
+@generated function (::ConvolutionKernel{K,DO})(s::T) where {K,DO,T}
+    if DO < 0
+        return :(_kernel_antiderivative(Val($(QuoteNode(K))), Val($(-DO)), s))
+    end
+    if K === :a0
+        DO == 0 || throw(ArgumentError("kernel :a0 has no derivatives, got derivative = $DO"))
+        return :(abs(s) < T(1//2) ? one(T) : zero(T))
+    end
+    # an exact coefficient as a literal of T for bits types, converted at run time otherwise
+    lit(c) = isbitstype(T) ? T(c) : :(T($c))
+    pieces = _kernel_pieces_exact(K, 0)
+    for _ in 1:DO
+        pieces = map(_poly_derivative, pieces)
+    end
+    # Horner's scheme for one piece in its local coordinate t = s_abs − (i−1) ∈ [0, 1)
+    horner(p, i) = begin
+        q = _shift_polynomial(p, i - 1, 1)
+        foldr((c, acc) -> :(muladd($acc, s_abs - $(i - 1), $(lit(c)))), q[1:end-1];
+              init = lit(q[end]))
+    end
+    # piece i covers [i−1, i): an if/elseif chain from the innermost piece outwards, zero beyond
+    value = :(zero(T))
+    for i in length(pieces):-1:1
+        value = Expr(:if, :(s_abs < $i), horner(pieces[i], i), value)
+    end
+    if isodd(DO)
+        signed = :(sign(s) * value)
+    else
+        signed = :(value)
+    end
+    return quote
+        s_abs = abs(s)
+        value = $value
+        return $signed
+    end
+end
+
+# ---------------------------------------------------------------------------------------------
 # Antiderivative kernels for the direct path
 # ---------------------------------------------------------------------------------------------
 

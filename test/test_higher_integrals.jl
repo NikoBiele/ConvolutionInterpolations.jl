@@ -119,8 +119,8 @@ println("    - errors for unsupported combinations")
     ib = convolution_interpolation(x, cos.(x); kernel=:b5, bc=:poly)
     @test itp2(0.63, 0.41) ≈ ia(0.63) * ib(0.41) rtol=1e-12
     # lazy mode, via the constructor directly (order 1 and higher)
-    @test_throws ErrorException FastConvolutionInterpolation(x, y; kernel=:b5, derivative=-1, lazy=true)
-    @test_throws ErrorException FastConvolutionInterpolation(x, y; kernel=:b5, derivative=-2, lazy=true)
+    @test_throws ErrorException ConvolutionInterpolation(x, y; kernel=:b5, derivative=-1, lazy=true)
+    @test_throws ErrorException ConvolutionInterpolation(x, y; kernel=:b5, derivative=-2, lazy=true)
     # nonuniform grids
     xn = sort(vcat(0.0, 0.05:0.1:0.95, 1.0))
     @test_throws ErrorException convolution_interpolation(xn, sin.(xn); kernel=:b5, derivative=-2)

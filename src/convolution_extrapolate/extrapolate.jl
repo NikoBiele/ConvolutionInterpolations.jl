@@ -4,7 +4,7 @@
 Wrap an interpolant with an extrapolation rule, so that it can be evaluated outside its grid.
 
 # Arguments
-- `itp`: The interpolant to extend, a `ConvolutionInterpolation` or a `FastConvolutionInterpolation`
+- `itp`: The interpolant to extend, a `ConvolutionInterpolation` or a `ConvolutionInterpolation`
 - `et`: The rule applied outside the grid: `Throw()`, `Flat()`, `Line()` or `Natural()`
 
 # Returns

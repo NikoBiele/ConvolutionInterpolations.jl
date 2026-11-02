@@ -58,16 +58,6 @@ end
     @test_throws ErrorException convolution_interpolation((xu, yn), z; kernel = :b13, derivative = (5, 12))
 end
 
-@testset "on-demand derivative tables match the precompiled ones" begin
-    println("    - on-demand rational tables against the _dN constants")
-    as_int_dict(d) = Dict(parse(Int, string(s)[3:end]) => Rational{BigInt}.(c) for (s, c) in d)
-    @test CI_LIM._get_kernel_rational_coefs(:b5, 3) == as_int_dict(CI_LIM.b5_coefs_d3)
-    @test CI_LIM._get_kernel_rational_coefs(:b7, 5) == as_int_dict(CI_LIM.b7_coefs_d5)
-    @test CI_LIM._get_kernel_rational_coefs(:b9, 5) == as_int_dict(CI_LIM.b9_coefs_d5)
-    @test CI_LIM._get_kernel_rational_coefs(:b11, 5) == as_int_dict(CI_LIM.b11_coefs_d5)
-    @test CI_LIM._get_kernel_rational_coefs(:b13, 5) == as_int_dict(CI_LIM.b13_coefs_d5)
-end
-
 @testset "high nonuniform derivatives converge (:b13, 7th derivative, BigFloat)" begin
     println("    - :b13 7th derivative on a jittered grid, BigFloat, 101 -> 201 knots")
     setprecision(BigFloat, 256) do

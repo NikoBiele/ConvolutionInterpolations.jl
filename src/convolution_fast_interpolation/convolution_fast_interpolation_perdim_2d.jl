@@ -1,5 +1,5 @@
 """
-Per-dimension fast convolution interpolation functors for `FastConvolutionInterpolation`.
+Per-dimension fast convolution interpolation functors for `ConvolutionInterpolation`.
 
 Dispatch on a mixed kernel type (`AbstractMixedConvolutionKernel`): kernels and/or derivative
 orders differ per dimension. Each dimension's kernel weights come from its own exact column
@@ -8,7 +8,7 @@ per coefficient in the tensor-product support.
 
 2D and 3D: nested reductions over the support. ND: tensor product over all support points.
 
-See also: FastConvolutionInterpolation, _column_weights_per_dim.
+See also: ConvolutionInterpolation, _column_weights_per_dim.
 """
 # ---------------------------------------------------------------
 # Shared helper
@@ -25,7 +25,7 @@ end
 # ==============================================================
 # 2D
 # ==============================================================
-@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},K,EQ,KBC,
+@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},K,EQ,KBC,
             DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,2}) where
             {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
             KA<:Tuple{<:Nothing,<:Nothing},K<:AbstractMixedConvolutionKernel,

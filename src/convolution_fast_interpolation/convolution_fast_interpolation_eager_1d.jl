@@ -1,5 +1,5 @@
 """
-(itp::FastConvolutionInterpolation{T,1,...})(x::Number)
+(itp::ConvolutionInterpolation{T,1,...})(x::Number)
 Evaluate 1D fast convolution interpolation at coordinate x.
 Dispatches on kernel type:
 
@@ -12,10 +12,10 @@ with the coefficients in one dot product.
 
 O(1) evaluation time, allocation-free, exact to rounding for every derivative order.
 Results scaled by (-1/h)^derivative for derivative evaluation.
-See also: FastConvolutionInterpolation, _column_rows, _column_weights.
+See also: ConvolutionInterpolation, _column_rows, _column_weights.
 """
 
-@inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},LowerOrderKernel{(:a0,)},
+@inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},LowerOrderKernel{(:a0,)},
                     EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
                     KA<:Tuple{<:Nothing},EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
@@ -32,7 +32,7 @@ See also: FastConvolutionInterpolation, _column_rows, _column_weights.
     end
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},LowerOrderKernel{(:a1,)},
+@inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},LowerOrderKernel{(:a1,)},
                     EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
                     KA<:Tuple{<:Nothing},EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
@@ -45,7 +45,7 @@ end
     return @inbounds ((1-x_diff_left) * itp.coefs[i] + x_diff_left * itp.coefs[i+1])
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
+@inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
                     HigherOrderKernel{K},EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
                     KA<:Tuple{<:Nothing},K,EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}

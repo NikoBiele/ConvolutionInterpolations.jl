@@ -1,4 +1,4 @@
-@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a0, :a0)},
+@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a0, :a0)},
                     EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,2}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
@@ -27,7 +27,7 @@
     end
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a1, :a1)},
+@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a1, :a1)},
                     EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,2}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
@@ -53,7 +53,7 @@ end
                         (-one(T)/itp.h[1])^DO[1] * (-one(T)/itp.h[2])^DO[2]
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
+@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
             K,EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,2}) where
             {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
             KA<:Tuple{<:Nothing,<:Nothing},K,EQ<:Tuple{Int,Int},

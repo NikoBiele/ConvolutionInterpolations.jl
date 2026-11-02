@@ -2,7 +2,7 @@
     AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DO,LZ,DI,SZ}
 
 Abstract supertype of the two interpolation types, `ConvolutionInterpolation` (direct kernel
-evaluation) and `FastConvolutionInterpolation` (exact polynomial weights on uniform grids).
+evaluation) and `ConvolutionInterpolation` (exact polynomial weights on uniform grids).
 
 # Type Parameters
 - `T`: Element type of the interpolated values

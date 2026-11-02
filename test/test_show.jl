@@ -6,7 +6,7 @@ const ci = convolution_interpolation
 
 const OUTER_MARKER = "ConvolutionExtrapolation("
 const INNER_MARKER_direct = "ConvolutionInterpolation("
-const INNER_MARKER_fast = "FastConvolutionInterpolation("
+const INNER_MARKER_fast = "ConvolutionInterpolation("
 
 function check_show(obj; inner=true)
     s2 = sprint(show, obj)

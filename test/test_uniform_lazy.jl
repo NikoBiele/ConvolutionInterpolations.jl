@@ -137,8 +137,8 @@ end
         @test convolution_interpolation(k5, v5).itp.lazy isa Val{false}
         @test convolution_interpolation(k5, v5; kernel=:a3).itp.lazy isa Val{false}
         @test convolution_interpolation(k5, v5; kernel=:a3, lazy=true).itp.lazy isa Val{true}
-        @test FastConvolutionInterpolation(k5, v5; kernel=:a3).lazy isa Val{false}
-        @test FastConvolutionInterpolation(k5, v5; kernel=:a3, lazy=true).lazy isa Val{true}
+        @test ConvolutionInterpolation(k5, v5; kernel=:a3).lazy isa Val{false}
+        @test ConvolutionInterpolation(k5, v5; kernel=:a3, lazy=true).lazy isa Val{true}
     end
 
     @testset "Lazy evaluation is thread-safe" begin

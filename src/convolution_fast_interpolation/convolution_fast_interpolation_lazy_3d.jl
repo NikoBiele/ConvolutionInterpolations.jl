@@ -1,4 +1,4 @@
-@inline function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},LowerOrderKernel{(:a0,:a0,:a0)},
+@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},LowerOrderKernel{(:a0,:a0,:a0)},
                     EQ,KBC,DerivativeOrder{DO},
                     Val{true},Val{0}})(x::Vararg{Number,3}) where {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
@@ -41,7 +41,7 @@
     end
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},LowerOrderKernel{(:a1,:a1,:a1)},
+@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},LowerOrderKernel{(:a1,:a1,:a1)},
                     EQ,KBC,DerivativeOrder{DO},
                     Val{true},Val{0}})(x::Vararg{Number,3}) where {T<:AbstractFloat,
                     TCoefs<:AbstractArray{T,3},Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
@@ -79,7 +79,7 @@ end
                     (-one(T)/itp.h[3])^DO[3]
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},K,
+@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},K,
                 EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,3}) where
                 {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},Axs<:NTuple{3,<:AbstractVector},
                 KA<:NTuple{3,<:Nothing},K,EQ<:NTuple{3,Int},

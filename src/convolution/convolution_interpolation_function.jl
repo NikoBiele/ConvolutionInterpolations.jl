@@ -87,7 +87,7 @@ itp = convolution_interpolation(knots_5d, vals_5d, lazy=true)
 itp(0.5, 0.5, 0.5, 0.5, 0.5)
 ```
 
-See also: [`FastConvolutionInterpolation`](@ref), [`ConvolutionInterpolation`](@ref), [`ConvolutionExtrapolation`](@ref).
+See also: [`ConvolutionInterpolation`](@ref), [`ConvolutionInterpolation`](@ref), [`ConvolutionExtrapolation`](@ref).
 """
 function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}},
         values::AbstractArray{T,N};
@@ -174,7 +174,7 @@ function _build_fast(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N}
                     derivative::NTuple{N,Int},
                     extrap::Union{Symbol,AbstractExtrapolation},
                     lazy::Bool, fast::Bool) where {T,N}
-    itp = FastConvolutionInterpolation(knots, values;
+    itp = ConvolutionInterpolation(knots, values;
                                   kernel, bc, derivative, lazy, fast)
     return ConvolutionExtrapolation(itp, _extrap_type(extrap))
 end
@@ -186,9 +186,9 @@ function _build_natural(knots::NTuple{N,AbstractVector}, values::AbstractArray{T
                         lazy::Bool) where {T,N}
     # Natural extrapolation extends the data by its ghost values once (eager, with the requested
     # bc), then interpolates the extended data with linear ghosts beyond them
-    itp = FastConvolutionInterpolation(knots, values; kernel, bc, derivative, lazy=false, fast)
+    itp = ConvolutionInterpolation(knots, values; kernel, bc, derivative, lazy=false, fast)
     bc = ntuple(_ -> (:linear,:linear), N) # overwrites
-    itp = FastConvolutionInterpolation(itp.knots, itp.coefs; kernel, bc, derivative, lazy, fast)
+    itp = ConvolutionInterpolation(itp.knots, itp.coefs; kernel, bc, derivative, lazy, fast)
     return ConvolutionExtrapolation(itp, Line())
 end
 

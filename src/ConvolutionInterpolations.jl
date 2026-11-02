@@ -7,7 +7,6 @@ include("data_structures/data_structures.jl")
 include("convolution/convolution.jl")
 include("convolution_extrapolate/convolution_extrapolate.jl")
 include("convolution_kernels/convolution_kernels.jl")
-include("convolution_kernel_interpolation/convolution_kernel_interpolation.jl")
 include("convolution_fast_interpolation/convolution_fast_interpolation.jl")
 include("convolution_coefs/convolution_coefs.jl")
 include("convolution_fit_scattered/fit_axes.jl")
@@ -22,9 +21,8 @@ export
     convolution_resample,
     fit_scattered,
 
-    # Core interpolation types for advanced users
+    # Core interpolation type for advanced users
     ConvolutionInterpolation,
-    FastConvolutionInterpolation,
     
     # Core Extrapolation type for advanced users
     ConvolutionExtrapolation,

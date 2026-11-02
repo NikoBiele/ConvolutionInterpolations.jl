@@ -68,7 +68,7 @@ Returns `(buf, lo, stride)`: the patch, stored column-major in `buf`, holds data
 and element type, grown on first use: tasks never share it, so a lazy interpolant can be evaluated
 from several threads at once, and each call overwrites the task's previous patch.
 """
-function _lazy_fill_patch(itp::FastConvolutionInterpolation{T,N}, pos::NTuple{N,Int}) where {T,N}
+function _lazy_fill_patch(itp::ConvolutionInterpolation{T,N}, pos::NTuple{N,Int}) where {T,N}
     n = itp.domain_size                                   # data points per axis
     eqs = itp.eqs                                         # stencil half-width per axis
     ksym = _kernel_sym(itp.kernel_sym)                    # kernel per axis
@@ -173,7 +173,7 @@ Stencil sum of a lazy interpolant in a boundary cell: the sum over the stencil o
 coefficients outside the domain are eager's ghost values. The patch of `_lazy_fill_patch`,
 contracted with the per-axis weights `w` by `_patch_contract`.
 """
-function _lazy_patch_sum(itp::FastConvolutionInterpolation{T,N}, pos::NTuple{N,Int}, w) where {T,N}
+function _lazy_patch_sum(itp::ConvolutionInterpolation{T,N}, pos::NTuple{N,Int}, w) where {T,N}
     buf, lo, stride = _lazy_fill_patch(itp, pos)
     eqs = itp.eqs                                         # stencil half-width per axis
     # patch position of the first stencil entry (data index pos − eqs + 1 on every axis)
@@ -182,7 +182,7 @@ function _lazy_patch_sum(itp::FastConvolutionInterpolation{T,N}, pos::NTuple{N,I
     return _patch_contract(buf, w, base, stride, len)
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
+@inline function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
                     LowerOrderKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{true},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
                     KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},K,
@@ -198,7 +198,7 @@ end
     end
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
+@inline function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
                     K,EQ,KBC,DerivativeOrder{DO},
                     Val{true},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
                     KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},K,

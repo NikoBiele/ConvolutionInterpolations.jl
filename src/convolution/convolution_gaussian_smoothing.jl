@@ -234,7 +234,7 @@ function convolution_gaussian_itp(knots::NTuple{N,AbstractVector}, values::Abstr
     integral_tails = Vector{Array{T,N}}[]
     nonuniform = ntuple(_ -> nothing, N)
 
-    return FastConvolutionInterpolation{T,N,0,typeof(coefs),typeof(knots_new),
+    return ConvolutionInterpolation{T,N,0,typeof(coefs),typeof(knots_new),
                                         typeof(kernel_type),typeof(dimension),typeof(Val{KS}()),
                                         typeof(eqs),
                                         typeof(bc),typeof(do_type),

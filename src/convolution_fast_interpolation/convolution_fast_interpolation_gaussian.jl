@@ -29,13 +29,13 @@ end
 end
 
 """
-    (itp::FastConvolutionInterpolation{T,N,...,KA<:NTuple{N,GaussianConvolutionKernel},...})(x...)
+    (itp::ConvolutionInterpolation{T,N,...,KA<:NTuple{N,GaussianConvolutionKernel},...})(x...)
 
 Evaluate a Gaussian smoothing interpolant: the weighted sum Σⱼ cⱼ·Π_d K((x_d − x_{j,d})/h_d)
 over the 2·eqs nearest coefficients of every axis, with K the normalized Gaussian of the axis'
 kernel. Allocation-free, O(eqs^N) per evaluation.
 """
-function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,DT,K,EQ,KBC,
+function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,DT,K,EQ,KBC,
             DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,N}) where
             {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},Axs,KA<:NTuple{N,GaussianConvolutionKernel},
             DT,K,EQ,KBC,DO}

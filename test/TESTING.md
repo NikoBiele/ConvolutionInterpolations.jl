@@ -119,7 +119,7 @@ Nonuniform kernels use direct evaluation (fast mode is automatically disabled fo
 
 ### Constructor tests
 
-Verifies that all 11 kernels (`:a0` through `:b13`) construct correctly in 1D via both `ConvolutionInterpolation` and `FastConvolutionInterpolation`, and that direct and fast paths agree within `1e-6`. Also tests lazy construction variants and `ConvolutionExtrapolation` wrapping, and that keyword-free calls on nonuniform knots give exactly the same interpolant as calls with default keywords (they used to build a uniform interpolant silently).
+Verifies that all 11 kernels (`:a0` through `:b13`) construct correctly in 1D via both `ConvolutionInterpolation` and `ConvolutionInterpolation`, and that direct and fast paths agree within `1e-6`. Also tests lazy construction variants and `ConvolutionExtrapolation` wrapping, and that keyword-free calls on nonuniform knots give exactly the same interpolant as calls with default keywords (they used to build a uniform interpolant silently).
 
 In addition, all 16 per-dim kernel combinations in 2D and all 64 in 3D are constructed and evaluated at a single point to verify dispatch is callable. The kernels tested per-dim are `:a0`, `:a1`, `:a3`, `:b5`.
 
@@ -210,7 +210,7 @@ Tests per-dim b-kernel selection on nonuniform grids in 2D and 3D.
 
 - **Lazy vs eager agreement**: Constructs both lazy and eager interpolators and verifies agreement at interior, boundary, and near-boundary points for uniform grids in 1D–4D (`:a3`, `:b5`, values and derivatives), and nonuniform grids in 1D–3D (`:a3`).
 - **Exact ghost equality**: In boundary cells, lazy must equal the stencil sum over eager's stored coefficients exactly (`== 0.0`), since lazy forms its ghosts on a local patch the way eager forms them: axis by axis, with compensated sums, eager's per-line `:detect` decision and the linear rule on short axes. Covers smooth and rough data, `:detect` and `:poly`, a short axis (2D, `:a3`, `:b7`), and edges and corners in 3D.
-- **Lazy default**: `lazy=nothing` resolves to lazy when eager expansion would exceed `LAZY_MAX_EAGER_COEFFICIENTS` = 2²⁷ coefficients in total or `LAZY_MAX_EAGER_GHOSTS` = 2²⁴ ghost points (uniform, no antiderivatives), and to eager otherwise. Tested exactly at the memory limit, with grid pairs straddling each limit alone (the README's examples), for antiderivatives, and on small 5D data through `convolution_interpolation` (with and without keywords) and `FastConvolutionInterpolation`; an explicit `lazy` always wins.
+- **Lazy default**: `lazy=nothing` resolves to lazy when eager expansion would exceed `LAZY_MAX_EAGER_COEFFICIENTS` = 2²⁷ coefficients in total or `LAZY_MAX_EAGER_GHOSTS` = 2²⁴ ghost points (uniform, no antiderivatives), and to eager otherwise. Tested exactly at the memory limit, with grid pairs straddling each limit alone (the README's examples), for antiderivatives, and on small 5D data through `convolution_interpolation` (with and without keywords) and `ConvolutionInterpolation`; an explicit `lazy` always wins.
 - **Thread safety**: Boundary-heavy evaluation with `Threads.@threads` must equal serial evaluation exactly (meaningful when the tests run with several threads).
 - **Structural checks**: Verifies `itp.lazy == Val{true}()` and `itp.coefs === vs` (lazy stores a reference, not a copy).
 - **Construction speed**: 50³ `:b5` (3D) and 20⁴ `:b5` (4D) lazy constructions must each complete in under 1 second.

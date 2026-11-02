@@ -42,7 +42,7 @@ end
         rng = MersenneTwister(11)
         n = 21
         xg = range(0.0, 1.0, length = n)
-        itp_grid = FastConvolutionInterpolation((xg, xg),
+        itp_grid = ConvolutionInterpolation((xg, xg),
                     [g2(x, y) for x in xg, y in xg]; kernel = :b5, bc = :poly)
         h = step(xg)
         pts = Matrix{Float64}(undef, 2, n^2)
@@ -80,10 +80,10 @@ end
         vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
         knots, gvals, _ = fit_scattered(pts, vals; kernel = :b5, mode = :exact)
         ev = range(0.1, 0.9, length = 31)
-        d1 = FastConvolutionInterpolation(knots, gvals; kernel = :b5, bc = :poly,
+        d1 = ConvolutionInterpolation(knots, gvals; kernel = :b5, bc = :poly,
                                         derivative = (1, 0))
         @test sqrt(mean((d1(x, y) - g2_dx(x, y))^2 for x in ev, y in ev)) < 1e-4
-        d2 = FastConvolutionInterpolation(knots, gvals; kernel = :b5, bc = :poly,
+        d2 = ConvolutionInterpolation(knots, gvals; kernel = :b5, bc = :poly,
                                         derivative = (2, 0))
         @test sqrt(mean((d2(x, y) - g2_dxx(x, y))^2 for x in ev, y in ev)) < 1e-2
     end
@@ -94,7 +94,7 @@ end
         pts = jittered_pts(57, 0.35, rng)
         vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
         knots, gvals, _ = fit_scattered(pts, vals; kernel = :b5, mode = :exact)
-        Ixy = FastConvolutionInterpolation(knots, gvals; kernel = :b5, bc = :poly,
+        Ixy = ConvolutionInterpolation(knots, gvals; kernel = :b5, bc = :poly,
                                         derivative = (-1, -1))
         for (a, b, c, d) in ((0.1, 0.9, 0.1, 0.9), (0.2, 0.5, 0.3, 0.8))
             num = Ixy(b, d) - Ixy(a, d) - Ixy(b, c) + Ixy(a, c)
@@ -126,7 +126,7 @@ end
 
         # noise reduction and noise estimate
         knots, gvals, info = fit_scattered(pts, noisy; kernel = :b5, mode = :smooth)
-        itp = FastConvolutionInterpolation(knots, gvals; kernel = :b5, bc = :poly)
+        itp = ConvolutionInterpolation(knots, gvals; kernel = :b5, bc = :poly)
         rms = sqrt(mean((itp(x, y) - g2(x, y))^2 for x in ev, y in ev))
         @test rms < 0.5 * sigma                      # must beat raw noise decisively
         @test keys(info) == (:lambda, :noise)
@@ -146,7 +146,7 @@ end
 
         # noise-free data: the fit approaches interpolation, and the capped grid warns
         knots4, gvals4, info4 = @test_logs (:warn, r"limited by `oversample`") match_mode = :any fit_scattered(pts, clean; kernel = :b5, mode = :smooth)
-        itp4 = FastConvolutionInterpolation(knots4, gvals4; kernel = :b5, bc = :poly)
+        itp4 = ConvolutionInterpolation(knots4, gvals4; kernel = :b5, bc = :poly)
         rms4 = sqrt(mean((itp4(x, y) - g2(x, y))^2 for x in ev, y in ev))
         @test rms4 < 1e-3
         @test info4.noise < 1e-3
@@ -160,7 +160,7 @@ end
         clean1 = g1.(xs)
         noisy1 = clean1 .+ sigma .* randn(rng, length(xs))
         knots1, gvals1, info1 = fit_scattered(reshape(xs, 1, :), noisy1)         # defaults: :smooth, :b5
-        itp1 = FastConvolutionInterpolation(knots1, gvals1; kernel = :b5, bc = :poly)
+        itp1 = ConvolutionInterpolation(knots1, gvals1; kernel = :b5, bc = :poly)
         ev1 = range(0.1, 0.9, length = 201)
         rms1 = sqrt(mean((itp1(x) - g1(x))^2 for x in ev1))
         @test rms1 < 0.5 * sigma
@@ -176,7 +176,7 @@ end
         @test gvals6 == gvals7
         @test info6 == info7
         itp6 = convolution_interpolation(pts, noisy)
-        itp7 = FastConvolutionInterpolation(knots6, gvals6; kernel = :b5, bc = :poly)
+        itp7 = ConvolutionInterpolation(knots6, gvals6; kernel = :b5, bc = :poly)
         @test maximum(abs(itp6(x, y) - itp7(x, y)) for x in ev, y in ev) < 1e-12
 
         # a small cap is accepted; whether it warns depends on the fitted smoothing (the noise-free case above warns)

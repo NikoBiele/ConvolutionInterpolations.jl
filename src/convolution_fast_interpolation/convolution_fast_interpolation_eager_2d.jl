@@ -1,5 +1,5 @@
 """
-    (itp::FastConvolutionInterpolation{T,2,...})(x::Number, y::Number)
+    (itp::ConvolutionInterpolation{T,2,...})(x::Number, y::Number)
 
 Evaluate 2D fast convolution interpolation at coordinates `(x, y)`.
 
@@ -18,9 +18,9 @@ O(1) evaluation time, allocation-free, exact to rounding for every derivative or
 
 Results scaled by `(-1/h_x)^derivative * (-1/h_y)^derivative`.
 
-See also: `FastConvolutionInterpolation`, `_column_weights_per_dim`.
+See also: `ConvolutionInterpolation`, `_column_weights_per_dim`.
 """
-@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a0, :a0)},
+@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a0, :a0)},
                     EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,2}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
@@ -49,7 +49,7 @@ See also: `FastConvolutionInterpolation`, `_column_weights_per_dim`.
     end
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a1, :a1)},
+@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a1, :a1)},
                     EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,2}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
@@ -75,7 +75,7 @@ end
                         (-one(T)/itp.h[1])^DO[1] * (-one(T)/itp.h[2])^DO[2]
 end
 
-function (itp::FastConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
+function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
             HigherOrderKernel{K},EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,2}) where 
             {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
             KA<:Tuple{<:Nothing,<:Nothing},K,EQ<:Tuple{Int,Int},

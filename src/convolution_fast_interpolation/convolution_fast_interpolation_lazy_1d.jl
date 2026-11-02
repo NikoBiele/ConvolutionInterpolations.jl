@@ -1,5 +1,5 @@
 """
-(itp::FastConvolutionInterpolation{T,1,...})(x::Number)
+(itp::ConvolutionInterpolation{T,1,...})(x::Number)
 Evaluate 1D lazy fast convolution interpolation at coordinate x.
 Dispatches on kernel type:
 
@@ -11,9 +11,9 @@ ghost values are computed on the fly from the raw data, exactly as eager mode st
 
 O(1) evaluation time, allocation-free, exact to rounding for every derivative order.
 Results scaled by (-1/h)^derivative for derivative evaluation.
-See also: FastConvolutionInterpolation, _kernel_weights.
+See also: ConvolutionInterpolation, _kernel_weights.
 """
-@inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},LowerOrderKernel{K},
+@inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},LowerOrderKernel{K},
                     EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,1}) where 
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
                     KA<:Tuple{<:Nothing},K,EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
@@ -38,7 +38,7 @@ See also: FastConvolutionInterpolation, _kernel_weights.
     end
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
+@inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
                     HigherOrderKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{true},Val{0}})(x::Vararg{Number,1}) where
                     {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},

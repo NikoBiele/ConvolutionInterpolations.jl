@@ -1,5 +1,5 @@
 """
-(itp::FastConvolutionInterpolation{T,N,...})(x...) — FastIntegralOrders{DO}
+(itp::ConvolutionInterpolation{T,N,...})(x...) — FastIntegralOrders{DO}
 Evaluate integrals of any order in any number of dimensions, possibly combined with
 interpolation or derivatives in other dimensions.
 
@@ -15,7 +15,7 @@ tails (`integral_tails`), so evaluation is independent of grid size. With more i
 dimensions the sum runs directly over the coefficients up to the stencil.
 See also: _build_region_tails, _anchored_stencil_weights.
 """
-function (itp::FastConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,
+function (itp::ConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,
             FastIntegralOrders{DO},Val{false},DI})(x::Vararg{Number,N}) where
             {T<:AbstractFloat,N,NI,TCoefs<:AbstractArray{T,N},Axs,KA,DT,K,EQ,KBC,DO,DI}
 
@@ -124,7 +124,7 @@ end
 end
 
 # At most 3 integral dimensions: the center plus every region with precomputed tails
-function _integral_sum_tails(itp::FastConvolutionInterpolation{T,N}, W::NTuple{N,NTuple{K,T}},
+function _integral_sum_tails(itp::ConvolutionInterpolation{T,N}, W::NTuple{N,NTuple{K,T}},
                              i::NTuple{N,Int}, t::NTuple{N,T}, ::Val{DO}) where {T,N,K,DO}
     eqs = itp.eqs
     ranks = _integral_ranks(Val(DO))
@@ -158,7 +158,7 @@ function _integral_sum_tails(itp::FastConvolutionInterpolation{T,N}, W::NTuple{N
 end
 
 # More than 3 integral dimensions: direct sum over the coefficients up to the stencil
-function _integral_sum_direct(itp::FastConvolutionInterpolation{T,N}, W, i::NTuple{N,Int},
+function _integral_sum_direct(itp::ConvolutionInterpolation{T,N}, W, i::NTuple{N,Int},
                               t::NTuple{N,T}, ::Val{DO}) where {T,N,DO}
     eqs = itp.eqs
     orders = _integral_orders_abs(Val(DO))

@@ -46,10 +46,10 @@ values supplied by ghost points.
 - `K`: The kernel symbol (`:a3`, `:a4`, `:a5`, `:a7`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`)
 
 # Usage
-Used internally for method dispatch in `FastConvolutionInterpolation` evaluation.
+Used internally for method dispatch in `ConvolutionInterpolation` evaluation.
 Not typically constructed directly by users.
 
-See also: `ConvolutionKernel`, `FastConvolutionInterpolation`.
+See also: `ConvolutionKernel`, `ConvolutionInterpolation`.
 """
 struct HigherOrderKernel{K} <: AbstractNonMixedConvolutionKernel end
 
@@ -184,7 +184,7 @@ struct FastIntegralOrders{DO} end
     DerivativeOrder{DO}
 
 Dispatch type indicating the derivative order of a `ConvolutionInterpolation` or
-`FastConvolutionInterpolation`. Stored in the derivative slot (position 11) of the
+`ConvolutionInterpolation`. Stored in the derivative slot (position 11) of the
 interpolant type. `DO=0` corresponds to plain interpolation, `DO=1` to the first
 derivative, and so on up to the kernel's maximum supported order.
 

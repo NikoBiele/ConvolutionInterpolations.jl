@@ -419,7 +419,7 @@ function convolution_interpolation(points::AbstractMatrix, values::AbstractVecto
         # interpolant, whose Vandermonde ghosts are exactly the ones the fit eliminated
         return convolution_interpolation(knots, vals; kernel = kernel_res, derivative, extrap)
     end
-    itp = FastConvolutionInterpolation(knots, vals;
+    itp = ConvolutionInterpolation(knots, vals;
                                        kernel = kernel_res, bc = :poly, derivative)
     return ConvolutionExtrapolation(itp, _extrap_type(extrap))
 end

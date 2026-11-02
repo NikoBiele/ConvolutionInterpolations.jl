@@ -1,5 +1,5 @@
 """
-    (itp::FastConvolutionInterpolation{T,N,...})(x::Vararg{Number,N})
+    (itp::ConvolutionInterpolation{T,N,...})(x::Vararg{Number,N})
 
 Evaluate N-dimensional (N > 3) fast convolution interpolation at coordinates `x`.
 
@@ -21,9 +21,9 @@ high dimensions.
 
 Results scaled by `∏ᵢ (-1/hᵢ)^derivative`.
 
-See also: `FastConvolutionInterpolation`, `_column_weights_per_dim`.
+See also: `ConvolutionInterpolation`, `_column_weights_per_dim`.
 """
-@inline function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
+@inline function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
                     LowerOrderKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{false},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
                     KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},K,EQ<:NTuple{N,Int},
@@ -37,7 +37,7 @@ See also: `FastConvolutionInterpolation`, `_column_weights_per_dim`.
     end
 end
 
-@inline function _eval_a0_nd(itp::FastConvolutionInterpolation{T,N}, x::NTuple{N,<:Number}) where {T,N}
+@inline function _eval_a0_nd(itp::ConvolutionInterpolation{T,N}, x::NTuple{N,<:Number}) where {T,N}
 
     # specialized dispatch for N-dimensional nearest neighbor kernel
 
@@ -55,7 +55,7 @@ end
     return itp.coefs[nearest_ids...]
 end
 
-@inline function _eval_a1_nd(itp::FastConvolutionInterpolation{T,N,0}, x::NTuple{N,<:Number}, ::Val{DO}) where {T,N,DO}
+@inline function _eval_a1_nd(itp::ConvolutionInterpolation{T,N,0}, x::NTuple{N,<:Number}, ::Val{DO}) where {T,N,DO}
 
     # specialized dispatch for N-dimensional linear kernel
     
@@ -93,7 +93,7 @@ end
     return @inbounds @fastmath result * prod((-one(T)/itp.h[d])^DO[d] for d in 1:N)
 end
 
-function (itp::FastConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
+function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
             HigherOrderKernel{K},EQ,KBC,DerivativeOrder{DO},
                     Val{false},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,
                     TCoefs<:AbstractArray{T,N},KA<:NTuple{N,<:Nothing},

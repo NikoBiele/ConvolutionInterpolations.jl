@@ -1,5 +1,5 @@
 """
-    (itp::FastConvolutionInterpolation{T,3,...})(x::Number, y::Number, z::Number)
+    (itp::ConvolutionInterpolation{T,3,...})(x::Number, y::Number, z::Number)
 
 Evaluate 3D fast convolution interpolation at coordinates `(x, y, z)`.
 
@@ -18,9 +18,9 @@ O(1) evaluation time, allocation-free, exact to rounding for every derivative or
 
 Results scaled by `(-1/h_x)^derivative * (-1/h_y)^derivative * (-1/h_z)^derivative`.
 
-See also: `FastConvolutionInterpolation`, `_column_weights_per_dim`.
+See also: `ConvolutionInterpolation`, `_column_weights_per_dim`.
 """
-@inline function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},LowerOrderKernel{(:a0,:a0,:a0)},
+@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},LowerOrderKernel{(:a0,:a0,:a0)},
                     EQ,KBC,DerivativeOrder{DO},
                     Val{false},Val{0}})(x::Vararg{Number,3}) where {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
@@ -63,7 +63,7 @@ See also: `FastConvolutionInterpolation`, `_column_weights_per_dim`.
     end
 end
 
-@inline function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},LowerOrderKernel{(:a1,:a1,:a1)},
+@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},LowerOrderKernel{(:a1,:a1,:a1)},
                     EQ,KBC,DerivativeOrder{DO},
                     Val{false},Val{0}})(x::Vararg{Number,3}) where {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                     Axs<:NTuple{3,<:AbstractVector},KA<:NTuple{3,<:Nothing},EQ<:NTuple{3,Int},
@@ -100,7 +100,7 @@ end
                     (-one(T)/itp.h[3])^DO[3]
 end
 
-function (itp::FastConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},HigherOrderKernel{K},
+function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},HigherOrderKernel{K},
                 EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,3}) where 
                 {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                 Axs<:NTuple{3,<:AbstractVector},KA<:NTuple{3,<:Nothing},K,EQ<:NTuple{3,Int},

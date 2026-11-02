@@ -6,20 +6,13 @@ println("-"^60)
     x = range(0.0, 2π, length=30)
     vs = sin.(x)
 
-    println("    - 1D kernels (fast/direct):")
+    println("    - 1D kernels:")
     for kernel in (:a0, :a1, :a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11, :b13)
         println("        - kernel: $kernel")
 
-        # Direct constructor
-        itp_direct = ConvolutionInterpolation(x, vs, kernel=kernel)
-        @test itp_direct(1.0) ≈ sin(1.0) atol=0.1
-
         # Fast constructor
-        itp_fast = FastConvolutionInterpolation(x, vs, kernel=kernel)
+        itp_fast = ConvolutionInterpolation(x, vs, kernel=kernel)
         @test itp_fast(1.0) ≈ sin(1.0) atol=0.1
-
-        # Direct and fast agree
-        @test itp_direct(1.0) ≈ itp_fast(1.0) atol=1e-6
 
         # Extrapolation wrapper
         etp = ConvolutionExtrapolation(itp_fast, Line())
@@ -30,7 +23,7 @@ println("-"^60)
         @test_throws ErrorException etp_throw(-0.5)
 
         # Lazy variant (only fast path)
-        itp_fast_lazy = FastConvolutionInterpolation((x,), vs, kernel=(kernel,), lazy=true)
+        itp_fast_lazy = ConvolutionInterpolation((x,), vs, kernel=(kernel,), lazy=true)
         @test itp_fast_lazy(1.0) ≈ itp_fast(1.0) atol=1e-6
 
         # 2D
@@ -38,14 +31,10 @@ println("-"^60)
         vs_2d = [sin(xi) * cos(yi) for xi in x, yi in y]
         knots_2d = (x, y)
 
-        itp_direct_2d = ConvolutionInterpolation(knots_2d, vs_2d, kernel=(kernel, kernel),
+        itp_fast_2d = ConvolutionInterpolation(knots_2d, vs_2d, kernel=(kernel, kernel),
                                                    bc=((:detect, :detect), (:detect, :detect)),
                                                    derivative=(0, 0))
-        itp_fast_2d = FastConvolutionInterpolation(knots_2d, vs_2d, kernel=(kernel, kernel),
-                                                   bc=((:detect, :detect), (:detect, :detect)),
-                                                   derivative=(0, 0))
-        @test itp_direct_2d(1.0, 1.0) ≈ itp_fast_2d(1.0, 1.0) atol=1e-6
-        @test itp_direct_2d(1.0, 1.0) ≈ sin(1.0) * cos(1.0) atol=0.1
+        @test itp_fast_2d(1.0, 1.0) ≈ sin(1.0) * cos(1.0) atol=0.1
     end
 end
 
@@ -55,17 +44,13 @@ ys = range(0.0, 2π, length=30)
 vs = [sin(x)*cos(y) for x in xs, y in ys]
 
 @testset "2D per-dim kernel combinations" begin
-    println("    - 2D per-dim kernel combinations (fast/direct)")
+    println("    - 2D per-dim kernel combinations")
     for k1 in kernels, k2 in kernels
         println("        - kernel combination: ", k1, ", ", k2)
-        itp_fast = FastConvolutionInterpolation((xs, ys), vs; kernel=(k1, k2),
-                                                   bc=((:detect, :detect), (:detect, :detect)),
-                                                   derivative=(0, 0))
-        itp_direct = ConvolutionInterpolation((xs, ys), vs; kernel=(k1, k2),
+        itp_fast = ConvolutionInterpolation((xs, ys), vs; kernel=(k1, k2),
                                                    bc=((:detect, :detect), (:detect, :detect)),
                                                    derivative=(0, 0))
         @test isfinite(itp_fast(1.5, 1.0))
-        @test isfinite(itp_direct(1.5, 1.0))
     end
 end
 
@@ -73,17 +58,13 @@ zs = range(0.0, 2π, length=30)
 vs3 = [sin(x)*cos(y)*sin(z) for x in xs, y in ys, z in zs]
 
 @testset "3D per-dim kernel combinations" begin
-    println("    - 3D per-dim kernel combinations (fast/direct)")
+    println("    - 3D per-dim kernel combinations")
     for k1 in kernels, k2 in kernels, k3 in kernels
         println("        - kernel combination: ", k1, ", ", k2, ", ", k3)
-        itp_fast = FastConvolutionInterpolation((xs, ys, zs), vs3; kernel=(k1, k2, k3),
-                                                   bc=((:detect, :detect), (:detect, :detect), (:detect, :detect)),
-                                                   derivative=(0, 0, 0))
-        itp_direct = ConvolutionInterpolation((xs, ys, zs), vs3; kernel=(k1, k2, k3),
+        itp_fast = ConvolutionInterpolation((xs, ys, zs), vs3; kernel=(k1, k2, k3),
                                                    bc=((:detect, :detect), (:detect, :detect), (:detect, :detect)),
                                                    derivative=(0, 0, 0))
         @test isfinite(itp_fast(1.5, 1.0, 2.0))
-        @test isfinite(itp_direct(1.5, 1.0, 2.0))
     end
 end
 
@@ -93,11 +74,11 @@ end
     xn = sort([0.0; 2π .* rand(rng, 38); 2π])             # nonuniform knots on [0, 2π]
     xu = range(0.0, 2π, length=40)                        # uniform knots
     # uniform: the keyword-free call takes the fast path
-    @test convolution_interpolation(xu, sin.(xu)).itp isa FastConvolutionInterpolation
+    @test convolution_interpolation(xu, sin.(xu)).itp isa ConvolutionInterpolation
     # nonuniform: the keyword-free call equals the call with default keywords
     nf = convolution_interpolation(xn, sin.(xn))
     nk = convolution_interpolation(xn, sin.(xn); kernel=:auto)
-    @test nf.itp isa FastConvolutionInterpolation
+    @test nf.itp isa ConvolutionInterpolation
     for x in (0.05, 1.3, 3.7, 2π - 0.05)
         @test nf(x) == nk(x)
     end

@@ -160,56 +160,33 @@ from a value type, used for implementing specialized Gaussian kernel methods.
 GaussianConvolutionKernel(::Val{B}, ::Val{NT}) where {B,NT} = GaussianConvolutionKernel{B,NT}()
 
 """
-    IntegralOrder
+    IntegralOrders{DO}
 
-Dispatch type indicating that a `ConvolutionInterpolation` computes an antiderivative of
-the interpolant along every dimension, each axis at the order its kernel carries. Stored in
-the derivative slot (position 11) of the interpolant type when every entry of `derivative`
-is negative at construction.
+Dispatch type for antiderivatives of any order in any number of dimensions, mixed with
+derivatives. `DO` is the per-dimension order tuple: `DO[d] < 0` integrates along dimension `d`
+(order `-DO[d]`), and `DO[d] ≥ 0` interpolates (0) or differentiates along it. Stored in the
+derivative slot (position 11) of the interpolant type when any entry of `derivative` is
+negative at construction.
 
 See also: `DerivativeOrder`, `convolution_interpolation`.
 """
-struct IntegralOrder end
-
-"""
-    FastIntegralOrders{DO}
-
-Dispatch type for integrals of any order in any number of dimensions on the fast path. `DO` is
-the per-dimension order tuple: `DO[d] < 0` integrates along dimension d (order −DO[d]), and
-`DO[d] ≥ 0` interpolates (0) or differentiates along it.
-"""
-struct FastIntegralOrders{DO} end
+struct IntegralOrders{DO} end
 
 """
     DerivativeOrder{DO}
 
-Dispatch type indicating the derivative order of a `ConvolutionInterpolation` or
-`ConvolutionInterpolation`. Stored in the derivative slot (position 11) of the
-interpolant type. `DO=0` corresponds to plain interpolation, `DO=1` to the first
-derivative, and so on up to the kernel's maximum supported order.
+Dispatch type indicating the derivative order of a `ConvolutionInterpolation`. Stored in the
+derivative slot (position 11) of the interpolant type. `DO=0` corresponds to plain
+interpolation, `DO=1` to the first derivative, and so on up to the kernel's maximum
+supported order on the grid of each axis (`_max_derivative_order`).
 
 # Type Parameters
-- `DO`: Derivative order as an `Int`. Must satisfy `0 ≤ DO ≤ max_derivative[kernel]`.
+- `DO`: Derivative order as an `Int`, or one `Int` per dimension as a tuple.
 
-See also: `IntegralOrder`, `convolution_interpolation`.
+See also: `IntegralOrders`, `convolution_interpolation`.
 """
 struct DerivativeOrder{DO} end
 DerivativeOrder(::Val{DO}) where DO = DerivativeOrder{DO}()
-
-"""
-    MixedIntegralOrder{DO}
- 
-Dispatch type for per-dimension mixed antiderivative/derivative orders on the direct path.
-`DO` is an `NTuple{N,Int}` where `DO[d] < 0` means integrate along dimension `d` to order
-`-DO[d]`, and `DO[d] >= 0` means differentiate to that order.
- 
-Used when at least one but not all dimensions have `derivative < 0`.
-`IntegralOrder` is still used when ALL dimensions are negative.
-`DerivativeOrder{DO}` is still used when NO dimensions are negative.
- 
-See also: `IntegralOrder`, `DerivativeOrder`.
-"""
-struct MixedIntegralOrder{DO} end
 
 """
     AbstractExtrapolation

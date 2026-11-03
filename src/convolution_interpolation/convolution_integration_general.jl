@@ -1,5 +1,5 @@
 """
-(itp::ConvolutionInterpolation{T,N,...})(x...) — FastIntegralOrders{DO}
+(itp::ConvolutionInterpolation{T,N,...})(x...) — IntegralOrders{DO}
 Evaluate integrals of any order in any number of dimensions, possibly combined with
 interpolation or derivatives in other dimensions.
 
@@ -16,7 +16,7 @@ dimensions the sum runs directly over the coefficients up to the stencil.
 See also: _build_region_tails, _anchored_stencil_weights.
 """
 function (itp::ConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,
-            FastIntegralOrders{DO},Val{false},DI})(x::Vararg{Number,N}) where
+            IntegralOrders{DO},Val{false},DI})(x::Vararg{Number,N}) where
             {T<:AbstractFloat,N,NI,TCoefs<:AbstractArray{T,N},Axs,KA,DT,K,EQ,KBC,DO,DI}
 
     x = T.(x)

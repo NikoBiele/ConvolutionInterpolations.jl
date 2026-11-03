@@ -1,5 +1,8 @@
 include("derive_kernel_coefs.jl")
 include("column_polynomials.jl")
+include("kernel_limits.jl")
+include("integral_tails.jl")
+include("convolution_kernel.jl")
 include("convolution_kernel_a0.jl")
 include("convolution_kernel_a1.jl")
 include("convolution_kernel_a3.jl")

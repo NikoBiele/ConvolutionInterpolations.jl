@@ -56,7 +56,7 @@ interior_pts_3d(r1, r2, r3) = [(x, y, z) for x in range(r1[6], r1[end-5], length
 
     # fast vs direct agreement
     itp_f = convolution_interpolation(x, y2; kernel=:a0, derivative=-1, fast=true)
-    itp_s = convolution_interpolation(x, y2; kernel=:a0, derivative=-1, fast=false)
+    itp_s = convolution_interpolation(x, y2; kernel=:a0, derivative=-1)
     @test abs(itp_f(π + 0.5) - itp_s(π + 0.5)) < 1e-6
 end
 
@@ -219,7 +219,7 @@ end
         ys = range(0.0, 2π, length=40)
         vs = [f(x,y) for x in xs, y in ys]
         itp_f = convolution_interpolation((xs,ys), vs; kernel=:b5, derivative=-1, fast=true)
-        itp_s = convolution_interpolation((xs,ys), vs; kernel=:b5, derivative=-1, fast=false)
+        itp_s = convolution_interpolation((xs,ys), vs; kernel=:b5, derivative=-1)
         pts = interior_pts_2d(collect(xs), collect(ys))
         err_f = maximum(abs(itp_f(p...) - F(p...)) for p in pts)
         err_s = maximum(abs(itp_s(p...) - F(p...)) for p in pts)

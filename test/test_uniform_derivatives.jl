@@ -13,7 +13,7 @@ tolerance_deriv = 0.01 # tolerance for derivative tests
         println("    - 1D derivative direct: ", kernel)
         range_1d = range(0.0, stop=2π, length=N_deriv)
         vals_1d = sin.(range_1d)
-        itp_d1 = convolution_interpolation(range_1d, vals_1d; kernel=kernel, fast=false,
+        itp_d1 = convolution_interpolation(range_1d, vals_1d; kernel=kernel,
                     bc=bc_deriv, derivative=1)
         
         test_points = [(range_1d[i] + range_1d[i+1]) / 2 for i in 1:N_deriv-1]
@@ -43,7 +43,7 @@ end
         println("    - 2D derivative direct: ", kernel)
         range_2d = range(0.0, stop=2π, length=N_deriv)
         vals_2d = [sin(x) * sin(y) for x in range_2d, y in range_2d]
-        itp_d1 = convolution_interpolation((range_2d, range_2d), vals_2d; kernel=kernel, fast=false,
+        itp_d1 = convolution_interpolation((range_2d, range_2d), vals_2d; kernel=kernel,
                     bc=bc_deriv, derivative=1)
         
         test_points = [(range_2d[i] + range_2d[i+1]) / 2 for i in 1:N_deriv-1]
@@ -73,7 +73,7 @@ end
         println("    - 3D derivative direct: ", kernel)
         range_3d = range(0.0, stop=2π, length=N_deriv)
         vals_3d = [sin(x) * sin(y) * sin(z) for x in range_3d, y in range_3d, z in range_3d]
-        itp_d1 = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d; kernel=kernel, fast=false,
+        itp_d1 = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d; kernel=kernel,
                     bc=bc_deriv, derivative=1)
         
         test_points = [(range_3d[i] + range_3d[i+1]) / 2 for i in 1:N_deriv-1]
@@ -103,7 +103,7 @@ end
         println("    - 4D derivative direct: ", kernel)
         range_4d = range(0.0, stop=2π, length=N_deriv)
         vals_4d = [sin(x) * sin(y) * sin(z) * sin(w) for x in range_4d, y in range_4d, z in range_4d, w in range_4d]
-        itp_d1 = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d; kernel=kernel, fast=false,
+        itp_d1 = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d; kernel=kernel,
                     bc=bc_deriv, derivative=1)
         
         test_points = [(range_4d[i] + range_4d[i+1]) / 2 for i in N_deriv÷2] # 1:N_deriv-1] # go faster for direct

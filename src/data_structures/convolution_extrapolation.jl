@@ -1,5 +1,5 @@
 """
-    ConvolutionExtrapolation{T,N,ITPT<:AbstractConvolutionInterpolation,ET,O}
+    ConvolutionExtrapolation{T,N,ITPT<:ConvolutionInterpolation,ET<:AbstractExtrapolation}
 
 A structure that combines a convolution interpolation with boundary condition extrapolation techniques.
 
@@ -25,7 +25,7 @@ the specified boundary condition to handle the extrapolation.
 
 # This struct is not simple to use manually, so it is recommended to use the `convolution_interpolation` function.
 """
-struct ConvolutionExtrapolation{T,N,ITPT<:AbstractConvolutionInterpolation,ET<:AbstractExtrapolation}
+struct ConvolutionExtrapolation{T,N,ITPT<:ConvolutionInterpolation,ET<:AbstractExtrapolation}
     itp::ITPT
     et::ET
     lo::NTuple{N,T}

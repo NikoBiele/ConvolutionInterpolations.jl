@@ -46,7 +46,7 @@ const perdim_2d_cases = [
         test_pts = [(r[i] + r[i+1]) / 2 for i in 1:N_pd-1]
         for (deriv, exact) in perdim_2d_cases
             itp = convolution_interpolation((r, r), vals; kernel=(kernel,kernel),
-                      derivative=deriv, fast=false, bc=:poly)
+                      derivative=deriv, bc=:poly)
             interpolated = [itp(x, y) for x in test_pts, y in test_pts]
             analytical   = [exact(x, y) for x in test_pts, y in test_pts]
             @test interpolated ≈ analytical atol=tolerance_pd
@@ -72,22 +72,22 @@ end
     end
 end
 
-# ── 2D fast vs direct agreement ───────────────────────────────────────
+# ── 2D tuple vs symbol kernel agreement ───────────────────────────────
 
-@testset "2D per-dim derivative fast vs direct" begin
+@testset "2D per-dim derivative, tuple vs symbol kernel" begin
     for kernel in perdim_deriv_kernels
-        println("    - 2D per-dim derivative fast vs direct: ", kernel)
+        println("    - 2D per-dim derivative, tuple vs symbol kernel: ", kernel)
         r = range(0.0, 2π, length=N_pd)
         vals = [sin(x)*sin(y) for x in r, y in r]
         test_pts = [(r[i] + r[i+1]) / 2 for i in 1:N_pd-1]
         for (deriv, _) in perdim_2d_cases
-            itp_fast   = convolution_interpolation((r, r), vals; kernel=(kernel,kernel),
-                             derivative=deriv, fast=true,  bc=:poly)
-            itp_direct = convolution_interpolation((r, r), vals; kernel=kernel,
-                             derivative=deriv, fast=false, bc=:poly)
-            err = maximum(abs(itp_fast(x, y) - itp_direct(x, y))
-                          for x in test_pts, y in test_pts)
-            @test err < 1e-4
+            itp_tuple  = convolution_interpolation((r, r), vals; kernel=(kernel,kernel),
+                             derivative=deriv, bc=:poly)
+            itp_symbol = convolution_interpolation((r, r), vals; kernel=kernel,
+                             derivative=deriv, bc=:poly)
+            for x in test_pts, y in test_pts
+                @test itp_tuple(x, y) == itp_symbol(x, y)
+            end
         end
     end
 end
@@ -113,7 +113,7 @@ const perdim_3d_cases = [
         test_pts = [(r[i] + r[i+1]) / 2 for i in 1:N_pd-1]
         for (deriv, exact) in perdim_3d_cases
             itp = convolution_interpolation((r, r, r), vals; kernel=(kernel,kernel,kernel),
-                      derivative=deriv, fast=false, bc=:poly)
+                      derivative=deriv, bc=:poly)
             interpolated = [itp(x, y, z) for x in test_pts, y in test_pts, z in test_pts]
             analytical   = [exact(x, y, z) for x in test_pts, y in test_pts, z in test_pts]
             @test interpolated ≈ analytical atol=tolerance_pd

@@ -17,11 +17,10 @@ Create a convolution-based interpolation object with automatic optimization and 
   `:a0`, `:a1`, and all `b`-series kernels work on both uniform and nonuniform grids.
   `:a3` falls back to `:n3` on nonuniform grids (same order, nonuniform weights).
   `:a4`, `:a5` and `:a7` are uniform-only and raise an error on nonuniform grids.
-- `fast::Bool=true`: Use the fast uniform-grid evaluation (exact kernel weights from the
-  kernels' polynomial pieces, O(1) per evaluation). Automatically disabled for nonuniform grids.
-  With `fast=false` on a uniform grid, antiderivatives are summed over all coefficients at
-  every evaluation (O(data) per evaluation, no precomputed tails), which avoids the fast
-  path's tail arrays for a few integrals of a large dataset.
+- `fast::Bool=true`: Store the integral tails of antiderivatives at construction, so that
+  every evaluation stays O(1). With `fast=false`, antiderivatives are summed over all
+  coefficients at every evaluation (O(data) per evaluation, no stored tails), which avoids
+  the tail arrays for a few integrals of a large dataset. Only affects `derivative < 0`.
 - `B::Float64=-1.0`: If a positive value is provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
 - `extrap=:throw`: Behavior outside the grid domain.
   Options: `:throw`, `:flat`, `:line` or `:natural` (uniform grids only).
@@ -42,15 +41,16 @@ Create a convolution-based interpolation object with automatic optimization and 
   antiderivative, anchored at zero (with its first `m - 1` derivatives) at the leftmost
   interior knot of each integrated axis, on uniform grids only, up to order 2 for
   `:a0`/`:a1`, 4 for the other `a`-series kernels, 6 for `:b5` and 8 for `:b7`-`:b13`.
-  Orders may be mixed per dimension, e.g. `(-2, 0)` or `(-1, 1)`, and are available on
-  both the fast and the direct path (see `fast`).
+  Orders may be mixed per dimension, e.g. `(-2, 0)` or `(-1, 1)`, with or without stored
+  tails (see `fast`).
 - `lazy::Union{Nothing,Bool}=nothing`: When `true`, skip ghost point expansion at construction
   time. Ghost values are computed on the fly only when evaluating near boundaries, with exactly
   the values eager expansion would store, saving memory and construction time. When `false`, all
   ghost points are expanded at construction. The default, `nothing`, chooses lazy mode on uniform
-  grids (fast path, no antiderivatives) when eager expansion would build more than 2²⁷
-  coefficients (1 GiB in `Float64`) or compute more than 2²⁴ ghost points (roughly a second of
-  construction), and eager mode otherwise.
+  grids (no antiderivatives) when eager expansion would build more than 2²⁷ coefficients
+  (1 GiB in `Float64`) or compute more than 2²⁴ ghost points (roughly a second of
+  construction), and eager mode otherwise. Nonuniform grids compute their ghost values at
+  construction, so `lazy=true` is an error there.
 
 # Returns
 A `ConvolutionExtrapolation` object callable at arbitrary points within (or, depending on
@@ -164,11 +164,11 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
         return _build_natural(knots_tuple, values, kernels_tuple, fast,
                               bcs_tuple, derivatives_tuple, lazy)
     end
-    return _build_fast(knots_tuple, values, kernels_tuple, bcs_tuple,
+    return _build_interpolant(knots_tuple, values, kernels_tuple, bcs_tuple,
                        derivatives_tuple, extrap, lazy, fast)
 end
 
-function _build_fast(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N},
+function _build_interpolant(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N},
                     kernel::NTuple{N,Symbol},
                     bc::NTuple{N,Tuple{Symbol,Symbol}},
                     derivative::NTuple{N,Int},

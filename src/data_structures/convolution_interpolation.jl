@@ -1,7 +1,6 @@
 """
     ConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
-                                 Axs<:Tuple,KA,DT,K,EQ,KBC,DOT,LZ,DI,SZ,NU} <:
-        AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DOT,LZ,DI,SZ}
+                                 Axs<:Tuple,KA,DT,K,EQ,KBC,DOT,LZ,DI,SZ,NU}
 
 Convolution interpolation with O(1) evaluation. On uniform axes the kernel weights are
 computed exactly from each kernel's polynomial pieces (see `_column_rows`), so evaluation is
@@ -54,8 +53,7 @@ their weights to the local spacing at evaluation.
   weights are computed from the local spacing at evaluation (`:n3`, `:a0`, `:a1`)
 """
 struct ConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
-                                Axs<:Tuple,KA,DT,K,EQ,KBC,DOT,LZ,DI,SZ,NU} <:
-                                AbstractConvolutionInterpolation{T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DOT,LZ,DI,SZ}
+                                Axs<:Tuple,KA,DT,K,EQ,KBC,DOT,LZ,DI,SZ,NU}
     coefs::TCoefs
     domain_size::SZ
     knots::Axs
@@ -70,7 +68,7 @@ struct ConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
     lazy::LZ
     anchor::NTuple{N, T}
     dim_integral::DI
-    # integrals of any order in any dimension (see FastIntegralOrders)
+    # integrals of any order in any dimension (see IntegralOrders)
     integral_taylor::NTuple{N, Matrix{T}}      # per integral dimension: exact anchoring table
     integral_entries::NTuple{N, Matrix{T}}     # per integral dimension: near-anchor entry polynomials
     integral_tails::Vector{Vector{Array{T,N}}} # left tails of every region (≤ 3 integral dimensions)

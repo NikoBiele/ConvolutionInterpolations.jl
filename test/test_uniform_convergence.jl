@@ -40,7 +40,7 @@ end
         for n in [12, 24, 48]
             r = range(0.0, 1.0, length=n)
             vals = sin.(2π .* collect(r))
-            itp = convolution_interpolation(r, vals; kernel=kernel, fast=false, bc=bc_deriv)
+            itp = convolution_interpolation(r, vals; kernel=kernel, bc=bc_deriv)
             test_pts = range(collect(r)[1], collect(r)[end], length=100)
             err = maximum(abs.(itp.itp.(test_pts) .- sin.(2π .* test_pts)))
             push!(errs, err)
@@ -77,7 +77,7 @@ end
         for n in [12, 24, 48]
             r = range(0.0, 2π, length=n)
             vals = sin.(collect(r))
-            itp_d1 = convolution_interpolation(r, vals; kernel=kernel, fast=false, bc=bc_deriv, derivative=1)
+            itp_d1 = convolution_interpolation(r, vals; kernel=kernel, bc=bc_deriv, derivative=1)
             test_pts = range(collect(r)[1], collect(r)[end], length=100)
             err = maximum(abs.(Float64[itp_d1(x) for x in test_pts] .- cos.(test_pts)))
             push!(errs, err)
@@ -114,7 +114,7 @@ end
         for n in [12, 24, 48]
             r = range(0.0, 2π, length=n)
             vals = sin.(collect(r))
-            itp_d2 = convolution_interpolation(r, vals; kernel=kernel, fast=false, bc=bc_deriv, derivative=2)
+            itp_d2 = convolution_interpolation(r, vals; kernel=kernel, bc=bc_deriv, derivative=2)
             test_pts = range(collect(r)[1], collect(r)[end], length=100)
             err = maximum(abs.(Float64[itp_d2(x) for x in test_pts] .- (-sin.(test_pts))))
             push!(errs, err)

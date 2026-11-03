@@ -165,14 +165,14 @@ Return the valid interpolation bounds for dimension `d`, accounting for ghost po
 first and last data knot. In eager mode these are found inside the extended knots, past the
 ghost knots; in lazy mode the knots carry no ghosts, so they are the ends of the knots.
 """
-@inline function _domain_bounds(itp::AbstractConvolutionInterpolation{T,N,NI,TCoefs,
-                    Axs,KA,DT,K,EQ,KBC,DO,Val{false},DI}, d) where {T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DO,DI}
+@inline function _domain_bounds(itp::ConvolutionInterpolation{T,N,NI,TCoefs,
+                    Axs,KA,DT,K,EQ,KBC,DO,Val{false},DI,SZ,NU}, d) where {T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DO,DI,SZ,NU}
     eqs_d = itp.eqs isa Tuple ? itp.eqs[d] : itp.eqs
     return itp.knots[d][eqs_d], itp.knots[d][end-(eqs_d-1)]
 end
 
-@inline function _domain_bounds(itp::AbstractConvolutionInterpolation{T,N,NI,TCoefs,
-                    Axs,KA,DT,K,EQ,KBC,DO,Val{true},DI}, d) where {T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DO,DI}
+@inline function _domain_bounds(itp::ConvolutionInterpolation{T,N,NI,TCoefs,
+                    Axs,KA,DT,K,EQ,KBC,DO,Val{true},DI,SZ,NU}, d) where {T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DO,DI,SZ,NU}
     k = itp.knots[d]
     n_k = length(k)
     n_d = size(itp.coefs, d)

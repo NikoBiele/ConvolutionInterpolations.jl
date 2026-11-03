@@ -226,7 +226,7 @@ function convolution_gaussian_itp(knots::NTuple{N,AbstractVector}, values::Abstr
     # the Gaussian kernel of every axis; the evaluator dispatches on this field
     kernel_type = ntuple(_ -> GaussianConvolutionKernel(Val(B), Val(eqs_for_gaussian)), N)
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
-    do_type = _build_fast_do_type(Val{DV}())
+    do_type = _build_do_type(Val{DV}())
     anchor = ntuple(d -> zero(T), N)
     integral_dimension = Val(0)
     integral_taylor = ntuple(_ -> Matrix{T}(undef, 0, 0), N)

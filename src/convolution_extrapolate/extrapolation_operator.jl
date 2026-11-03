@@ -25,9 +25,8 @@ etp.([0.3, 0.5, 0.7, 7.0])      # broadcasting over multiple points
 
 See also: [`convolution_interpolation`](@ref), [`extrapolate_point`](@ref), [`_domain_bounds`](@ref).
 """
-@inline function (etp::ConvolutionExtrapolation{T,N,
-                AbstractConvolutionInterpolation,ET})(x::Vararg{Number,N}) where 
-                            {T,N,AbstractConvolutionInterpolation,ET<:AbstractExtrapolation}
+@inline function (etp::ConvolutionExtrapolation{T,N,ITPT,ET})(x::Vararg{Number,N}) where
+                            {T,N,ITPT,ET<:AbstractExtrapolation}
     itp = etp.itp
     sh = shape(x...)
     
@@ -61,9 +60,8 @@ See also: [`convolution_interpolation`](@ref), [`extrapolate_point`](@ref), [`_d
 end
 
 # For broadcasting (Adapted from Interpolations.jl)
-@inline function (etp::ConvolutionExtrapolation{T,N,
-                AbstractConvolutionInterpolation,ET})(x::Vararg{AbstractArray,N}) where 
-                            {T,N,AbstractConvolutionInterpolation,ET<:AbstractExtrapolation}
+@inline function (etp::ConvolutionExtrapolation{T,N,ITPT,ET})(x::Vararg{AbstractArray,N}) where
+                            {T,N,ITPT,ET<:AbstractExtrapolation}
     itp = etp.itp
     sh = shape(x...)
 

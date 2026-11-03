@@ -1,5 +1,5 @@
 println("\n" * "-"^60)
-println("Testing 5D mixed integral/derivative (fast path, N-integral functor)...")
+println("Testing 5D mixed integral/derivative (N-integral functor)...")
 println("-"^60)
 
 # ── 5D mixed: exercises the N-integral-dims functor ──────────────────
@@ -73,7 +73,7 @@ end
     itp_fast   = convolution_interpolation((xs,ys,zs,ws,us), vs;
                      kernel=:b5, derivative=(-1,-1,-1,-1,0), fast=true, bc=:poly, lazy=false)
     itp_direct = convolution_interpolation((xs,ys,zs,ws,us), vs;
-                     kernel=:b5, derivative=(-1,-1,-1,-1,0), fast=false, bc=:poly, lazy=false)
+                     kernel=:b5, derivative=(-1,-1,-1,-1,0), bc=:poly, lazy=false)
     for (x,y,z,w,u) in [(2.0,2.1,2.2,2.3,2.4), (3.0,3.1,3.2,2.8,2.5)]
         @test abs(itp_fast(x,y,z,w,u) - itp_direct(x,y,z,w,u)) < 1e-6
     end

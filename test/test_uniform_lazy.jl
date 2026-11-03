@@ -200,7 +200,7 @@ end
         x_uniform = range(0.0, 2π, length=20)
         y = sin.(x_uniform)
         itp_fast = convolution_interpolation(x_uniform, y; lazy=true, fast=true)
-        itp_slow = convolution_interpolation(x_uniform, y; lazy=true, fast=false)
+        itp_slow = convolution_interpolation(x_uniform, y; lazy=true)
         @test itp_slow.itp.lazy == Val{true}()
         for x in range(0.1, 6.0, length=25)
             @test itp_fast(x) == itp_slow(x)

@@ -1,29 +1,30 @@
-# Direct-path antiderivatives of any order (fast = false): agreement with the fast path, exact
-# integrals of reproduced polynomials, mixed derivative/integral axes, and the order caps.
+# Antiderivatives of any order without stored tails (fast = false): agreement with the stored
+# tails, exact integrals of reproduced polynomials, mixed derivative/integral axes, and the
+# order caps.
 
 const CIdi = ConvolutionInterpolations
 
 println("\n" * "-"^60)
-println("Testing direct-path antiderivatives...")
+println("Testing antiderivatives without stored tails (fast = false)...")
 println("-"^60)
 
-# all kernels of the direct path with their highest integral orders
-const direct_integral_kernels = (:a0, :a1, :a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11, :b13)
+# all kernels with their highest integral orders
+const integral_kernels = (:a0, :a1, :a3, :a4, :a5, :a7, :b5, :b7, :b9, :b11, :b13)
 
-@testset "Direct vs fast, 1D, all kernels and orders" begin
+@testset "fast = false vs fast = true, 1D, all kernels and orders" begin
     x = range(0, 2, length = 41)
     f = @. exp(-x^2) * cos(3x)
     ts = range(0, 2, length = 97)
-    for kernel in direct_integral_kernels
+    for kernel in integral_kernels
         max_order = CIdi._max_integral_order[kernel]
         for m in 1:max_order
-            direct = convolution_interpolation(x, f; kernel = kernel, derivative = -m, fast = false)
-            fastp  = convolution_interpolation(x, f; kernel = kernel, derivative = -m, fast = true)
-            scale = maximum(abs(fastp(t)) for t in ts) + 1
-            err = maximum(abs(direct(t) - fastp(t)) for t in ts) / scale
+            notails = convolution_interpolation(x, f; kernel = kernel, derivative = -m, fast = false)
+            tails   = convolution_interpolation(x, f; kernel = kernel, derivative = -m, fast = true)
+            scale = maximum(abs(tails(t)) for t in ts) + 1
+            err = maximum(abs(notails(t) - tails(t)) for t in ts) / scale
             @test err < 1e-12
         end
-        println("    - kernel $kernel: orders 1 to $max_order agree with the fast path")
+        println("    - kernel $kernel: orders 1 to $max_order agree with the stored tails")
     end
 end
 
@@ -48,7 +49,7 @@ end
     end
 end
 
-@testset "Direct vs fast, 2D–4D, pure and mixed orders" begin
+@testset "fast = false vs fast = true, 2D–4D, pure and mixed orders" begin
     x = range(0, 2, length = 21)
     y = range(-1, 1, length = 17)
     z = range(0, 1, length = 13)
@@ -70,26 +71,26 @@ end
         ((x, y, z, w), g4, ts4, (-2, 0, 1, -3)),
     )
     for (knots, g, ts, orders) in cases
-        direct = convolution_interpolation(knots, g; kernel = :b5, derivative = orders, fast = false)
-        fastp  = convolution_interpolation(knots, g; kernel = :b5, derivative = orders, fast = true)
-        scale = maximum(abs(fastp(t...)) for t in ts) + 1
-        err = maximum(abs(direct(t...) - fastp(t...)) for t in ts) / scale
+        notails = convolution_interpolation(knots, g; kernel = :b5, derivative = orders, fast = false)
+        tails   = convolution_interpolation(knots, g; kernel = :b5, derivative = orders, fast = true)
+        scale = maximum(abs(tails(t...)) for t in ts) + 1
+        err = maximum(abs(notails(t...) - tails(t...)) for t in ts) / scale
         @test err < 1e-10
-        println("    - $(length(knots))D, derivative = $orders: agrees with the fast path")
+        println("    - $(length(knots))D, derivative = $orders: agrees with the stored tails")
     end
 end
 
 @testset "Order cap and antiderivative kernels" begin
     x = range(0, 1, length = 11)
     f = x .^ 2
-    for kernel in direct_integral_kernels
+    for kernel in integral_kernels
         max_order = CIdi._max_integral_order[kernel]
         @test_throws ErrorException convolution_interpolation(x, f; kernel = kernel,
                                         derivative = -(max_order + 1), fast = false)
     end
     println("    - orders above each kernel's cap are refused")
     # the kernel functor at a negative order is the exact antiderivative at the integers
-    for kernel in direct_integral_kernels, m in 1:CIdi._max_integral_order[kernel]
+    for kernel in integral_kernels, m in 1:CIdi._max_integral_order[kernel]
         K = CIdi.ConvolutionKernel(Val(kernel), Val(-m))
         for σ in -10:10
             @test K(Float64(σ)) ≈ Float64(CIdi._kernel_value_exact(kernel, m, σ)) atol = 1e-14

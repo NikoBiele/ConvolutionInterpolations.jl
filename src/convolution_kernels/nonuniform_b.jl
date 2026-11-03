@@ -40,11 +40,10 @@ end
     _get_kernel_rational_coefs(degree::Symbol, derivative::Int=0) -> Dict{Int, Vector{Rational{BigInt}}}
 
 Return the kernel piece coefficients as exact rationals. For derivative > 0 the base
-coefficients are differentiated exactly on the spot (the same `_derivative_coefs` that
-derives the precompiled `_d1`, `_d2`, … tables). Used by both the nonuniform and the
-uniform axes of a b-kernel interpolant that has at least one nonuniform axis; the order is
-checked per axis by the constructor, and here only against the wider nonuniform limit,
-`_max_derivative_order(degree, true)`, as a backstop for internal calls.
+coefficients are differentiated exactly on the spot by `_derivative_coefs`. Used by both the
+nonuniform and the uniform axes of a b-kernel interpolant that has at least one nonuniform
+axis; the order is checked per axis by the constructor, and here only against the wider
+nonuniform limit, `_max_derivative_order(degree, true)`, as a backstop for internal calls.
 """
 function _get_kernel_rational_coefs(degree::Symbol, derivative::Int=0)
     base = if degree == :b5
@@ -82,8 +81,9 @@ Precompute weight polynomial coefficients for one interval using exact arithmeti
 
 The three key operations for derivative support:
 
-1. **Binomial expansion with power shift**: The stored derivative coefficients
-   c[k] represent t^(k-derivative), not t^k (matching Julia's horner with DO skip).
+1. **Binomial expansion with power shift**: The derived derivative coefficients
+   c[k] represent t^(k-derivative), not t^k (the first `derivative` entries of every
+   piece are zero, see `_derivative_coefs`).
    So we expand (offset + sgn·s)^(k-derivative) for k ≥ derivative.
 
 2. **Sign correction**: For odd derivatives, multiply target by sgn (= sign(s - d_j)

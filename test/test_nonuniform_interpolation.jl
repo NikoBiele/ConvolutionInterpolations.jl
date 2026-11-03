@@ -114,19 +114,17 @@ end
     x = collect(range(0.0, 1.0, length = 41))
     x[21] += 1e-6
     f = sin.(2π .* x)
-    # the fast constructor and the direct one agree exactly on nonuniform knots
-    itp_fast = ConvolutionInterpolation(x, f, kernel = :b7)
-    itp_direct = ConvolutionInterpolation(x, f, kernel = :b7)
-    @test itp_fast(0.3) == itp_direct(0.3)
+    # the constructor takes nonuniform knots directly
+    itp = ConvolutionInterpolation(x, f, kernel = :b7)
+    @test isapprox(itp(0.3), sin(2π * 0.3), atol = 1e-6)
     # 2D: one nonuniform dimension is enough to take the nonuniform path on every axis
     y = range(0.0, 1.0, length = 21)
     g = [sin(2π * xi) * cos(2π * yi) for xi in x, yi in y]
-    itp2_fast = ConvolutionInterpolation((x, y), g, kernel = :b7)
-    itp2_direct = ConvolutionInterpolation((x, y), g, kernel = :b7)
-    @test isapprox(itp2_fast(0.3, 0.7), itp2_direct(0.3, 0.7), rtol = 1e-14)
-    # the same knots through the default constructor must still work
-    itp = convolution_interpolation(x, f, kernel = :b7)
-    @test isapprox(itp(0.3), sin(2π * 0.3), atol = 1e-6)
+    itp2 = ConvolutionInterpolation((x, y), g, kernel = :b7)
+    @test isapprox(itp2(0.3, 0.7), sin(2π * 0.3) * cos(2π * 0.7), atol = 1e-6)
+    # the same knots through the keyword function must still work
+    etp = convolution_interpolation(x, f, kernel = :b7)
+    @test isapprox(etp(0.3), sin(2π * 0.3), atol = 1e-6)
 end
 
 @testset "higher a-series kernels reject nonuniform grids" begin

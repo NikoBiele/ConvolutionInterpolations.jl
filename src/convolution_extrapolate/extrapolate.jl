@@ -1,10 +1,10 @@
 """
-    ConvolutionExtrapolation(itp::AbstractConvolutionInterpolation, et::AbstractExtrapolation)
+    ConvolutionExtrapolation(itp::ConvolutionInterpolation, et::AbstractExtrapolation)
 
 Wrap an interpolant with an extrapolation rule, so that it can be evaluated outside its grid.
 
 # Arguments
-- `itp`: The interpolant to extend, a `ConvolutionInterpolation` or a `ConvolutionInterpolation`
+- `itp`: The `ConvolutionInterpolation` to extend
 - `et`: The rule applied outside the grid: `Throw()`, `Flat()`, `Line()` or `Natural()`
 
 # Returns
@@ -15,7 +15,7 @@ Wrap an interpolant with an extrapolation rule, so that it can be evaluated outs
 `convolution_interpolation` builds this wrapper from its `extrap` keyword, which is the
 recommended way to get one.
 """
-function ConvolutionExtrapolation(itp::AbstractConvolutionInterpolation{T,N}, et::ET) where
+function ConvolutionExtrapolation(itp::ConvolutionInterpolation{T,N}, et::ET) where
                                     {T,N,ET<:AbstractExtrapolation}
     lo = ntuple(d -> T(_domain_bounds(itp, d)[1]), N)
     hi = ntuple(d -> T(_domain_bounds(itp, d)[2]), N)

@@ -32,7 +32,7 @@ _show_deg(::NonUniformMixedOrderKernel{S}) where S = _show_S(S)
 _show_deg(other) = other
 
 _show_do(::DerivativeOrder{DO}) where DO = DO isa Tuple && length(DO) == 1 ? "derivative=$(DO[1])" : allequal(DO) ? "derivative=$(DO[1])" : "derivative=$DO"
-_show_do(::FastIntegralOrders{DO}) where DO = length(DO) == 1 ? "derivative=$(DO[1])" : "derivative=$DO"
+_show_do(::IntegralOrders{DO}) where DO = length(DO) == 1 ? "derivative=$(DO[1])" : "derivative=$DO"
 
 function _show_kbc(kbc)
     kbc isa Tuple || return "$kbc"

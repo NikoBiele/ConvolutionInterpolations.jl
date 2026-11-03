@@ -1,9 +1,9 @@
 """
     ConvolutionInterpolation(knots, vs::AbstractArray{T,N}; kwargs...) where {T,N}
 
-Construct a fast convolution interpolation object with exact kernel weights for O(1) evaluation.
-This is the lower-level fast constructor — most users should prefer `convolution_interpolation`,
-which wraps this with extrapolation handling and automatic mode selection.
+Construct a convolution interpolation object with exact kernel weights for O(1) evaluation.
+This is the lower-level constructor — most users should prefer `convolution_interpolation`,
+which wraps this with extrapolation handling and the default choices of kernel and mode.
 
 On a uniform grid every kernel, derivative and antiderivative order is available. On a grid with
 a nonuniform axis the kernels must be all `b` kernels (whose weights are projected onto the
@@ -135,7 +135,7 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
                 error("Kernel :$k supports derivatives up to order $max_order on a $grid grid " *
                       "(dimension $d). Got derivative = $(derivatives_tuple[d]).")
         end
-        return _build_fast_nonuniform_convolution(knots_tuple, vs, bcs_tuple, uniform_dims,
+        return _build_nonuniform_convolution(knots_tuple, vs, bcs_tuple, uniform_dims,
                                                   Val(kernels_tuple), Val(derivatives_tuple))
     end
 
@@ -169,12 +169,12 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
                   "higher orders are not meaningful there). Got derivative = $(derivatives_tuple[d]).")
     end
 
-    return _build_fast_uniform_convolution(knots_tuple, vs, bcs_tuple,
+    return _build_uniform_convolution(knots_tuple, vs, bcs_tuple,
                                            Val(kernels_tuple), Val(lazy),
                                            Val(derivatives_tuple), Val(fast))
 end
 
-function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
+function _build_uniform_convolution(knots::NTuple{N,AbstractVector},
                                          vs::AbstractArray{T,N},
                                          bc::BCT,
                                          ::Val{KS},
@@ -204,7 +204,7 @@ function _build_fast_uniform_convolution(knots::NTuple{N,AbstractVector},
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
     integral_dimension = n_integral <= 3 ? Val(n_integral) : HigherDimension(Val(n_integral))
 
-    do_type = _build_fast_do_type(Val{DV}())
+    do_type = _build_do_type(Val{DV}())
 
     kernels = _build_kernel_sym(Val{KS}(), Val{DV}())
 
@@ -251,7 +251,7 @@ end
 # are all b kernels (uniform axes among them get the b tables of their own spacing, so one
 # ghost rule holds on every axis), all :n3, all :a0 or all :a1; the keyword constructor has
 # checked this. Each axis stores what `_axis_stencil` needs in `nonuniform`.
-function _build_fast_nonuniform_convolution(knots::NTuple{N,AbstractVector},
+function _build_nonuniform_convolution(knots::NTuple{N,AbstractVector},
                                             vs::AbstractArray{T,N},
                                             bc::BCT,
                                             uniform_dims::NTuple{N,Bool},
@@ -297,7 +297,7 @@ function _build_fast_nonuniform_convolution(knots::NTuple{N,AbstractVector},
     kernel_type = ntuple(_ -> nothing, N)
     dimension = N <= 3 ? Val(N) : HigherDimension(Val(N))
     integral_dimension = Val(0)
-    do_type = _build_fast_do_type(Val{DV}())
+    do_type = _build_do_type(Val{DV}())
     kernels = NonUniformMixedOrderKernel(Val(KS))
     integral_taylor = ntuple(_ -> Matrix{T}(undef, 0, 0), N)
     integral_entries = ntuple(_ -> Matrix{T}(undef, 0, 0), N)
@@ -315,10 +315,10 @@ function _build_fast_nonuniform_convolution(knots::NTuple{N,AbstractVector},
     )
 end
 
-@generated function _build_fast_do_type(::Val{D}) where D
+@generated function _build_do_type(::Val{D}) where D
     if any(<(0), D)
         # every integral: any orders, possibly mixed with interpolation or derivatives
-        return :(FastIntegralOrders{$D}())
+        return :(IntegralOrders{$D}())
     else
         return :(DerivativeOrder(Val($D)))
     end

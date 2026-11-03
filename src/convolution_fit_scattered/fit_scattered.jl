@@ -378,8 +378,7 @@ condition is fixed to `:poly` for consistency with the fit; on a nonuniform
 grid the interpolant's own ghost extrapolation is the one the fit used.
 A nonuniform grid gives a nonuniform interpolant (`:b5` by default for
 `:smooth` in 1-3D and for `:exact` in 1D, `:n3` otherwise; see
-`fit_scattered`): no antiderivatives (`derivative = -1`), and `lazy` only
-with `:n3`.
+`fit_scattered`): no antiderivatives (`derivative = -1`) and no lazy ghosts.
 
 ```julia
 pts = rand(2, 500)                                        # 500 scattered points in 2D, one per column

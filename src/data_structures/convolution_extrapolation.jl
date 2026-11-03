@@ -8,7 +8,6 @@ A structure that combines a convolution interpolation with boundary condition ex
 - `N`: The dimensionality of the data (number of dimensions)
 - `ITPT`: The specific type of convolution interpolation being used
 - `ET`: The boundary condition extrapolation technique
-- `O`: The order of the interpolation
 
 # Fields
 - `itp::ITPT`: The underlying interpolation object

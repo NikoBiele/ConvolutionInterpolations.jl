@@ -2,12 +2,13 @@
     ConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
                                  Axs<:Tuple,KA,DT,K,EQ,KBC,DOT,LZ,DI,SZ,NU}
 
-Convolution interpolation with O(1) evaluation. On uniform axes the kernel weights are
-computed exactly from each kernel's polynomial pieces (see `_column_rows`), so evaluation is
-exact to rounding for every kernel, derivative and integral order. On nonuniform axes the
-weights of the `b` kernels come from per-interval polynomial tables computed at construction
-(see `precompute_nonuniform_b_all`), and the closed-form kernels (`:n3`, `:a0`, `:a1`) adapt
-their weights to the local spacing at evaluation.
+Convolution interpolation on uniform and nonuniform grids. On uniform axes the kernel weights
+are computed exactly from each kernel's polynomial pieces (see `_column_rows`), so evaluation
+is exact to rounding for every kernel, derivative and integral order, and independent of the
+grid size. On nonuniform axes the cell is found by a binary search in the knots; the weights
+of the `b` kernels come from per-interval polynomial tables computed at construction (see
+`precompute_nonuniform_b_all`), and the closed-form kernels (`:n3`, `:a0`, `:a1`) adapt their
+weights to the local spacing at evaluation.
 
 # Type Parameters
 - `T`: Element type of the interpolated values

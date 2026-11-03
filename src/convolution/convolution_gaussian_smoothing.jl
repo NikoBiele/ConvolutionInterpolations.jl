@@ -147,7 +147,9 @@ by `B`. Useful for noisy data where exact interpolation is undesirable.
 - `knots`: grid — an `AbstractVector` (1D) or `NTuple{N,AbstractVector}` (ND)
 - `values`: array of values, must have `size(values, d) == length(knots[d])`
 - `B`: Gaussian width parameter. Larger `B` means narrower kernel (less smoothing),
-  smaller `B` means wider kernel (more smoothing). **B ≤ 0.1 recommended.**
+  smaller `B` means wider kernel (more smoothing). `B` up to 0.34 is accepted, above which
+  the kernel is no longer a partition of unity between the knots; `B ≈ 0.1` is the usual
+  choice. `convolution_smooth`, which evaluates on the knots only, takes any `B`.
 
 # Keyword Arguments
 - `extrap`: extrapolation behavior, default `Throw()`. See [`convolution_interpolation`](@ref).

@@ -21,7 +21,6 @@ Create a convolution-based interpolation object with automatic optimization and 
   every evaluation stays O(1). With `fast=false`, antiderivatives are summed over all
   coefficients at every evaluation (O(data) per evaluation, no stored tails), which avoids
   the tail arrays for a few integrals of a large dataset. Only affects `derivative < 0`.
-- `B::Float64=-1.0`: If a positive value is provided, uses Gaussian kernel with parameter `B` for C∞ smoothness.
 - `extrap=:throw`: Behavior outside the grid domain.
   Options: `:throw`, `:flat`, `:line` or `:natural` (uniform grids only).
 - `bc=nothing`: Boundary condition for the ghost values at the domain edges. `nothing` lets the
@@ -57,10 +56,11 @@ A `ConvolutionExtrapolation` object callable at arbitrary points within (or, dep
 `extrap`, outside) the grid domain.
 
 # Performance
-- Construction: ~3μs for 1D with 100 points (`:a4` kernel, `lazy=false`).
-  With `lazy=true`, construction is faster as ghost point expansion is skipped.
-- Evaluation (1D): `:a1` ~3ns, `:a4` ~10ns, `:b5` ~14ns per query, O(1) and allocation-free.
-  Boundary evaluation in lazy mode is slightly slower.
+- Construction is dominated by the ghost values on a uniform grid, which `lazy=true` defers
+  to evaluation, and by the per-interval weight tables of the `b` kernels on a nonuniform grid.
+- Evaluation is allocation-free and independent of the grid size on a uniform axis; a
+  nonuniform axis adds a binary search for the cell. Boundary cells are slightly slower in
+  lazy mode. The benchmark pages on convinterp.org give timings.
 
 # Examples
 ```julia
@@ -87,7 +87,7 @@ itp = convolution_interpolation(knots_5d, vals_5d, lazy=true)
 itp(0.5, 0.5, 0.5, 0.5, 0.5)
 ```
 
-See also: [`ConvolutionInterpolation`](@ref), [`ConvolutionInterpolation`](@ref), [`ConvolutionExtrapolation`](@ref).
+See also: [`ConvolutionInterpolation`](@ref), [`ConvolutionExtrapolation`](@ref).
 """
 function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,AbstractVector}},
         values::AbstractArray{T,N};

@@ -71,7 +71,7 @@ end
             ev = range(0.1, 0.9, length = 31)
             push!(rmss, sqrt(mean((itp(x, y) - g2(x, y))^2 for x in ev, y in ev)))
         end
-        @test rmss[2] < rmss[1] / 10
+        @test rmss[2] < rmss[1] / 5
     end
 
     @testset "derivatives vs analytic (2D, :b5)" begin

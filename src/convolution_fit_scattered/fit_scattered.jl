@@ -99,25 +99,31 @@ Two modes:
   `oversample`. `:smooth` warns when the fitted smoothing would need a finer
   grid than this allows (about eight knots per cycle of its cutoff): the fit
   may then be under-resolved, and a larger `oversample` helps.
-- `q::Union{Int,Symbol}=:auto`: roughness (difference) order of the seminorm.
-  `:auto` uses, for `:smooth`, 5 for every kernel (higher orders make the
-  smoothing system ill-conditioned, lower orders are less accurate); for
-  `:exact` on a uniform grid, the ghost extrapolation's stencil width minus one
-  but at least 5 (so 5 for `:a3`, `:a4` and `:b5`, 7 for `:b7`-class tables).
-  In data gaps the minimum-roughness completion decides the accuracy, and from
-  2D up the grid is mostly gaps: raising `q` from 3 to 5 gained a factor of 3-20
-  for the narrow kernels in 2-4D at 10-50 % more fit time, while `q >= 8`
-  destabilises the completion on sparse data and `q >= 9` shows in the
-  constraint violation. On nonuniform grids the roughness is discretised by
-  divided differences scaled to plain differences on the local spacing; the
-  `:exact` default is the stencil width minus one for the `:b` kernels (5 for
-  `:b5`) and 4 for `:n3`. Where the data thin out towards the bounds the
-  completion of the sparse cells oscillates at higher orders (and the `:b`
-  kernels' full-degree ghost extrapolation does so at any `q`, so on such data
-  prefer `:n3`); on data that are dense towards the bounds `:n3` gains another
-  factor of 2-3 from `q = 5` or `6`. For data that oscillate everywhere (a
-  chirp) no `q` smooths without biasing the signal, and GCV then leaves `lambda`
-  near zero: the knot count is the regulariser in that case.
+- `q::Union{Int,Symbol}=:auto`: order of the roughness seminorm. `:smooth`
+  penalises the q-th differences along each axis; `:exact` the full isotropic
+  `H^q` seminorm from 2D up, every mixed difference of total order `q` included
+  (in 1D the two coincide). The isotropic seminorm is the one the polyharmonic
+  splines minimise, and it decides what the completion does in the gaps between
+  the data points, where from 2D up most of the grid lies: the axis-wise
+  differences leave the mixed modes to the data alone, which costs accuracy
+  from 3D up, most of all away from the data's centre. It favours features
+  without a preferred direction; for a separable signal (a product of
+  one-dimensional factors) the axis-wise differences would be the natural
+  prior, and the fit is somewhat less accurate there. `:auto` uses, for
+  `:smooth`, 5 for every kernel (higher orders make the smoothing system
+  ill-conditioned, lower orders are less accurate); for `:exact` in 1D the
+  ghost extrapolation's stencil width minus one, at least 5 on uniform grids
+  (so 5 for `:b5`, 7 for the `:b7`-class tables); from 2D one order for all
+  axes, independent of the kernel: 5, the order that completed the gaps best
+  over a range of test functions in two to four dimensions, with 6 a little
+  better in 3D and higher orders showing in the constraint violation. On
+  nonuniform grids the differences are divided differences scaled to plain
+  differences on the local spacing, and `:n3` keeps `q = 4`, the highest order
+  whose completion stays bounded where the data thin out towards the bounds
+  (the `:b` kernels' full-degree ghost extrapolation oscillates there at any
+  `q`, so on such data prefer `:n3`). For data that oscillate everywhere (a
+  chirp) no `q` smooths without biasing the signal, and GCV then leaves
+  `lambda` near zero: the knot count is the regulariser in that case.
 - `lambda::Union{Symbol,Real}=:gcv` (`:smooth` only): the smoothing parameter,
   or `:gcv` to choose it by generalized cross-validation. The `lambda` returned
   by a fit reproduces that fit when passed back.
@@ -267,7 +273,7 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
         pdeg = ntuple(d -> kernels[d] === :n3 ? 2 : nonuniform_b_params(kernels[d])[2], D)   # ghost extrapolation degree
         ns   = ntuple(d -> pdeg[d] + 1, D)                           # knots per ghost
         qv   = ntuple(d -> q !== :auto ? q::Int :                    # roughness orders
-                          _default_roughness_order(mode, kernels[d], ns[d], true), D)
+                          _default_roughness_order(mode, kernels[d], ns[d], true, D), D)
     else
         for k in kernels
             haskey(POLYNOMIAL_GHOST_COEFFS, k) && k !== :n3 ||
@@ -277,7 +283,7 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
         G  = ntuple(d -> get_polynomial_ghost_coeffs(:poly, kernels[d]), D)
         ns = ntuple(d -> size(G[d], 2), D)                           # BC stencil width (:poly is the widest rule)
         qv = ntuple(d -> q !== :auto ? q::Int :                      # roughness orders
-                        _default_roughness_order(mode, kernels[d], ns[d], false), D)
+                        _default_roughness_order(mode, kernels[d], ns[d], false, D), D)
     end
 
     # ---- bounding box ---------------------------------------------------------
@@ -336,7 +342,9 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
     axes = _fit_axes(pts, n_int, lo, hi, grid; alpha, ratio)
 
     # ---- sparse system on the interior unknowns -----------------------------
-    A_eff, R_eff = _scattered_operators(pts, kernels, axes, qv)
+    # the isotropic H^q seminorm: in 1D the axis-wise differences, from 2D up every mixed
+    # difference of total order q as well, which the scattered data alone pin too loosely
+    A_eff, R_eff = _scattered_operators(pts, kernels, axes, qv; isotropic = true)
 
     c_int, viol = _scattered_auglag(A_eff, f, R_eff, Fs(W), iters, Fs(tol),
                                     verbose, Val(solver))
@@ -429,19 +437,26 @@ end
 
 """Default roughness order of the fit on one axis. `:smooth` uses 5 for every kernel:
 higher orders make the smoothing system ill-conditioned, lower orders are less accurate.
-`:exact` fills the gaps between the data points with the minimum-roughness completion,
-and from 2D up the grid is mostly gaps, so the order decides the accuracy there: the
-ghost extrapolation's stencil width minus one (5 for `:b5`, 7 for the `:b7`-class
-tables), raised to at least 5 for the narrow uniform kernels, which gain from it in every
-dimension; `:n3` on nonuniform grids gets 4, the highest order whose completion stays
-bounded where the data thin out towards the bounds."""
-function _default_roughness_order(mode::Symbol, kernel::Symbol, ns::Int, nonuniform::Bool)
+`:exact` fills the gaps between the data points with the minimum-roughness completion. In
+1D the order is the ghost extrapolation's stencil width minus one (5 for `:b5`, 7 for the
+`:b7`-class tables), at least 5 on uniform grids and at most 7 on nonuniform ones. From 2D
+up the penalty is the isotropic `H^q` seminorm, whose order is one for all axes and does
+not depend on the kernel: 5, the order that completed the gaps best over a range of test
+functions in two to four dimensions; `:n3` on nonuniform grids keeps 4, the highest order
+whose completion stays bounded where the data thin out towards the bounds."""
+function _default_roughness_order(mode::Symbol, kernel::Symbol, ns::Int, nonuniform::Bool,
+                                  D::Int)
     mode === :smooth && return 5
-    if nonuniform
-        kernel === :n3 && return 4
-        return min(ns - 1, 7)
+    if D == 1
+        if nonuniform
+            return min(ns - 1, 7)
+        end
+        return max(ns - 1, 5)
     end
-    return max(ns - 1, 5)
+    if nonuniform && kernel === :n3
+        return 4
+    end
+    return 5
 end
 
 """Scattered-path default kernel. `:smooth`: `:b5` for 1-3D on both grid types (the fit
@@ -472,10 +487,12 @@ for the given axes. Ranges mean a uniform grid: the uniform kernels with the `:p
 tables, as the uniform path has always built them. Vectors mean a nonuniform grid: the
 nonuniform kernels (`:n3` or the b-kernels) through the per-axis bases of `_nu_axis`, with
 divided-difference roughness in plain-difference units; `_smooth_system` applies the same
-`rowscale` to both grid types."""
+`rowscale` to both grid types. `isotropic = true` selects the isotropic `H^q` seminorm
+(`_scattered_roughness_iso`, one order for all axes) instead of the axis-wise differences."""
 function _scattered_operators(pts::AbstractMatrix{F}, kernels::NTuple{D,Symbol},
                               axes::NTuple{D,<:AbstractRange}, qv::NTuple{D,Int};
-                              bc::NTuple{D,Tuple{Symbol,Symbol}} = ntuple(_ -> (:poly, :poly), D)) where {F,D}
+                              bc::NTuple{D,Tuple{Symbol,Symbol}} = ntuple(_ -> (:poly, :poly), D),
+                              isotropic::Bool = false) where {F,D}
     eqs = ntuple(d -> get_equations_for_degree(kernels[d]), D)
     ng  = ntuple(d -> eqs[d] - 1, D)                       # ghosts per side
     Gl  = ntuple(d -> get_polynomial_ghost_coeffs(bc[d][1], kernels[d]), D)   # left ghost rule per axis
@@ -487,19 +504,35 @@ function _scattered_operators(pts::AbstractMatrix{F}, kernels::NTuple{D,Symbol},
 
     A = _scattered_collocation(pts, kernels, eqs, n_full, x0_full, h)
     S = _scattered_extension(n_full, n_int, ng, Gl, Gr, F)
-    R = _scattered_roughness(n_full, qv, F)
+    if isotropic
+        R = _scattered_roughness_iso(n_full, _isotropic_order(qv), F)
+    else
+        R = _scattered_roughness(n_full, qv, F)
+    end
     return A * S, R * S
 end
 
 function _scattered_operators(pts::AbstractMatrix{F}, kernels::NTuple{D,Symbol},
-                              axes::NTuple{D,<:AbstractVector}, qv::NTuple{D,Int}) where {F,D}
+                              axes::NTuple{D,<:AbstractVector}, qv::NTuple{D,Int};
+                              isotropic::Bool = false) where {F,D}
     bases = ntuple(d -> _nu_axis(kernels[d], axes[d], F), D)   # per-axis nonuniform basis
     M     = ntuple(d -> bases[d].M, D)                         # ghosts per side
 
     A = _scattered_collocation(pts, axes, bases)
     S = _scattered_extension(axes, bases, F)
-    R = _scattered_roughness(axes, M, qv, F)
+    if isotropic
+        R = _scattered_roughness_iso(axes, M, _isotropic_order(qv), F)
+    else
+        R = _scattered_roughness(axes, M, qv, F)
+    end
     return A * S, R * S
+end
+
+"""The single roughness order of an isotropic seminorm: the per-axis orders must agree."""
+function _isotropic_order(qv::NTuple{D,Int}) where {D}
+    all(==(qv[1]), qv) ||
+        throw(ArgumentError("the isotropic roughness seminorm needs one order on every axis, got $qv."))
+    return qv[1]
 end
 
 """Nonuniform basis of one axis for the scattered fit: everything the collocation, extension
@@ -672,39 +705,62 @@ function _scattered_extension(axes::NTuple{D,<:AbstractVector}, bases::NTuple{D,
     return reduce(kron, reverse(Es))
 end
 
+"""q-th differences along one uniform axis of `n` knots: `n - q` rows with the binomial
+weights `(-1)^(q-k) binomial(q, k)` at columns `i … i+q`."""
+function _difference_rows(n::Int, q::Int, ::Type{F}) where {F}
+    I_ = Int[]; J_ = Int[]; V_ = F[]
+    for i in 1:(n - q), k in 0:q
+        push!(I_, i); push!(J_, i + k)
+        push!(V_, F((-1)^(q - k) * binomial(q, k)))
+    end
+    return sparse(I_, J_, V_, n - q, n)
+end
+
+"""All multi-indices `α` of `D` nonnegative integers with `sum(α) == q`: the orders of the
+mixed differences of total order `q`."""
+function _multi_indices(q::Int, D::Int)
+    D == 1 && return [(q,)]
+    out = NTuple{D,Int}[]
+    for a in 0:q, rest in _multi_indices(q - a, D - 1)
+        push!(out, (a, rest...))
+    end
+    return out
+end
+
 """Roughness operator on the full grid: q-th differences along each axis,
 stacked. Column-major kron ordering to match `_scattered_extension`."""
 function _scattered_roughness(n_full::NTuple{D,Int}, q::NTuple{D,Int},
                               ::Type{F}) where {F,D}
-    function dq(n, qq)
-        I_ = Int[]; J_ = Int[]; V_ = F[]
-        for i in 1:(n - qq), k in 0:qq
-            push!(I_, i); push!(J_, i + k)
-            push!(V_, F((-1)^(qq - k) * binomial(qq, k)))
-        end
-        sparse(I_, J_, V_, n - qq, n)
-    end
     blocks = map(1:D) do dd
-        ops = ntuple(d -> d == dd ? dq(n_full[d], q[d]) :
+        ops = ntuple(d -> d == dd ? _difference_rows(n_full[d], q[d], F) :
                                     sparse(one(F) * I, n_full[d], n_full[d]), D)
         reduce(kron, reverse(ops))
     end
     return reduce(vcat, blocks)
 end
 
-"""Roughness operator on the full nonuniform grid: q-th divided differences along each axis,
-each row scaled by its support length to the q-th power, so every row is a plain q-th
-difference on the local scale, O(1) on any grid and equal to the uniform operator on a uniform
-grid; identity along the transverse axes; stacked over the axes. `_smooth_system` applies the
-same mean-grid `rowscale` as on uniform grids, so on a nonuniform grid the `:smooth` penalty
-is the sum of squared local differences in mean-grid units rather than exactly ∫|∂^q s|²: λ's
-cutoff interpretation is then approximate, while GCV still chooses λ from the data. The ghost
-knots (`M[d]` per side) mirror the end spacings, as the interpolant constructor places them.
+"""Isotropic roughness operator on the full grid: the discrete `H^q` seminorm, every mixed
+difference of total order `q` weighted by `sqrt(q!/α!)`, so that `‖R c‖²` discretises
+`∫ Σ_{|α|=q} (q!/α!) |∂^α s|²`, the seminorm the polyharmonic splines minimise. Unlike the
+axis-wise operator it also penalises the mixed modes, which from three dimensions up the
+scattered data pin too loosely on their own; in 1D the two operators coincide.
 Column-major kron ordering to match `_scattered_extension`."""
-function _scattered_roughness(axes::NTuple{D,<:AbstractVector}, M::NTuple{D,Int},
-                              q::NTuple{D,Int}, ::Type{F}) where {F,D}
-    # full knot vectors, normalised to [0, 1] over the interior, with mirrored ghosts
-    xs = ntuple(D) do d
+function _scattered_roughness_iso(n_full::NTuple{D,Int}, q::Int, ::Type{F}) where {F,D}
+    blocks = map(_multi_indices(q, D)) do α
+        w = sqrt(F(factorial(q)) / F(prod(factorial, α)))
+        ops = ntuple(d -> α[d] == 0 ? sparse(one(F) * I, n_full[d], n_full[d]) :
+                                      _difference_rows(n_full[d], α[d], F), D)
+        w * reduce(kron, reverse(ops))
+    end
+    return reduce(vcat, blocks)
+end
+
+"""Full knot vectors of a nonuniform grid for the roughness operators: each axis normalised to
+[0, 1] over the interior, with `M[d]` ghost knots per side mirroring the end spacings, as the
+interpolant constructor places them."""
+function _roughness_knots(axes::NTuple{D,<:AbstractVector}, M::NTuple{D,Int},
+                          ::Type{F}) where {F,D}
+    return ntuple(D) do d
         ax   = axes[d]
         lo   = F(first(ax))
         span = F(last(ax)) - lo
@@ -713,31 +769,59 @@ function _scattered_roughness(axes::NTuple{D,<:AbstractVector}, M::NTuple{D,Int}
         hn   = x[end] - x[end - 1]
         vcat([x[1] - g * h1 for g in M[d]:-1:1], x, [x[end] + g * hn for g in 1:M[d]])
     end
-    # q-th divided differences along one axis, each row times ℓ^q with ℓ its support length
-    # over q: a plain q-th difference on the local scale, O(1) on any grid and equal to the
-    # uniform operator's binomial differences on a uniform grid
-    function dq(x::Vector{F}, qq::Int)
-        n = length(x)
-        I_ = Int[]; J_ = Int[]; V_ = F[]
-        fac = F(factorial(qq))
-        for i in 1:(n - qq)
-            ell = (x[i + qq] - x[i]) / qq
-            for k in 0:qq
-                denom = one(F)
-                for m in 0:qq
-                    m == k && continue
-                    denom *= x[i + k] - x[i + m]
-                end
-                push!(I_, i); push!(J_, i + k); push!(V_, ell^qq * fac / denom)
-            end
-        end
-        return sparse(I_, J_, V_, n - qq, n)
-    end
+end
 
+"""q-th divided differences along one nonuniform axis with knots `x`, each row times ℓ^q with
+ℓ its support length over q: a plain q-th difference on the local scale, O(1) on any grid and
+equal to the uniform operator's binomial differences on a uniform grid."""
+function _divided_difference_rows(x::Vector{F}, q::Int) where {F}
+    n = length(x)
+    I_ = Int[]; J_ = Int[]; V_ = F[]
+    fac = F(factorial(q))
+    for i in 1:(n - q)
+        ell = (x[i + q] - x[i]) / q
+        for k in 0:q
+            denom = one(F)
+            for m in 0:q
+                m == k && continue
+                denom *= x[i + k] - x[i + m]
+            end
+            push!(I_, i); push!(J_, i + k); push!(V_, ell^q * fac / denom)
+        end
+    end
+    return sparse(I_, J_, V_, n - q, n)
+end
+
+"""Roughness operator on the full nonuniform grid: q-th divided differences along each axis
+in plain-difference units (`_divided_difference_rows`), identity along the transverse axes,
+stacked over the axes. `_smooth_system` applies the same mean-grid `rowscale` as on uniform
+grids, so on a nonuniform grid the `:smooth` penalty is the sum of squared local differences
+in mean-grid units rather than exactly ∫|∂^q s|²: λ's cutoff interpretation is then
+approximate, while GCV still chooses λ from the data. Column-major kron ordering to match
+`_scattered_extension`."""
+function _scattered_roughness(axes::NTuple{D,<:AbstractVector}, M::NTuple{D,Int},
+                              q::NTuple{D,Int}, ::Type{F}) where {F,D}
+    xs = _roughness_knots(axes, M, F)
     blocks = map(1:D) do dd
-        ops = ntuple(d -> d == dd ? dq(xs[d], q[d]) :
+        ops = ntuple(d -> d == dd ? _divided_difference_rows(xs[d], q[d]) :
                                     sparse(one(F) * I, length(xs[d]), length(xs[d])), D)
         reduce(kron, reverse(ops))
+    end
+    return reduce(vcat, blocks)
+end
+
+"""Isotropic roughness operator on the full nonuniform grid: the discrete `H^q` seminorm of
+the uniform `_scattered_roughness_iso`, with the divided differences of
+`_divided_difference_rows` along each axis in place of the binomial differences. Column-major
+kron ordering to match `_scattered_extension`."""
+function _scattered_roughness_iso(axes::NTuple{D,<:AbstractVector}, M::NTuple{D,Int},
+                                  q::Int, ::Type{F}) where {F,D}
+    xs = _roughness_knots(axes, M, F)
+    blocks = map(_multi_indices(q, D)) do α
+        w = sqrt(F(factorial(q)) / F(prod(factorial, α)))
+        ops = ntuple(d -> α[d] == 0 ? sparse(one(F) * I, length(xs[d]), length(xs[d])) :
+                                      _divided_difference_rows(xs[d], α[d]), D)
+        w * reduce(kron, reverse(ops))
     end
     return reduce(vcat, blocks)
 end

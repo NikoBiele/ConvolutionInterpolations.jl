@@ -25,8 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - 'min'   # lowest version allowed by [compat] julia in Project.toml (currently 1.8)
-          # - 'lts'   # current long-term support release (currently 1.10)
+          - 'lts'   # current long-term support release (currently 1.10)
           - '1'     # latest stable release
           - 'pre'   # upcoming release candidate
         os:

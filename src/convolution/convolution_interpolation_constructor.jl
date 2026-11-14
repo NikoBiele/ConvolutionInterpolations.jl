@@ -68,7 +68,10 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
                     knots isa NTuple{N,AbstractVector} ?
                     ntuple(d -> eltype(knots[d]) === T ? knots[d] : T.(knots[d]), N) :
                     error("Invalid knots specification: $knots.")
-    kernel = kernel === :auto ? _default_kernel(N) : kernel
+    # the default kernel depends on the dimension and, from 4D, on whether any axis is nonuniform
+    uniform_dims = ntuple(d -> is_uniform_grid(knots_tuple[d]), N)
+    is_nonuniform = !all(uniform_dims)
+    kernel = kernel === :auto ? _default_kernel(N, is_nonuniform) : kernel
     kernels_tuple = kernel isa NTuple{N,Symbol} ? kernel :
                     kernel isa Symbol ? ntuple(_ -> kernel, N) :
                     kernel isa NTuple{1,Symbol} ? ntuple(_ -> kernel[1], N) :
@@ -80,8 +83,6 @@ function ConvolutionInterpolation(knots::Union{AbstractVector,NTuple{N,AbstractV
 
     # the grid picks the cubic implementation: :n3 is :a3 on a uniform grid, :a3 is :n3 on a
     # nonuniform one
-    uniform_dims = ntuple(d -> is_uniform_grid(knots_tuple[d]), N)
-    is_nonuniform = !all(uniform_dims)
     if is_nonuniform
         kernels_tuple = ntuple(d -> kernels_tuple[d] === :a3 ? :n3 : kernels_tuple[d], N)
     else

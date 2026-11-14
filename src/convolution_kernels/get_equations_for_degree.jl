@@ -46,11 +46,20 @@ function get_equations_for_degree(degree::Symbol)
     return DEGREE_TO_EQUATIONS[degree]
 end
 
-function _default_kernel(N::Int)
+"""
+    _default_kernel(N, nonuniform = false)
+
+The kernel `kernel = :auto` selects in `N` dimensions: `:b7` in 1-2D and `:b5` in 3D on any
+grid; from 4D the cheap kernels, `:a4` in 4-5D and `:a3` above on a uniform grid, and `:n3` on
+a grid with a nonuniform axis, where `:a4` is not available.
+"""
+function _default_kernel(N::Int, nonuniform::Bool = false)
     if N <= 2
         return :b7
     elseif N == 3
         return :b5
+    elseif nonuniform
+        return :n3
     elseif N <= 5
         return :a4
     else

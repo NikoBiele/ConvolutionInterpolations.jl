@@ -103,7 +103,10 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
                     knots isa NTuple{N,AbstractVector} ?
                     ntuple(d -> eltype(knots[d]) === T ? knots[d] : T.(knots[d]), N) :
                     error("Invalid knots specification: $knots.")
-    kernel = kernel === :auto ? _default_kernel(N) : kernel
+    # the default kernel depends on the dimension and, from 4D, on whether any axis is nonuniform
+    uniform_dims = ntuple(d -> is_uniform_grid(knots_tuple[d]), N)
+    is_nonuniform = !all(uniform_dims)
+    kernel = kernel === :auto ? _default_kernel(N, is_nonuniform) : kernel
     kernels_tuple = kernel isa NTuple{N,Symbol} ? kernel :
                     kernel isa Symbol ? ntuple(_ -> kernel, N) :
                     kernel isa NTuple{1,Symbol} ? ntuple(_ -> kernel[1], N) :
@@ -114,7 +117,7 @@ function convolution_interpolation(knots::Union{AbstractVector,NTuple{N,Abstract
                     derivative isa NTuple{1,Int} ? ntuple(_ -> derivative[1], N) : 
                     error("Invalid derivative specification: $derivative.")
     is_integral = any(d -> derivatives_tuple[d] < 0, 1:N)
-    is_nonuniform = any(d -> !is_uniform_grid(knots_tuple[d]), 1:N) || any(d -> kernels_tuple[d] == :n3, 1:N)
+    is_nonuniform = is_nonuniform || any(d -> kernels_tuple[d] == :n3, 1:N)
 
     # the boundary condition: `nothing` lets the grid decide — `:detect` on a uniform grid, and
     # on a nonuniform grid `:kernel`, the kernel's own ghost extrapolation (the Vandermonde ghosts

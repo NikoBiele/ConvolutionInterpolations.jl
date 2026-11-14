@@ -60,17 +60,19 @@ function nonuniform_ghost_coefficients(knots::AbstractVector{T}, num_ghost::Int,
 end
 
 """
-    create_nonuniform_coefs(vs::AbstractArray{T,N}, knots::NTuple{N};
+    create_nonuniform_coefs(vs::AbstractArray{T,N}, knots::NTuple{N,AbstractVector};
                             degree::Symbol=:n3) where {T,N}
 
 Create expanded coefficient array with ghost points for nonuniform cubic (:n3) interpolation.
+The knot axes may be of different types, e.g. a range for a uniform axis and a vector for a
+nonuniform one.
 
 # Returns
 Tuple `(coefs, knots_expanded)` where:
 - `coefs`: Array with 1 ghost point per side per dimension
 - `knots_expanded`: Tuple of expanded knot vectors including ghost positions
 """
-function create_nonuniform_coefs(vs::AbstractArray{T,N}, knots::NTuple{N};
+function create_nonuniform_coefs(vs::AbstractArray{T,N}, knots::NTuple{N,AbstractVector};
                                 degree::Symbol=:n3) where {T,N}
     @assert degree == :n3 "create_nonuniform_coefs only supports :n3, got $degree"
 

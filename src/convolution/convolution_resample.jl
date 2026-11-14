@@ -2,39 +2,41 @@
     convolution_resample(knots_in, knots_out, values)
     convolution_resample(knots_in, knots_out, values; kernel, derivative, bc)
 
-Resample `values` from the uniform grid `knots_in` to the uniform grid `knots_out` using
-high-order separable convolution interpolation.
+Resample `values` from the uniform grid `knots_in` to the points `knots_out` by high-order
+convolution interpolation, one axis at a time. For grid-to-grid work this avoids building an
+interpolant and evaluating it point by point.
 
 # Arguments
-- `knots_in`: input grid — an `AbstractVector` (1D) or `NTuple{N,AbstractVector}` (ND)
-- `knots_out`: output grid — same format as `knots_in`
-- `values`: array of values on `knots_in`, must have `size(values, d) == length(knots_in[d])`
+- `knots_in`: the input grid, an `AbstractVector` in 1D or a tuple with one vector per axis.
+  Every axis must be increasing and uniformly spaced.
+- `knots_out`: the output points of each axis, in the same format. They need not be uniformly
+  spaced, but along every axis they must lie within the range of `knots_in`: resampling does
+  not extrapolate.
+- `values`: the data on `knots_in`, with `size(values, d) == length(knots_in[d])`.
+
+An `ArgumentError` is thrown when the input knots do not match the data, are not uniform, or
+when an output point lies outside their range. For data on a nonuniform grid, or to
+extrapolate, build an interpolant with `convolution_interpolation` instead.
 
 # Keyword Arguments
-- `kernel`: convolution kernel, default `:b13`. A `Symbol` applies to all dimensions;
-  an `NTuple{N,Symbol}` specifies per-dimension kernels. See [Kernel Reference] for options.
-- `derivative`: derivative order, default `0`. An `Int` applies to all dimensions;
-  an `NTuple{N,Int}` specifies per-dimension orders. Negative values compute antiderivatives.
-- `bc`: boundary condition, default `:detect`. See [Boundary Conditions] for options.
+With keywords, `knots_in` and `knots_out` are tuples in every dimension, so `(x,)` and
+`(x_new,)` in 1D.
+- `kernel=:b7`: the convolution kernel, a `Symbol` for all axes or a tuple with one per axis,
+  from the kernels of uniform grids (see `convolution_interpolation`).
+- `derivative=0`: the derivative order, an `Int` for all axes or a tuple with one per axis,
+  within the range of the kernel (see `convolution_interpolation`). Antiderivatives are not
+  supported here; use `convolution_interpolation` with a negative `derivative`.
+- `bc=:detect`: the boundary condition, as in `convolution_interpolation` on a uniform grid:
+  `:detect`, `:poly`, `:linear` or `:quadratic`.
 
-# Default kernels by dimension
-The convenience wrappers (called without keywords) use dimension-appropriate defaults:
-- 1D, 2D, 3D to 10D: `:b13`
+# Axes with few points
+The high-order boundary values need a minimum number of points along an axis: with the default
+`bc = :detect`, 5 for `:a3` to `:a7`, 7 for `:b5` and 9 for `:b7` to `:b13`, and one fewer
+with `bc = :poly`. An axis with fewer points is resampled without an error, with linear
+boundary values at its ends: exact for a straight line, less accurate otherwise.
 
 # Returns
-Array of resampled values with `size(result, d) == length(knots_out[d])`.
-
-# Performance
-Resampling is separable — each dimension is processed independently in a single pass.
-Allocation count is independent of grid size, and the function is fully type stable
-when called via the convenience wrappers. For grid-to-grid operations this is
-significantly faster than constructing a full interpolant and evaluating at each point:
-
-| Grid | `convolution_resample` | construct + eval | Speedup |
-|------|----------------------|------------------|---------|
-| 1D 500→1000 | 22 μs | 29 μs | 1.3× |
-| 2D 100²→200² | 1.9 ms | 7.0 ms | 3.6× |
-| 3D 30³→60³ | 8.9 ms | 127 ms | 14× |
+The array of resampled values, with `size(result, d) == length(knots_out[d])`.
 
 # Examples
 ```julia
@@ -43,6 +45,9 @@ x_coarse = range(0.0, 2π, length=20)
 x_fine   = range(0.0, 2π, length=200)
 y_coarse = sin.(x_coarse)
 y_fine   = convolution_resample(x_coarse, x_fine, y_coarse)
+
+# 1D with a keyword: the knots as one-element tuples
+y_fine_b5 = convolution_resample((x_coarse,), (x_fine,), y_coarse; kernel=:b5)
 
 # 2D resampling
 xs = range(0.0, 2π, length=20)
@@ -60,7 +65,7 @@ See also: [`convolution_interpolation`](@ref), [`convolution_smooth`](@ref)
 """
 function convolution_resample(knots_in::AbstractVector, knots_out::AbstractVector, values::AbstractVector{T}) where {T}
     return convolution_resample_internal((knots_in,), (knots_out,), values,
-                                        (:b13,),
+                                        (:b7,),
                                         (0,),
                                         ((:detect,:detect),))
 end
@@ -69,7 +74,7 @@ end
 function convolution_resample(knots_in::NTuple{2,AbstractVector}, knots_out::NTuple{2,AbstractVector},
                                 values::AbstractArray{T,2}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (:b13,:b13),
+                                        (:b7,:b7),
                                         (0,0),
                                         ((:detect,:detect),(:detect,:detect)))
 end
@@ -78,7 +83,7 @@ end
 function convolution_resample(knots_in::NTuple{3,AbstractVector}, knots_out::NTuple{3,AbstractVector},
                                 values::AbstractArray{T,3}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (:b13,:b13,:b13),
+                                        (:b7,:b7,:b7),
                                         (0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
@@ -87,7 +92,7 @@ end
 function convolution_resample(knots_in::NTuple{4,AbstractVector}, knots_out::NTuple{4,AbstractVector},
                                 values::AbstractArray{T,4}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (:b13,:b13,:b13,:b13),
+                                        (:b7,:b7,:b7,:b7),
                                         (0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
@@ -96,7 +101,7 @@ end
 function convolution_resample(knots_in::NTuple{5,AbstractVector}, knots_out::NTuple{5,AbstractVector},
                                 values::AbstractArray{T,5}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (:b13,:b13,:b13,:b13,:b13),
+                                        (:b7,:b7,:b7,:b7,:b7),
                                         (0,0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
@@ -105,7 +110,7 @@ end
 function convolution_resample(knots_in::NTuple{6,AbstractVector}, knots_out::NTuple{6,AbstractVector},
                                 values::AbstractArray{T,6}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (:b13,:b13,:b13,:b13,:b13,:b13),
+                                        (:b7,:b7,:b7,:b7,:b7,:b7),
                                         (0,0,0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
@@ -114,7 +119,7 @@ end
 function convolution_resample(knots_in::NTuple{7,AbstractVector}, knots_out::NTuple{7,AbstractVector},
                                 values::AbstractArray{T,7}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (:b13,:b13,:b13,:b13,:b13,:b13,:b13),
+                                        (:b7,:b7,:b7,:b7,:b7,:b7,:b7),
                                         (0,0,0,0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
@@ -123,7 +128,7 @@ end
 function convolution_resample(knots_in::NTuple{8,AbstractVector}, knots_out::NTuple{8,AbstractVector},
                                 values::AbstractArray{T,8}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13),
+                                        (:b7,:b7,:b7,:b7,:b7,:b7,:b7,:b7),
                                         (0,0,0,0,0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
@@ -132,7 +137,7 @@ end
 function convolution_resample(knots_in::NTuple{9,AbstractVector}, knots_out::NTuple{9,AbstractVector},
                                 values::AbstractArray{T,9}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13),
+                                        (:b7,:b7,:b7,:b7,:b7,:b7,:b7,:b7,:b7),
                                         (0,0,0,0,0,0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
@@ -141,7 +146,7 @@ end
 function convolution_resample(knots_in::NTuple{10,AbstractVector}, knots_out::NTuple{10,AbstractVector},
                                 values::AbstractArray{T,10}) where {T}
     return convolution_resample_internal(knots_in, knots_out, values,
-                                        (:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13,:b13),
+                                        (:b7,:b7,:b7,:b7,:b7,:b7,:b7,:b7,:b7,:b7),
                                         (0,0,0,0,0,0,0,0,0,0),
                                         ((:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect),(:detect,:detect)))
 end
@@ -149,7 +154,7 @@ end
 function convolution_resample(knots_in::NTuple{N,AbstractVector},
                                knots_out::NTuple{N,AbstractVector},
                                values::AbstractArray{T,N};
-                               kernel::Union{Symbol,NTuple{N,Symbol}}=:b13,
+                               kernel::Union{Symbol,NTuple{N,Symbol}}=:b7,
                                derivative::Union{Int,NTuple{N,Int}}=0,
                                bc::Union{Symbol,Tuple{Symbol,Symbol},NTuple{N,Tuple{Symbol,Symbol}}}=:detect) where {T,N}
 
@@ -188,12 +193,60 @@ function convolution_resample(knots_in::NTuple{N,AbstractVector},
 
 end
 
+"""
+    _check_resample_axis(knots_in, knots_out, n_values, d)
+
+Validate axis `d` of a resampling call, throwing an `ArgumentError` otherwise: the input knots
+match the data (`n_values` values along this axis), are increasing and uniformly spaced, and
+every output point lies within their range. The resampling passes use one spacing per axis and
+clamp to the boundary cells, so a call that fails any of these would return wrong values
+without an error. The range test allows for rounding at the two ends.
+"""
+function _check_resample_axis(knots_in::AbstractVector, knots_out::AbstractVector,
+                              n_values::Int, d::Int)
+    n_in = length(knots_in)
+    if n_in != n_values
+        throw(ArgumentError("convolution_resample: knots_in has $n_in knots along dimension $d, " *
+                            "but values has $n_values entries there."))
+    end
+    if n_in < 2
+        throw(ArgumentError("convolution_resample: knots_in needs at least 2 knots along " *
+                            "dimension $d, got $n_in."))
+    end
+    lo = first(knots_in)
+    hi = last(knots_in)
+    if !(hi > lo) || !is_uniform_grid(knots_in)
+        throw(ArgumentError("convolution_resample: knots_in must be increasing and uniformly " *
+                            "spaced along dimension $d. For data on a nonuniform grid, build an " *
+                            "interpolant with convolution_interpolation and evaluate it at the " *
+                            "new points."))
+    end
+    if isempty(knots_out)
+        throw(ArgumentError("convolution_resample: knots_out is empty along dimension $d."))
+    end
+    spacing = (hi - lo) / (n_in - 1)
+    tol = sqrt(eps(float(typeof(spacing)))) * spacing    # rounding allowance at the two ends
+    if minimum(knots_out) < lo - tol || maximum(knots_out) > hi + tol
+        throw(ArgumentError("convolution_resample: knots_out reaches outside the range of " *
+                            "knots_in along dimension $d ([$lo, $hi]). Resampling does not " *
+                            "extrapolate; build an interpolant with convolution_interpolation " *
+                            "and its extrap keyword instead."))
+    end
+    return nothing
+end
+
 function convolution_resample_internal(knots_in::NTuple{N,AbstractVector},
                                knots_out::NTuple{N,AbstractVector},
                                values::AbstractArray{T,N},
                                kernels::NTuple{N,Symbol},
                                derivatives::NTuple{N,Int},
                                bcs::NTuple{N,Tuple{Symbol,Symbol}}) where {T,N}
+
+    # reject calls the passes below would answer wrongly: mismatched or nonuniform input knots,
+    # and output points outside the input range
+    for d in 1:N
+        _check_resample_axis(knots_in[d], knots_out[d], size(values, d), d)
+    end
 
     # pre-allocate a concrete buffer
     buf_in  = Array{T,N}(undef, size(values))

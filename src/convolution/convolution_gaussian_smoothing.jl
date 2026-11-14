@@ -5,11 +5,16 @@ Apply separable Gaussian smoothing to `values` on the uniform grid `knots`.
 Returns an array of the same size as `values` with noise reduced.
 
 # Arguments
-- `knots`: grid — an `AbstractVector` (1D) or `NTuple{N,AbstractVector}` (ND)
+- `knots`: grid — an `AbstractVector` (1D) or `NTuple{N,AbstractVector}` (ND). Every axis
+  must be increasing and uniformly spaced.
 - `values`: array of values to smooth, must have `size(values, d) == length(knots[d])`
 - `B`: Gaussian width parameter. Larger `B` means a narrower kernel (less smoothing),
   smaller `B` means a wider kernel (more smoothing). **B ≤ 0.1 recommended** for
   effective noise reduction.
+
+An `ArgumentError` is thrown when the knots do not match the data or are not uniform. For
+noisy data that are scattered or on a nonuniform grid, use the smoothing fit of
+`convolution_interpolation(points, values)` instead.
 
 # Returns
 Array of smoothed values, same size and element type as `values`.
@@ -17,14 +22,7 @@ Array of smoothed values, same size and element type as `values`.
 # Performance
 Smoothing is separable and allocation-free in the inner loop. The Gaussian kernel
 weights are precomputed once per call — `exp` is evaluated only `2*eqs+1` times
-regardless of grid size or dimension:
-
-| Grid | B=0.02 | B=0.05 | B=0.1 |
-|------|--------|--------|-------|
-| 1D n=1000 | 22 μs | 13 μs | 9.6 μs |
-| 2D 200² | 1.7 ms | 0.99 ms | 0.72 ms |
-| 3D 50³ | 9.3 ms | 5.7 ms | 4.4 ms |
-| 4D 40⁴ | 273 ms | 206 ms | 169 ms |
+regardless of grid size or dimension. The benchmark pages on convinterp.org give timings.
 
 # Examples
 ```julia
@@ -47,9 +45,20 @@ function convolution_smooth(knots::NTuple{N,AbstractVector}, values::AbstractArr
     eqs_d = ceil(Int, sqrt(-log(T(10_000)*eps(T)/T(2)) / B))
     NT    = eqs_d
 
-    # check that stencil fits within domain
+    # check the grid of every axis: it must match the data and be uniform, since the passes
+    # below use one spacing per axis, and the stencil must fit within it
     for d in 1:N
         n = length(knots[d])
+        if n != size(values, d)
+            throw(ArgumentError("convolution_smooth: knots has $n knots along dimension $d, " *
+                                "but values has $(size(values, d)) entries there."))
+        end
+        if n < 2 || !(last(knots[d]) > first(knots[d])) || !is_uniform_grid(knots[d])
+            throw(ArgumentError("convolution_smooth: knots must be increasing and uniformly " *
+                                "spaced along dimension $d. For noisy data that are scattered " *
+                                "or on a nonuniform grid, use the smoothing fit of " *
+                                "convolution_interpolation(points, values)."))
+        end
         if eqs_d >= n
             error("Gaussian stencil half-width ($eqs_d points) exceeds grid size (n=$n) in dimension $d. "*
                   "Use a larger B (currently B=$B) or more grid points (need n > $eqs_d).")

@@ -5,6 +5,7 @@ using Test, Random, StatsBase
 Random.seed!(20260924)
 
 @testset "ConvolutionInterpolations.jl" begin
+    include("test_input_validation.jl")
     include("test_column_polynomials.jl")
     include("test_nd_integral_separable.jl")
     include("test_constructors.jl")

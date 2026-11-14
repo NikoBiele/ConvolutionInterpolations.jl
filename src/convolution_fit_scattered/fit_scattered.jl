@@ -72,7 +72,7 @@ Two modes:
   strictly increasing knot vectors, one per axis, is used as given; the vectors
   must cover the data. Nonuniform grids
   give a nonuniform interpolant: no antiderivatives (`derivative = -1`) and
-  `lazy` only with `:n3`. With the `:b` kernels construction costs one
+  no lazy construction. With the `:b` kernels construction costs one
   exact-arithmetic projection per interval, so keep their knot counts modest;
   `:n3` has no such cost.
 - `alpha::Real=1.0`, `ratio::Real=2.0` (`grid = :adaptive` only): the blend
@@ -137,15 +137,16 @@ Two modes:
   flat end is worth repeating with `:linear` there. Interpolate the fitted
   grid with the same `bc`. On nonuniform grids the ghosts are the basis's own.
 - `solver::Symbol=:cholesky` (`:exact` only): `:cholesky` (default) factors the
-  Jacobi-equilibrated SPD normal system with CHOLMOD: fast, and with the
-  default `:b5` kernel it is truncation-limited (no visible roundoff floor
-  down to ~3e-11 in 2D benchmarks). `:qr` solves each multiplier iteration
-  as a sparse least-squares problem via SPQR without forming normal
-  equations; it is several times slower but lowers the roundoff floor of the
-  wide kernels (measured 2D floors: :b7 ~5e-12 and still converging,
-  :b9 ~1e-11, :b11 ~6e-10, :b13 ~3e-9). Use `solver=:qr, kernel=:b7` when
-  chasing the deepest accuracy. The `:nullspace` solver solves for the
-  coefficients exactly, but is only feasible on small meshes (few points).
+  Jacobi-equilibrated SPD normal system with CHOLMOD. It is the fast choice,
+  and with the narrow kernels its error is set by the fit, not by roundoff; if
+  the system loses positive definiteness numerically it falls back to `:qr`.
+  `:qr` solves each multiplier iteration as a sparse least-squares problem via
+  SPQR without forming normal equations; it is several times slower but lowers
+  the roundoff floor of the wide kernels, which rises with the kernel's width.
+  Use `solver=:qr, kernel=:b7` when chasing the deepest accuracy. The
+  `:nullspace` solver is deprecated and will be removed in the next breaking
+  release: a dense direct solve through a null-space basis of the constraints,
+  limited to small problems and less accurate than the other two.
 - `W::Real=1e6` (`:exact` only): augmented-Lagrangian penalty weight.
 - `iters::Int=20`, `tol::Real=1e-11` (`:exact` only): multiplier iteration
   controls; convergence typically takes 1-2 iterations.
@@ -187,7 +188,11 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
                        verbose::Bool=false)
 
     solver in (:nullspace, :qr, :cholesky) ||
-        throw(ArgumentError("solver must be :nullspace, :qr or :cholesky, got $solver."))
+        throw(ArgumentError("solver must be :qr or :cholesky, got $solver."))
+    if solver === :nullspace
+        @warn "solver = :nullspace is deprecated and will be removed in the next breaking " *
+              "release: it is less accurate than :cholesky and :qr. Use one of those instead."
+    end
     # the ghost rule per axis and end, normalised to ((left, right), …): a Symbol applies
     # everywhere, a pair of Symbols to both ends of every axis, a tuple of pairs per axis
     D_bc = size(points, 1)

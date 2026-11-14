@@ -8,7 +8,9 @@ Create a convolution-based interpolation object with automatic optimization and 
 - `values`: Array of values at the grid points.
 
 # Keyword Arguments
-- `kernel::Symbol=:auto`: Convolution kernel to use (default is N-dependent to reflect tensor product cost).
+- `kernel::Symbol=:auto`: Convolution kernel to use. The default depends on the dimension, to
+  reflect the tensor-product cost: `:b7` in 1-2D, `:b5` in 3D, `:a4` in 4-5D and `:a3` above.
+  On a grid with a nonuniform axis the default from 4D is `:n3`.
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a4` (quartic), `:a5` (quintic), `:a7` (septic)
   - `b`-series: `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
   - `:n3` (cubic): the nonuniform implementation of `:a3`. `:a3` and `:n3` are interchangeable —

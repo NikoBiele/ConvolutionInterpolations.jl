@@ -8,7 +8,7 @@ ConvolutionInterpolations.jl interpolates data by convolution with a piecewise-p
 
 - **High-order kernels**: 7th-order convergence on uniform grids, up to 14th on nonuniform ones
 - **Exact evaluation**: kernel weights computed exactly from the polynomial pieces, in any precision
-- **O(1) evaluation**: query time independent of grid size, allocation-free
+- **Fast evaluation**: allocation-free, and independent of the grid size on uniform grids
 - **Any dimension**: separable kernels, with lazy construction for large grids
 - **High-order derivatives**: up to 5th order on uniform grids and up to 11th order on nonuniform grids (≥ 2nd order convergence)
 - **Repeated integrals up to 8th order** on uniform grids, mixed per axis with derivatives, from the same samples
@@ -125,11 +125,11 @@ Nonuniform grids:
 
 On a nonuniform grid the `b` kernels reproduce their full degree `p`, so derivative `k` converges at order `p + 1 - k`, and the range extends to the last continuous derivative, `p - 2`. Rounding in the data is amplified by `h^-k` for every kernel and grid, so high orders on fine grids need `BigFloat` data.
 
-The default `:b7` works everywhere: uniform and nonuniform grids, derivatives, integrals, lazy mode, any dimension. The nonuniform `b` kernels converge at order degree + 1, since their per-interval weights enforce polynomial reproduction up to the kernel's full degree; `:n3` is the nonuniform form of `:a3`, and the two names are interchangeable.
+`:b7`, the default in 1D and 2D, works on uniform and nonuniform grids and in any dimension, with derivatives on both; integrals and lazy mode need a uniform grid. The nonuniform `b` kernels converge at order degree + 1, since their per-interval weights enforce polynomial reproduction up to the kernel's full degree; `:n3` is the nonuniform form of `:a3`, and the two names are interchangeable.
 
 ## Choosing a kernel
 
-- **Default `:b7` works everywhere**: 7th-order accuracy on uniform grids, nonuniform grids, high-order derivatives
+- **`:b7` is the all-round choice**: the default in 1D and 2D, high order on uniform and nonuniform grids, high-order derivatives
 - **Lazy mode for large grids**: chosen automatically when eager expansion would be costly; saves memory and construction time
 - **Use `:a0`, `:a1` or `:a3` in high dimensions**: evaluation time of narrower kernels scales better with dimension
 - **Any precision works out of the box**: `Float32` and `BigFloat` interpolants use the exact kernel coefficients rounded to their own precision

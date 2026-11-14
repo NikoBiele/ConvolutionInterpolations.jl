@@ -3,21 +3,31 @@
 # ============================================================
 
 """
-    is_uniform_grid(knots::AbstractVector; rtol=1e-10)
+    is_uniform_grid(knots::AbstractVector)
 
-Check whether a 1D knot vector is uniformly spaced.
+Check whether a 1D knot vector is uniformly spaced, to within the rounding of its own
+floating-point type.
 
-Returns `true` if all spacings are within relative tolerance `rtol`
-of the first spacing.
+Each knot carries a rounding error of up to about `eps(F)` times its magnitude, with `F` the
+floating-point type of the knots, so on a grid that is as uniform as `F` can express, two
+spacings can still differ by a few times `eps(F) * max(|first|, |last|)`. A knot vector is
+uniform when every spacing is within 16 times that of the first spacing. The tolerance
+therefore follows the type: a `Float32` vector is judged by `Float32` rounding and a
+`BigFloat` vector by the precision it was created with. A range is uniform by construction.
+A vector with fewer than two knots, or whose first two knots coincide, is not uniform.
 """
-function is_uniform_grid(knots::AbstractVector{T}) where T
-    tol = T <: Float32 ? 1e-5 : 1e-10
-    knots isa AbstractRange && return true  # ranges are uniform by construction
-    h0 = knots[2] - knots[1]
-    isapprox(h0, 0, atol=tol) && return false
-    for i in 2:length(knots)-1
-        hi = knots[i+1] - knots[i]
-        if abs(hi - h0) > tol * abs(h0)
+function is_uniform_grid(knots::AbstractVector)
+    knots isa AbstractRange && return true               # ranges are uniform by construction
+    n = length(knots)
+    n < 2 && return false                                # no spacing to compare
+    F = typeof(float(first(knots)))                      # floating-point type of the knots
+    scale = max(abs(F(first(knots))), abs(F(last(knots))))   # magnitude that sets the rounding
+    tol = 16 * eps(F) * scale                            # largest spacing difference rounding explains
+    h0 = F(knots[2]) - F(knots[1])                       # the first spacing, the reference
+    abs(h0) <= tol && return false                       # coinciding knots
+    for i in 2:n-1
+        h_i = F(knots[i+1]) - F(knots[i])                # spacing i
+        if abs(h_i - h0) > tol
             return false
         end
     end
@@ -28,10 +38,10 @@ end
     n3_to_a3_on_uniform(kernels, knots)
 
 On a fully uniform grid the nonuniform cubic `:n3` reduces exactly to the
-uniform cubic `:a3`, which has a faster evaluator and a fast-path
-implementation. Remap `:n3` → `:a3` in every dimension when all grids are
-uniform; leave the kernels untouched otherwise (the nonuniform path handles
-mixed uniform/nonuniform dimensions).
+uniform cubic `:a3`, which has a faster evaluator. Remap `:n3` → `:a3` in
+every dimension when all grids are uniform; leave the kernels untouched
+otherwise (the nonuniform evaluator handles mixed uniform/nonuniform
+dimensions).
 """
 function n3_to_a3_on_uniform(kernels::NTuple{N,Symbol}, knots::NTuple{N,AbstractVector}) where N
     any(==(:n3), kernels) || return kernels

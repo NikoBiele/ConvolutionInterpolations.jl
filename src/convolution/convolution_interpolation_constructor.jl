@@ -1,7 +1,9 @@
 """
     ConvolutionInterpolation(knots, vs::AbstractArray{T,N}; kwargs...) where {T,N}
 
-Construct a convolution interpolation object with exact kernel weights for O(1) evaluation.
+Construct a convolution interpolation object with exact kernel weights. Evaluation is
+independent of the grid size on a uniform axis; a nonuniform axis adds a search for the cell,
+and antiderivatives built with `fast = false` sum over the data.
 This is the lower-level constructor — most users should prefer `convolution_interpolation`,
 which wraps this with extrapolation handling and the default choices of kernel and mode.
 
@@ -15,7 +17,9 @@ knots at construction), all `:n3` (or `:a3`, which evaluates as `:n3` there), al
 - `vs`: Array of values at the grid points.
 
 # Keyword Arguments
-- `kernel::Symbol=:auto`: Convolution kernel to use (default is N-dependent to reflect tensor product cost).
+- `kernel::Symbol=:auto`: Convolution kernel to use. The default depends on the dimension, to
+  reflect the tensor-product cost: `:b7` in 1-2D, `:b5` in 3D, `:a4` in 4-5D and `:a3` above.
+  On a grid with a nonuniform axis the default from 4D is `:n3`.
   - `a`-series: `:a0` (nearest), `:a1` (linear), `:a3` (cubic), `:a4` (quartic), `:a5` (quintic), `:a7` (septic)
   - `b`-series: `:b5`, `:b7`, `:b9`, `:b11`, `:b13`
   - `:n3`: the cubic kernel of nonuniform grids (`:a3` on a uniform grid)

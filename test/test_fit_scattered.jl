@@ -103,8 +103,8 @@ end
         end
     end
 
-    @testset "solver agreement oracle (nullspace as source of truth)" begin
-        println("    - Testing scattered solver agreement vs direct nullspace solve")
+    @testset "solvers agree with the deprecated null-space solve" begin
+        println("    - Testing scattered solver agreement with the deprecated null-space solve")
         rng = MersenneTwister(5)
         xs = sort(rand(rng, 60))
         pts = reshape(xs, 1, :)

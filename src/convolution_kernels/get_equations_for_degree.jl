@@ -88,7 +88,7 @@ const LAZY_MAX_EAGER_GHOSTS = 2^24
 """
     _default_lazy(sizes, kernels, derivatives)
 
-The choice `lazy=nothing` makes on the uniform fast path: lazy when eager expansion would use too
+The choice `lazy=nothing` makes on a uniform grid: lazy when eager expansion would use too
 much memory (more than `LAZY_MAX_EAGER_COEFFICIENTS` coefficients in total) or take too long to
 build (more than `LAZY_MAX_EAGER_GHOSTS` ghost points), since that then outweighs lazy mode's slower
 boundary cells; eager otherwise, and always eager with antiderivatives, which lazy mode does not

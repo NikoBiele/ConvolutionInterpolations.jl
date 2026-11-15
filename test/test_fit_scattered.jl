@@ -10,12 +10,17 @@ g2_int(a, b, c, d) = (cos(3a) - cos(3b)) / 3 * (sin(2d) - sin(2c)) / 2
 g3(x, y, z)  = sin(3x) * cos(2y) * exp(-z)
 g1(x)        = sin(6x) + 0.3cos(11x)
 
-function jittered_pts(n_side, jitter, rng; dims = 2)
+# scattered points in the unit box: the centres of an n_side^dims grid of cells, each moved by
+# up to `jitter` cell widths along every axis. The moves come from `stable_rand(seed, ...)`, so
+# the points are the same on every Julia version, and no two are closer than (1 - 2 jitter)
+# cell widths
+function jittered_pts(n_side, jitter, seed; dims = 2)
     pts = Matrix{Float64}(undef, dims, n_side^dims)
+    u = stable_rand(seed, dims, n_side^dims)
     for (k, ci) in enumerate(CartesianIndices(ntuple(_ -> n_side, dims)))
         for d in 1:dims
             pts[d, k] = clamp((ci[d] - 0.5) / n_side +
-                              jitter / n_side * (2rand(rng) - 1), 0.0, 1.0)
+                              jitter / n_side * (2u[d, k] - 1), 0.0, 1.0)
         end
     end
     pts
@@ -26,8 +31,7 @@ end
     @testset "exactness at the data (1D/2D/3D)" begin
         println("    - Testing exactness at fitting scattered 1D/2D/3D")
         for (dims, n_side, tol) in ((1, 200, 1e-9), (2, 25, 1e-9), (3, 8, 1e-8))
-            rng = MersenneTwister(7)
-            pts = jittered_pts(n_side, 0.35, rng; dims)
+            pts = jittered_pts(n_side, 0.35, 7; dims)
             f = dims == 1 ? g1.(vec(pts)) :
                 dims == 2 ? [g2(pts[1,i], pts[2,i]) for i in 1:size(pts,2)] :
                             [g3(pts[1,i], pts[2,i], pts[3,i]) for i in 1:size(pts,2)]
@@ -39,16 +43,16 @@ end
 
     @testset "perturbed grid ~ true grid (consistency)" begin
         println("    - Testing perturbed grid consistency")
-        rng = MersenneTwister(11)
         n = 21
         xg = range(0.0, 1.0, length = n)
         itp_grid = ConvolutionInterpolation((xg, xg),
                     [g2(x, y) for x in xg, y in xg]; kernel = :b5, bc = :poly)
         h = step(xg)
         pts = Matrix{Float64}(undef, 2, n^2)
+        u = stable_rand(11, 2, n^2)                 # the perturbation of each grid point
         for (k, ci) in enumerate(CartesianIndices((n, n)))
-            pts[1, k] = clamp(xg[ci[1]] + 1e-3h * (2rand(rng) - 1), 0.0, 1.0)
-            pts[2, k] = clamp(xg[ci[2]] + 1e-3h * (2rand(rng) - 1), 0.0, 1.0)
+            pts[1, k] = clamp(xg[ci[1]] + 1e-3h * (2u[1, k] - 1), 0.0, 1.0)
+            pts[2, k] = clamp(xg[ci[2]] + 1e-3h * (2u[2, k] - 1), 0.0, 1.0)
         end
         vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
         itp_sc = convolution_interpolation(pts, vals; kernel = :b5, mode = :exact)
@@ -64,8 +68,7 @@ end
         # test asserts the error levels rather than a slope
         rmss = Float64[]
         for n_side in (20, 40)
-            rng = MersenneTwister(3)
-            pts = jittered_pts(n_side, 0.35, rng)
+            pts = jittered_pts(n_side, 0.35, 3)
             vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
             itp = convolution_interpolation(pts, vals; kernel = :b5, mode = :exact)
             ev = range(0.1, 0.9, length = 31)
@@ -76,8 +79,7 @@ end
 
     @testset "derivatives vs analytic (2D, :b5)" begin
         println("    - Testing scattered fit derivatives")
-        rng = MersenneTwister(3)
-        pts = jittered_pts(40, 0.35, rng)
+        pts = jittered_pts(40, 0.35, 3)
         vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
         knots, gvals, _ = fit_scattered(pts, vals; kernel = :b5, mode = :exact)
         ev = range(0.1, 0.9, length = 31)
@@ -91,8 +93,7 @@ end
 
     @testset "box integrals vs analytic (2D, :b5)" begin
         println("    - Testing scattered fit boxed integrals")
-        rng = MersenneTwister(3)
-        pts = jittered_pts(57, 0.35, rng)
+        pts = jittered_pts(57, 0.35, 3)
         vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
         knots, gvals, _ = fit_scattered(pts, vals; kernel = :b5, mode = :exact)
         Ixy = ConvolutionInterpolation(knots, gvals; kernel = :b5, bc = :poly,
@@ -105,9 +106,8 @@ end
 
     @testset "solvers agree with the deprecated null-space solve" begin
         println("    - Testing scattered solver agreement with the deprecated null-space solve")
-        rng = MersenneTwister(5)
-        xs = sort(rand(rng, 60))
-        pts = reshape(xs, 1, :)
+        pts = jittered_pts(60, 0.35, 5; dims = 1)   # 60 scattered points on [0, 1], in increasing order
+        xs = vec(pts)
         vals = g1.(xs)
         _, v_ns, _ = fit_scattered(pts, vals; mode = :exact, solver = :nullspace, gridsize = 96)
         for s in (:cholesky, :qr)
@@ -118,11 +118,10 @@ end
 
     @testset ":smooth fits noisy data" begin
         println("    - Testing scattered fit with smoothing (:smooth)")
-        rng = MersenneTwister(9)
-        pts = jittered_pts(40, 0.35, rng)
+        pts = jittered_pts(40, 0.35, 9)
         clean = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
         sigma = 0.05
-        noisy = clean .+ sigma .* randn(rng, length(clean))
+        noisy = clean .+ sigma .* stable_randn(19, length(clean))
         ev = range(0.1, 0.9, length = 31)
 
         # noise reduction and noise estimate
@@ -157,9 +156,9 @@ end
         @test maximum(abs(itp5(x, y) - itp(x, y)) for x in ev, y in ev) < 1e-10
 
         # 1D: noise reduction with grid refinement
-        xs = sort(rand(rng, 400))
+        xs = vec(jittered_pts(400, 0.35, 29; dims = 1))   # 400 scattered points on [0, 1], in increasing order
         clean1 = g1.(xs)
-        noisy1 = clean1 .+ sigma .* randn(rng, length(xs))
+        noisy1 = clean1 .+ sigma .* stable_randn(39, length(xs))
         knots1, gvals1, info1 = fit_scattered(reshape(xs, 1, :), noisy1)         # defaults: :smooth, :b5
         itp1 = ConvolutionInterpolation(knots1, gvals1; kernel = :b5, bc = :poly)
         ev1 = range(0.1, 0.9, length = 201)
@@ -192,8 +191,7 @@ end
 
     @testset "per-dimension kernels" begin
         println("    - Testing scattered fit per-dimension kernels")
-        rng = MersenneTwister(13)
-        pts = jittered_pts(25, 0.35, rng)
+        pts = jittered_pts(25, 0.35, 13)
         vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
         itp = convolution_interpolation(pts, vals; kernel = (:b7, :b5), mode = :exact)
         res = maximum(abs(itp(pts[1,i], pts[2,i]) - vals[i]) for i in 1:size(pts, 2))
@@ -202,8 +200,7 @@ end
 
     @testset "eltypes" begin
         println("    - Testing scattered fit element types")
-        rng = MersenneTwister(4)
-        pts = jittered_pts(10, 0.35, rng)
+        pts = jittered_pts(10, 0.35, 4)
         for T in (Float32, BigFloat)
             vals = T[g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
             knots, gvals, viol = fit_scattered(T.(pts), vals; kernel = :b5, mode = :exact)
@@ -214,8 +211,7 @@ end
 
     @testset "non-unit domain" begin
         println("    - Testing scattered fit non-unit domain")
-        rng = MersenneTwister(9)
-        pts = jittered_pts(30, 0.35, rng)
+        pts = jittered_pts(30, 0.35, 9)
         pts[1, :] .= 2 .* pts[1, :]              # [0, 2]
         pts[2, :] .= 2 .* pts[2, :] .- 1         # [-1, 1]
         gg(x, y) = sin(2x) * cos(1.5y)
@@ -227,8 +223,7 @@ end
 
     @testset "guardrails" begin
         println("    - Testing scattered fit errors thrown correctly")
-        rng = MersenneTwister(1)
-        pts = rand(rng, 2, 100)
+        pts = halton_points(2, 100)
         vals = vec(sum(pts; dims = 1))
         # transposed input: fewer points than dimensions
         @test_throws ArgumentError fit_scattered(collect(pts'), vec(vals[1:2]))
@@ -240,11 +235,11 @@ end
         @test_throws ArgumentError fit_scattered(pts, vals; mode = :magic)
         @test_throws ArgumentError fit_scattered(pts, vals; solver = :abacus)
         # nullspace size cap is a hard error, not a hang
-        big = rand(rng, 2, 4000)
+        big = halton_points(2, 4000)
         bigv = vec(sum(big; dims = 1))
         @test_throws Exception fit_scattered(big, bigv; mode = :exact, solver = :nullspace)
         # :smooth needs more points than the penalty's null space (5^D with q = 5)
-        few = rand(rng, 2, 25)
+        few = halton_points(2, 25)
         fewv = vec(sum(few; dims = 1))
         @test_throws ArgumentError fit_scattered(few, fewv)
         @test_throws ArgumentError fit_scattered(few, fewv; mode = :smooth, q = 5)
@@ -253,8 +248,7 @@ end
 
     @testset "duplicates and warnings" begin
         println("    - Testing scattered fit duplicates and warnings")
-        rng = MersenneTwister(2)
-        pts = rand(rng, 2, 80)
+        pts = halton_points(2, 80)
         pts = hcat(pts, pts[:, 1])               # exact duplicate, same value
         vals = [g2(pts[1,i], pts[2,i]) for i in 1:size(pts, 2)]
         knots, gvals, viol = fit_scattered(pts, vals; kernel = :b5, mode = :exact)

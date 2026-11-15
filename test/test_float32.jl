@@ -79,7 +79,7 @@ end
 
 @testset "Float32 smoothing, resampling, gridding" begin
     println("    - convolution_smooth / gaussian / resample")
-    ynoisy = y32_f .+ 0.1f0 .* randn(Float32, 50)
+    ynoisy = y32_f .+ 0.1f0 .* Float32.(stable_randn(1, 50))
 
     # regression: Float32 range internals are Float64 (StepRangeLen{Float32,Float64,...});
     # B must be accepted as any Real, in both matching and non-matching types

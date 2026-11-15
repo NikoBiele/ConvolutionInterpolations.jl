@@ -14,7 +14,7 @@ bc = :linear # control kernel boundary conditions
         println("    - 1D direct kernel: ", kernel)
         # random uniformly spaced 1D data
         range_1d = range(0.0, stop=1.0, length=N)
-        vals_1d_rand = rand(N)
+        vals_1d_rand = stable_rand(1, N)
         itp_1d_rand = convolution_interpolation(range_1d, vals_1d_rand; kernel=kernel, bc=bc)
         @test itp_1d_rand.itp.(range_1d) ≈ vals_1d_rand atol=tolerance
         
@@ -32,7 +32,7 @@ end
         println("    - 1D fast kernel: ", kernel)
         # random uniformly spaced 1D data
         range_1d = range(0.0, stop=1.0, length=N)
-        vals_1d_rand = rand(N)
+        vals_1d_rand = stable_rand(1, N)
         itp_1d_rand = convolution_interpolation(range_1d, vals_1d_rand; kernel=kernel, fast=true, bc=bc)
         @test itp_1d_rand.itp.(range_1d) ≈ vals_1d_rand atol=tolerance
         itp_1d_rand.itp.coefs
@@ -53,7 +53,7 @@ end
         println("    - 2D direct kernel: ", kernel)
         # random uniformly spaced 2D data
         range_2d = range(0.0, stop=1.0, length=N)
-        vals_2d_rand = rand(N,N)
+        vals_2d_rand = stable_rand(2, N, N)
         itp_2d_rand = convolution_interpolation((range_2d, range_2d), vals_2d_rand; kernel=kernel, bc=bc)
         @test [itp_2d_rand.itp(range_2d[i], range_2d[j]) for i in 1:N for j in 1:N] ≈ [vals_2d_rand[i,j] for i in 1:N for j in 1:N] atol=tolerance
 
@@ -73,7 +73,7 @@ end
         println("    - 2D fast kernel: ", kernel)
         # random uniformly spaced 2D data
         range_2d = range(0.0, stop=1.0, length=N)
-        vals_2d_rand = rand(N,N)
+        vals_2d_rand = stable_rand(2, N, N)
         itp_2d_rand = convolution_interpolation((range_2d, range_2d), vals_2d_rand; kernel=kernel, fast=true, bc=bc)
         @test [itp_2d_rand.itp(range_2d[i], range_2d[j]) for i in 1:N for j in 1:N] ≈ [vals_2d_rand[i,j] for i in 1:N for j in 1:N] atol=tolerance
 
@@ -95,7 +95,7 @@ end
         println("    - 3D direct kernel: ", kernel)
         # random uniformly spaced 3D data
         range_3d = range(0.0, stop=1.0, length=N)
-        vals_3d_rand = rand(N,N,N)
+        vals_3d_rand = stable_rand(3, N, N, N)
         itp_3d_rand = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_rand; kernel=kernel, bc=bc)
         interpolated_vals_3d_rand = [itp_3d_rand.itp(range_3d[i], range_3d[j], range_3d[k]) for i in 1:N for j in 1:N for k in 1:N]
         true_vals_3d_rand = [vals_3d_rand[i,j,k] for i in 1:N for j in 1:N for k in 1:N]
@@ -121,7 +121,7 @@ end
         println("    - 3D fast kernel: ", kernel)
         # random uniformly spaced 3D data
         range_3d = range(0.0, stop=1.0, length=N)
-        vals_3d_rand = rand(N,N,N)
+        vals_3d_rand = stable_rand(3, N, N, N)
         itp_3d_rand = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_rand; kernel=kernel, fast=true, bc=bc)
         interpolated_vals_3d_rand = [itp_3d_rand.itp(range_3d[i], range_3d[j], range_3d[k]) for i in 1:N for j in 1:N for k in 1:N]
         true_vals_3d_rand = [vals_3d_rand[i,j,k] for i in 1:N for j in 1:N for k in 1:N]
@@ -149,7 +149,7 @@ end
         println("    - 4D direct kernel: ", kernel)
         # random uniformly spaced 4D data
         range_4d = range(0.0, stop=1.0, length=N)
-        vals_4d_rand = rand(N,N,N,N)
+        vals_4d_rand = stable_rand(4, N, N, N, N)
         itp_4d_rand = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_rand; kernel=kernel, bc=bc)
         interpolated_vals_4d_rand = [itp_4d_rand.itp(range_4d[i], range_4d[j], range_4d[k], range_4d[l]) for i in 1:N for j in 1:N for k in 1:N for l in 1:N]
         true_vals_4d_rand = [vals_4d_rand[i,j,k,l] for i in 1:N for j in 1:N for k in 1:N for l in 1:N]
@@ -195,7 +195,7 @@ end
         println("    - 4D fast kernel: ", kernel)
         # random uniformly spaced 4D data
         range_4d = range(0.0, stop=1.0, length=N)
-        vals_4d_rand = rand(N,N,N,N)
+        vals_4d_rand = stable_rand(4, N, N, N, N)
         itp_4d_rand = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_rand; kernel=kernel, fast=true, bc=bc)
         interpolated_vals_4d_rand = [itp_4d_rand.itp(range_4d[i], range_4d[j], range_4d[k], range_4d[l]) for i in 1:N for j in 1:N for k in 1:N for l in 1:N]
         true_vals_4d_rand = [vals_4d_rand[i,j,k,l] for i in 1:N for j in 1:N for k in 1:N for l in 1:N]

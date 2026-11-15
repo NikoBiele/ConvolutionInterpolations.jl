@@ -2,13 +2,12 @@ println("\n" * "-"^60)
 println("Testing fit_scattered on adaptive and user-supplied grids...")
 println("-"^60)
 
-# Deterministic point sets: the MersenneTwister stream is only stable within a Julia minor
-# version, and these tests assert interpolation to 1e-9, which a different draw with a closer
-# pair of points turns into a least-squares fit. Low-discrepancy sequences give the same
-# clustering with a guaranteed minimum separation on every Julia version.
+# Deterministic point sets: these tests assert interpolation to 1e-9, which a random draw with
+# a close pair of points turns into a least-squares fit. Low-discrepancy sequences (`vdc`, from
+# test_helpers.jl) give the same clustering with a guaranteed minimum separation on every
+# Julia version.
 layer(x) = exp(-20x)                                                 # boundary-layer test signal
 gsmooth(x) = sin(6x) + 0.3cos(11x)                                   # smooth test signal
-vdc(i, base) = (r = 0.0; f = 1.0 / base; k = i; while k > 0; r += f * (k % base); k ÷= base; f /= base; end; r)
 clustered_1d(n) = sort([((i - 0.5) / n)^3 for i in 1:n])            # dense near 0, evenly spaced in the cube root
 jittered_1d(n)  = reshape(sort([(i - 0.5 + 0.35 * (2vdc(i, 2) - 1)) / n for i in 1:n]), 1, :)
 function clustered_2d(n)                                             # dense near x = 0 and y = 0.5
@@ -94,11 +93,10 @@ end
 
     @testset ":smooth on an adaptive grid resolves a boundary layer" begin
         println("    - Testing :smooth adaptive vs uniform at a fixed knot budget")
-        rng = MersenneTwister(4)                                        # noise only; the points are deterministic
         x = clustered_1d(2000)
         pts = reshape(x, 1, :)
         sharp(t) = exp(-50t)                                            # a layer the uniform 40-knot grid cannot resolve
-        noisy = sharp.(x) .+ 1e-3 .* randn(rng, 2000)
+        noisy = sharp.(x) .+ 1e-3 .* stable_randn(4, 2000)
         ev = range(x[1], x[end], length = 1001)
         # uniform grid with its :smooth default kernel (:b5), the comparison the docs make
         ku, vu, iu = fit_scattered(pts, noisy; mode = :smooth, grid = :uniform, gridsize = 40)
@@ -119,7 +117,7 @@ end
         # signal's curvature into the layer, with fewer knots than the uniform fit
         xu = collect(range(0.0, 1.0, length = 2000))
         pu = reshape(xu, 1, :)
-        nu = layer.(xu) .+ 1e-3 .* randn(rng, 2000)
+        nu = layer.(xu) .+ 1e-3 .* stable_randn(5, 2000)
         kuu, vuu, _ = fit_scattered(pu, nu; mode = :smooth, grid = :uniform)
         suu = convolution_interpolation(kuu, vuu; kernel = :b5, bc = :poly)
         kau, vau, iau = fit_scattered(pu, nu; mode = :smooth, grid = :adaptive)
@@ -134,8 +132,7 @@ end
 
     @testset "guardrails" begin
         println("    - Testing adaptive-grid argument errors")
-        rng = MersenneTwister(9)
-        pts = rand(rng, 2, 100)
+        pts = halton_points(2, 100)
         f = vec(sum(pts; dims = 1))
         @test_throws ArgumentError fit_scattered(pts, f; grid = :foo)
         @test_throws ArgumentError fit_scattered(pts, f; grid = :adaptive, kernel = :a4)

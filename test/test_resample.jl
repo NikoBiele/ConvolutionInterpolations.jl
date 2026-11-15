@@ -61,7 +61,7 @@ println("-"^60)
             n_out = 35
             ks_in  = ntuple(_ -> range(0.0, 2π, length=n_in),  N)
             ks_out = ntuple(_ -> range(0.0, 2π, length=n_out), N)
-            vs     = randn(ntuple(_ -> n_in, N)...)
+            vs     = stable_randn(1, ntuple(_ -> n_in, N)...)
             result = convolution_resample(ks_in, ks_out, vs)
             @test size(result) == ntuple(_ -> n_out, N)
             @test eltype(result) == Float64

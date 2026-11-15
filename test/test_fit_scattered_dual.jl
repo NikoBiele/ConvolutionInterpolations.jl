@@ -6,8 +6,9 @@ println("-"^60)
 dual_runge(p) = 1 / (1 + 25 * sum(abs2, p))
 dual_wave(p)  = prod(sin(2 * x) for x in p)
 
-# random points in [-1, 1]^D, reproducible
-dual_points(D, Np, seed) = 2 .* rand(MersenneTwister(seed), D, Np) .- 1
+# scattered points in [-1, 1]^D: Halton points, the same on every Julia version;
+# `skip` selects a set that shares no point with the default one
+dual_points(D, Np; skip = 0) = 2 .* halton_points(D, Np; skip = skip) .- 1
 
 # the interpolant of a fitted grid, with the kernel the exact fit chose by default
 function dual_interpolant(knots, vals)
@@ -15,13 +16,13 @@ function dual_interpolant(knots, vals)
     return convolution_interpolation(knots, vals; kernel = kernel, bc = :poly)
 end
 
-# largest error of a fitted grid against `fun` at random test points of the data's box;
+# largest error of a fitted grid against `fun` at scattered test points of the data's box;
 # `inner` restricts the test points to the central 80 % of every axis
 function dual_error(knots, vals, fun; inner = false, n_test = 2000)
     D = length(knots)
     lo = [first(k) for k in knots]
     hi = [last(k) for k in knots]
-    tests = lo .+ (hi .- lo) .* rand(MersenneTwister(2), D, n_test)
+    tests = lo .+ (hi .- lo) .* halton_points(D, n_test; skip = 100_000)   # apart from any data set
     itp = dual_interpolant(knots, vals)
     worst = 0.0
     for p in eachcol(tests)
@@ -37,7 +38,7 @@ end
 
     @testset "agrees with :cholesky in the interior (2D)" begin
         println("    - Testing the dual solver against :cholesky in the interior (2D)")
-        pts = dual_points(2, 2000, 1)
+        pts = dual_points(2, 2000)
         f = [dual_runge(p) for p in eachcol(pts)]
         knots_c, vals_c, viol_c = fit_scattered(pts, f; mode = :exact, solver = :cholesky)
         # on this fine grid the eigenvalue shift is what keeps the data reproduced: no warning
@@ -56,7 +57,7 @@ end
         println("    - Testing that the dual solver reproduces the data (2D, 3D, 4D)")
         bound = 1e-9
         for (D, Np) in ((2, 300), (3, 500), (4, 400))
-            pts = dual_points(D, Np, 3)
+            pts = dual_points(D, Np)
             f = [dual_wave(p) for p in eachcol(pts)]
             knots, vals, viol = fit_scattered(pts, f; mode = :exact, solver = :dual)
             itp = dual_interpolant(knots, vals)
@@ -82,14 +83,14 @@ end
         @test rule(4, false, BigFloat, 1000, 5) === :cholesky   # not Float64
 
         # 3D: the default is the Cholesky fit
-        pts = dual_points(3, 500, 4)
+        pts = dual_points(3, 500)
         f = [dual_wave(p) for p in eachcol(pts)]
         _, vals_auto, _ = fit_scattered(pts, f; mode = :exact)
         _, vals_c, _ = fit_scattered(pts, f; mode = :exact, solver = :cholesky)
         @test vals_auto ≈ vals_c rtol = 1e-10
 
         # 4D: the default is the dual fit
-        pts = dual_points(4, 400, 4)
+        pts = dual_points(4, 400)
         f = [dual_wave(p) for p in eachcol(pts)]
         _, vals_auto, _ = fit_scattered(pts, f; mode = :exact)
         _, vals_d, _ = fit_scattered(pts, f; mode = :exact, solver = :dual)
@@ -98,19 +99,19 @@ end
 
     @testset "one-call interpolant in 4D" begin
         println("    - Testing convolution_interpolation(points, values) in 4D")
-        pts = dual_points(4, 400, 5)
+        pts = dual_points(4, 400)
         f = [dual_runge(p) for p in eachcol(pts)]
         itp_direct = convolution_interpolation(pts, f; mode = :exact)
         knots, vals, _ = fit_scattered(pts, f; mode = :exact)
         itp_manual = dual_interpolant(knots, vals)
-        probes = 0.8 .* dual_points(4, 20, 6)                   # well inside the data's box
+        probes = 0.8 .* dual_points(4, 20; skip = 10_000)       # well inside the data's box
         @test all(itp_direct(p...) ≈ itp_manual(p...) for p in eachcol(probes))
     end
 
     @testset "polynomials below degree q are reproduced (3D)" begin
         println("    - Testing that the dual solver reproduces a cubic polynomial (3D)")
         cubic(p) = 1 + p[1] - 2 * p[2] + 0.5 * p[3] + p[1] * p[2] - p[3]^2 + p[1]^2 * p[3] - p[2]^3
-        pts = dual_points(3, 300, 7)
+        pts = dual_points(3, 300)
         f = [cubic(p) for p in eachcol(pts)]
         knots, vals, viol = fit_scattered(pts, f; mode = :exact, solver = :dual)
         err = dual_error(knots, vals, cubic; n_test = 500)
@@ -122,11 +123,11 @@ end
     @testset "input the dual solver rejects" begin
         println("    - Testing the input the dual solver rejects")
         # fewer points than tail polynomials (70 in 4D)
-        pts = dual_points(4, 50, 8)
+        pts = dual_points(4, 50)
         f = [dual_runge(p) for p in eachcol(pts)]
         @test_throws ArgumentError fit_scattered(pts, f; mode = :exact, solver = :dual)
         # nonuniform grid
-        pts = dual_points(2, 200, 8)
+        pts = dual_points(2, 200)
         f = [dual_runge(p) for p in eachcol(pts)]
         @test_throws ArgumentError fit_scattered(pts, f; mode = :exact, solver = :dual, grid = :adaptive)
         # not Float64
@@ -137,7 +138,7 @@ end
 
     @testset "duplicated points are reported" begin
         println("    - Testing the dual solver on duplicated points with conflicting values")
-        pts = dual_points(2, 200, 9)
+        pts = dual_points(2, 200)
         f = [dual_runge(p) for p in eachcol(pts)]
         pts[:, 2] .= pts[:, 1]                                  # the same point twice,
         f[2] = f[1] + 1.0                                       # with two different values
@@ -150,7 +151,7 @@ end
     @testset "Cholesky declines above a memory limit" begin
         println("    - Testing the memory limit of the Cholesky solver")
         CI = ConvolutionInterpolations
-        pts = dual_points(3, 1000, 10)
+        pts = dual_points(3, 1000)
         f = [dual_runge(p) for p in eachcol(pts)]
         kernel = CI._default_scattered_kernel(3, :exact, false)
         knots = ntuple(d -> range(minimum(pts[d, :]), maximum(pts[d, :]), length = 21), 3)

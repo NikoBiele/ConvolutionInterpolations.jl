@@ -84,12 +84,11 @@ end
 
     @testset "Lazy ghosts equal eager ghosts exactly" begin
         println("    - Lazy ghosts equal eager ghosts exactly...")
-        rng = Xoshiro(7)                                  # reproducible roughness
         kx = range(0.0, 1.0, length=30)                   # regular axis
         ks = range(0.0, 1.0, length=9)                    # short axis: eager uses the linear rule
         smooth = [exp(x) * sin(3x + 1) * cos(2y) for x in kx, y in kx]
         rough = copy(smooth)                              # :detect rejects some lines, accepts others
-        rough[1:4, 1:2:end] .+= 0.3 .* randn(rng, 4, 15)
+        rough[1:4, 1:2:end] .+= 0.3 .* stable_randn(7, 4, 15)   # the same roughness on every Julia version
         short = [exp(x) * sin(3x + 1) * cos(2y) for x in kx, y in ks]
         cases = [((kx, kx), smooth, :detect), ((kx, kx), rough, :detect),
                  ((kx, kx), smooth, :poly), ((kx, ks), short, :detect)]
@@ -146,9 +145,8 @@ end
         k = range(0.0, 1.0, length=30)
         z = [exp(x) * sin(3x + 1) * cos(2y) for x in k, y in k]
         lazy = convolution_interpolation((k, k), z; kernel=:b7, lazy=true)
-        rng = Xoshiro(3)
-        px = 0.2 .* rand(rng, 20_000)                     # x in the first cells: boundary-heavy
-        py = rand(rng, 20_000)
+        px = 0.2 .* stable_rand(3, 20_000)                # x in the first cells: boundary-heavy
+        py = stable_rand(4, 20_000)
         serial = [lazy(px[m], py[m]) for m in eachindex(px)]
         threaded = similar(serial)
         Threads.@threads for m in eachindex(px)
@@ -160,13 +158,13 @@ end
     @testset "Lazy construction is fast" begin
         println("    - Lazy construction is fast...")
         xs_3d = range(0.0, 1.0, length=50)
-        vs_3d = rand(50, 50, 50)
+        vs_3d = stable_rand(5, 50, 50, 50)
         convolution_interpolation((xs_3d, xs_3d, xs_3d), vs_3d; kernel=:b5, lazy=true)
         t = @elapsed convolution_interpolation((xs_3d, xs_3d, xs_3d), vs_3d; kernel=:b5, lazy=true)
         @test t < 1.0
 
         xs_4d = range(0.0, 1.0, length=20)
-        vs_4d = rand(20, 20, 20, 20)
+        vs_4d = stable_rand(6, 20, 20, 20, 20)
         convolution_interpolation((xs_4d, xs_4d, xs_4d, xs_4d), vs_4d; kernel=:b5, lazy=true)
         t = @elapsed convolution_interpolation((xs_4d, xs_4d, xs_4d, xs_4d), vs_4d; kernel=:b5, lazy=true)
         @test t < 1.0

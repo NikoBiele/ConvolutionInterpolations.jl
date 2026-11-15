@@ -37,12 +37,12 @@ println("-"^60)
                x3[end] - 0.3 * step(x3), x4[end] - 0.3 * step(x4)),
               (x1[end], x2[1], x3[end], x4[1]),
               (x1[1], x2[end], x3[1], x4[end])]
-    rng = Random.MersenneTwister(7)
-    for _ in 1:8
-        push!(points, (x1[1] + rand(rng) * (x1[end] - x1[1]),
-                       x2[1] + rand(rng) * (x2[end] - x2[1]),
-                       x3[1] + rand(rng) * (x3[end] - x3[1]),
-                       x4[1] + rand(rng) * (x4[end] - x4[1])))
+    u = stable_rand(7, 4, 8)                              # eight points, the same on every Julia version
+    for k in 1:8
+        push!(points, (x1[1] + u[1, k] * (x1[end] - x1[1]),
+                       x2[1] + u[2, k] * (x2[end] - x2[1]),
+                       x3[1] + u[3, k] * (x3[end] - x3[1]),
+                       x4[1] + u[4, k] * (x4[end] - x4[1])))
     end
 
     for (a, b, c, d) in points

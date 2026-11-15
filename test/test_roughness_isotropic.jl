@@ -101,8 +101,7 @@ const CI = ConvolutionInterpolations
 
     @testset "3D :exact fit with the isotropic seminorm" begin
         println("    - Testing a 3D :exact fit")
-        rng = MersenneTwister(7)
-        pts = 2 .* rand(rng, 3, 400) .- 1
+        pts = 2 .* halton_points(3, 400) .- 1               # scattered points in [-1, 1]^3, the same on every Julia version
         f   = [1 / (1 + 4 * (p[1]^2 + p[2]^2 + p[3]^2)) for p in eachcol(pts)]
         knots, vals, viol = fit_scattered(pts, f; mode = :exact)
         @test viol < 1e-9

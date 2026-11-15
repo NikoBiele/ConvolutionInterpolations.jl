@@ -70,8 +70,7 @@ end
 
 @testset "Keyword-free calls on nonuniform knots" begin
     println("    - Keyword-free calls on nonuniform knots...")
-    rng = Random.MersenneTwister(11)                      # reproducible nonuniform knots
-    xn = sort([0.0; 2π .* rand(rng, 38); 2π])             # nonuniform knots on [0, 2π]
+    xn = sort([0.0; 2π .* stable_rand(21, 38); 2π])       # nonuniform knots on [0, 2π], the same on every Julia version
     xu = range(0.0, 2π, length=40)                        # uniform knots
     # uniform: the keyword-free call takes the fast path
     @test convolution_interpolation(xu, sin.(xu)).itp isa ConvolutionInterpolation
@@ -83,7 +82,7 @@ end
         @test nf(x) == nk(x)
     end
     # 2D, nonuniform along one axis only
-    yn = sort([0.0; 2π .* rand(rng, 28); 2π])             # nonuniform second axis
+    yn = sort([0.0; 2π .* stable_rand(14, 28); 2π])       # nonuniform second axis
     z = [sin(a) * cos(b) for a in xu, b in yn]
     @test convolution_interpolation((xu, yn), z)(1.3, 2.1) == convolution_interpolation((xu, yn), z; kernel=:auto)(1.3, 2.1)
 end

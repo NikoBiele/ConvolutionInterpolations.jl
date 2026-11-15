@@ -25,7 +25,7 @@ end
         println("    - 1D nonuniform kernel: ", kernel)
         # grid point reproduction with random data
         x_nu = make_nonuniform_grid_interpolation(N_nu)
-        vals_rand = rand(N_nu)
+        vals_rand = stable_rand(1, N_nu)
         itp_rand = convolution_interpolation(x_nu, vals_rand; kernel=kernel)
         @test itp_rand.itp.(x_nu) ≈ vals_rand atol=tolerance_nu
 
@@ -44,7 +44,7 @@ end
         y_nu = make_nonuniform_grid_interpolation(N_nu; strength=0.2)
 
         # grid point reproduction with random data
-        vals_rand = rand(N_nu, N_nu)
+        vals_rand = stable_rand(2, N_nu, N_nu)
         itp_rand = convolution_interpolation((x_nu, y_nu), vals_rand; kernel=kernel)
         @test [itp_rand.itp(x_nu[i], y_nu[j]) for i in 1:N_nu for j in 1:N_nu] ≈ 
                 [vals_rand[i,j] for i in 1:N_nu for j in 1:N_nu] atol=tolerance_nu
@@ -68,7 +68,7 @@ end
         z_nu = make_nonuniform_grid_interpolation(N_nu_3d; strength=0.25)
 
         # grid point reproduction with random data
-        vals_rand = rand(N_nu_3d, N_nu_3d, N_nu_3d)
+        vals_rand = stable_rand(3, N_nu_3d, N_nu_3d, N_nu_3d)
         itp_rand = convolution_interpolation((x_nu, y_nu, z_nu), vals_rand; kernel=kernel)
         interpolated = [itp_rand.itp(x_nu[i], y_nu[j], z_nu[k]) for i in 1:N_nu_3d for j in 1:N_nu_3d for k in 1:N_nu_3d]
         true_vals = [vals_rand[i,j,k] for i in 1:N_nu_3d for j in 1:N_nu_3d for k in 1:N_nu_3d]
@@ -85,7 +85,7 @@ end
         w_nu = make_nonuniform_grid_interpolation(N_nu_4d)
 
         # grid point reproduction with random data
-        vals_rand = rand(N_nu_4d, N_nu_4d, N_nu_4d, N_nu_4d)
+        vals_rand = stable_rand(4, N_nu_4d, N_nu_4d, N_nu_4d, N_nu_4d)
         itp_rand = convolution_interpolation((x_nu, y_nu, z_nu, w_nu), vals_rand; kernel=kernel)
         interpolated = [itp_rand.itp(x_nu[i], y_nu[j], z_nu[k], w_nu[l]) for i in 1:N_nu_4d for j in 1:N_nu_4d for k in 1:N_nu_4d for l in 1:N_nu_4d]
         true_vals = [vals_rand[i,j,k,l] for i in 1:N_nu_4d for j in 1:N_nu_4d for k in 1:N_nu_4d for l in 1:N_nu_4d]

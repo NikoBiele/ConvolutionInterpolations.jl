@@ -1,8 +1,8 @@
 using ConvolutionInterpolations
-using Test, Random, StatsBase
+using Test, StatsBase
 
-# Seed the global RNG so that every random draw in the suite is reproducible
-Random.seed!(20260924)
+# deterministic points and numbers for the tests, identical on every Julia version
+include("test_helpers.jl")
 
 @testset "ConvolutionInterpolations.jl" begin
     include("test_input_validation.jl")

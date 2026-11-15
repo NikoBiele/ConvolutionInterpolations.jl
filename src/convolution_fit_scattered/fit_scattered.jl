@@ -136,23 +136,48 @@ Two modes:
   depends on the data, so `:poly` is the default and a fit that is noisy at a
   flat end is worth repeating with `:linear` there. Interpolate the fitted
   grid with the same `bc`. On nonuniform grids the ghosts are the basis's own.
-- `solver::Symbol=:cholesky` (`:exact` only): `:cholesky` (default) factors the
-  Jacobi-equilibrated SPD normal system with CHOLMOD. It is the fast choice,
-  and with the narrow kernels its error is set by the fit, not by roundoff; if
-  the system loses positive definiteness numerically it falls back to `:qr`.
-  `:qr` solves each multiplier iteration as a sparse least-squares problem via
-  SPQR without forming normal equations; it is several times slower but lowers
-  the roundoff floor of the wide kernels, which rises with the kernel's width.
-  Use `solver=:qr, kernel=:b7` when chasing the deepest accuracy. The
-  `:nullspace` solver is deprecated and will be removed in the next breaking
-  release: a dense direct solve through a null-space basis of the constraints,
-  limited to small problems and less accurate than the other two.
-- `W::Real=1e6` (`:exact` only): augmented-Lagrangian penalty weight.
-- `iters::Int=20`, `tol::Real=1e-11` (`:exact` only): multiplier iteration
-  controls; convergence typically takes 1-2 iterations.
+- `solver::Symbol=:auto` (`:exact` only): how the exact fit is solved. `:auto`
+  uses `:cholesky` up to 3D and `:dual` from 4D, where `:dual` applies. It
+  also switches from `:cholesky` to `:dual`, with a warning, when the
+  factorization is predicted to need more memory than the machine has. A
+  solver given explicitly is used as given.
+  - `:cholesky` factors the Jacobi-equilibrated SPD normal system in the grid
+    unknowns with CHOLMOD. It is the most accurate choice up to 3D, and with
+    the narrow kernels its error is set by the fit, not by roundoff. The
+    memory of the factorization grows steeply with the grid from 3D on. If
+    the system loses positive definiteness numerically it falls back to `:qr`
+    while that is affordable, and raises an error otherwise.
+  - `:qr` solves each multiplier iteration as a sparse least-squares problem
+    via SPQR without forming normal equations; it is several times slower but
+    lowers the roundoff floor of the wide kernels, which rises with the
+    kernel's width. Use `solver=:qr, kernel=:b7` when chasing the deepest
+    accuracy. Its memory grows as the rows times the unknowns of the
+    least-squares system, which limits it to small grids from 3D up.
+  - `:dual` solves a dense system with one unknown per data point: the same
+    roughness order, measured with reflecting boundaries so that it can be
+    inverted by a cosine transform of the grid. Its cost follows the point
+    count and not the grid (memory: 8 bytes times the square of the point
+    count), which makes exact fits practical in 4D and above, and makes it
+    the faster and lighter choice in 3D. It reproduces the data to rounding.
+    Its accuracy is comparable to `:cholesky` in the interior of the box;
+    near the faces it is less accurate once the data are dense enough to
+    resolve the function there. In 3D with thousands of points that loss
+    reaches orders of magnitude for smooth functions, most of all for one
+    that is steep at a face. It can be chosen in any dimension, and needs a
+    uniform grid, `Float64` data, and more data points than there are
+    polynomials of total degree below `q` in `D` variables (with `q = 5`: 35
+    in 3D, 70 in 4D, 126 in 5D). It runs on the available threads.
+  - `:nullspace` is deprecated and will be removed in the next breaking
+    release: a dense direct solve through a null-space basis of the
+    constraints, limited to small problems and less accurate than the others.
+- `W::Real=1e6` (`:exact` with `:cholesky` or `:qr`): augmented-Lagrangian
+  penalty weight.
+- `iters::Int=20`, `tol::Real=1e-11` (`:exact` with `:cholesky` or `:qr`):
+  multiplier iteration controls; convergence typically takes 1-2 iterations.
+  `:dual` solves directly and does not iterate.
 - `verbose::Bool=false`: `:exact` prints the constraint violation per
-  iteration; `:smooth` prints the grid, `lambda`, cutoff, effective degrees of
-  freedom and estimated noise of the fit.
+  iteration, or per solve with `:dual`; `:smooth` prints the grid, `lambda`,
+  cutoff, effective degrees of freedom and estimated noise of the fit.
 
 # Returns
 `(knots, vals, third)`: the tuple of interior knot axes (ranges for a uniform
@@ -165,10 +190,13 @@ grid, vectors otherwise), the array of fitted interior grid values, and
 Construct an interpolant with `convolution_interpolation(knots, vals; kernel, bc=:poly, ...)`,
 or use `convolution_interpolation(points, values)` which does this directly.
 
-Notes: `:exact` solves a sparse SPD system (CHOLMOD for `Float64`, dense
-Cholesky otherwise). Exact interpolation requires distinct data points with
-consistent values; duplicated points with conflicting values are resolved in
-the least-squares sense and reported through `viol`. `:smooth` always solves in
+Notes: by default `:exact` solves a sparse SPD system up to 3D (CHOLMOD for
+`Float64`, dense Cholesky otherwise) and a dense system in the data points
+from 4D; see `solver`. Exact interpolation requires distinct data points with
+consistent values. With `:cholesky` and `:qr`, duplicated points with
+conflicting values are resolved in the least-squares sense and reported
+through `viol`. `:dual` cannot solve data with duplicated points: it warns,
+and `viol` shows that the data were not reproduced. `:smooth` always solves in
 `Float64` (its accuracy is limited by the noise) and casts the fitted grid back
 to the element type of the data. On nonuniform grids the kernel weights are
 Float64, as in the nonuniform interpolant itself.
@@ -183,12 +211,12 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
                        q::Union{Int,Symbol}=:auto,
                        lambda::Union{Symbol,Real}=:gcv,
                        bc::Union{Symbol,Tuple}=:poly,
-                       solver::Symbol=:cholesky,
+                       solver::Symbol=:auto,
                        W::Real=1e6, iters::Int=20, tol::Real=1e-11,
                        verbose::Bool=false)
 
-    solver in (:nullspace, :qr, :cholesky) ||
-        throw(ArgumentError("solver must be :qr or :cholesky, got $solver."))
+    solver in (:auto, :cholesky, :qr, :dual, :nullspace) ||
+        throw(ArgumentError("solver must be :auto, :cholesky, :qr or :dual, got $solver."))
     if solver === :nullspace
         @warn "solver = :nullspace is deprecated and will be removed in the next breaking " *
               "release: it is less accurate than :cholesky and :qr. Use one of those instead."
@@ -346,23 +374,77 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
             ntuple(d -> max(ns[d], ceil(Int, os * Np^(1 / D)) + 1), D)
     axes = _fit_axes(pts, n_int, lo, hi, grid; alpha, ratio)
 
-    # ---- sparse system on the interior unknowns -----------------------------
-    # the isotropic H^q seminorm: in 1D the axis-wise differences, from 2D up every mixed
-    # difference of total order q as well, which the scattered data alone pin too loosely
-    A_eff, R_eff = _scattered_operators(pts, kernels, axes, qv; isotropic = true)
+    # ---- solver ---------------------------------------------------------------
+    q_iso = _isotropic_order(qv)
+    if solver === :auto
+        solver_used = _default_scattered_solver(D, nonuniform, Fs, Np, q_iso)
+    else
+        solver_used = solver
+    end
 
-    c_int, viol = _scattered_auglag(A_eff, f, R_eff, Fs(W), iters, Fs(tol),
-                                    verbose, Val(solver))
+    sparse_fit = nothing
+    if solver_used !== :dual
+        # sparse system on the interior unknowns (fit_exact.jl), with
+        # the isotropic H^q seminorm: in 1D the axis-wise differences, from 2D up every mixed
+        # difference of total order q as well, which the scattered data alone pin too loosely
+        A_eff, R_eff = _scattered_operators(pts, kernels, axes, qv; isotropic = true)
+        if solver === :auto
+            # the default must not exhaust the machine's memory: :cholesky declines a
+            # factorization predicted to need more than there is and returns nothing
+            sparse_fit = _scattered_auglag(A_eff, f, R_eff, Fs(W), iters, Fs(tol), verbose,
+                                           Val(:cholesky); memory_limit = Sys.total_memory())
+        else
+            # a solver chosen explicitly is honoured without that check
+            sparse_fit = _scattered_auglag(A_eff, f, R_eff, Fs(W), iters, Fs(tol), verbose,
+                                           Val(solver_used))
+        end
+        if sparse_fit === nothing
+            _scattered_dual_applies(D, nonuniform, Fs, Np, q_iso) ||
+                error("fit_scattered (:exact): the Cholesky factorization of this grid " *
+                      "($(prod(n_int)) unknowns) is predicted to need more memory than this " *
+                      "machine has, and solver = :dual does not apply here (it needs a " *
+                      "uniform grid, Float64 data and more data points). Use a smaller " *
+                      "gridsize/oversample; solver = :cholesky forces the factorization.")
+            @warn "fit_scattered (:exact): the Cholesky factorization of this grid " *
+                  "($(prod(n_int)) unknowns) is predicted to need more memory than this " *
+                  "machine has; solving with solver = :dual instead, which is less accurate " *
+                  "near the faces of the box. A smaller gridsize/oversample keeps " *
+                  ":cholesky; solver = :cholesky forces the factorization."
+            solver_used = :dual
+        end
+    end
+
+    if solver_used === :dual
+        # dense system in the data points (fit_dual.jl): the same roughness order, measured
+        # with reflecting boundaries, inverted by a cosine transform of the uniform grid
+        nonuniform &&
+            throw(ArgumentError("solver = :dual needs a uniform grid; use :cholesky or :qr " *
+                                "with grid = :adaptive or user-supplied axes."))
+        Fs === Float64 ||
+            throw(ArgumentError("solver = :dual solves in Float64; use :cholesky for $Fs data."))
+        c_int, viol = _scattered_dual(pts, f, kernels, axes, q_iso, verbose)
+    else
+        c_int, viol = sparse_fit
+    end
 
     if viol > max(Fs(tol), sqrt(eps(Fs))) * max(one(Fs), maximum(abs, f))
-        hint = nonuniform ? "" :
-               " If the points are clustered, `grid = :adaptive` places the knots where " *
-               "the points are, so that each point gets its own knot spacing."
-        @warn "fit_scattered (:exact): constraint violation $viol did not reach " *
-              "machine precision. The system may be overdetermined for this grid " *
-              "(try a larger gridsize/oversample) or the data may contain " *
-              "duplicated points with conflicting values. Result is the " *
-              "least-squares fit." * hint
+        if solver_used === :dual
+            @warn "fit_scattered (:exact, solver = :dual): constraint violation $viol did " *
+                  "not reach machine precision, so the result does not reproduce the data. " *
+                  "The dense system in the data points is singular or ill-conditioned: the " *
+                  "data may contain duplicated or nearly coincident points, or the grid may " *
+                  "be too fine for this solver (try a smaller gridsize/oversample, or " *
+                  "solver = :cholesky)."
+        else
+            hint = nonuniform ? "" :
+                   " If the points are clustered, `grid = :adaptive` places the knots where " *
+                   "the points are, so that each point gets its own knot spacing."
+            @warn "fit_scattered (:exact): constraint violation $viol did not reach " *
+                  "machine precision. The system may be overdetermined for this grid " *
+                  "(try a larger gridsize/oversample) or the data may contain " *
+                  "duplicated points with conflicting values. Result is the " *
+                  "least-squares fit." * hint
+        end
     end
 
     vals_grid = F === Fs ? reshape(c_int, n_int) : F.(reshape(c_int, n_int))
@@ -415,7 +497,7 @@ function convolution_interpolation(points::AbstractMatrix, values::AbstractVecto
                                    oversample::Real=0.0,
                                    q::Union{Int,Symbol}=:auto,
                                    lambda::Union{Symbol,Real}=:gcv,
-                                   solver::Symbol=:cholesky,
+                                   solver::Symbol=:auto,
                                    W::Real=1e6, iters::Int=20, tol::Real=1e-11,
                                    verbose::Bool=false,
                                    derivative::Union{Int,Tuple{Vararg{Int}}}=0,
@@ -487,470 +569,22 @@ function _default_scattered_kernel(D::Int, mode::Symbol = :smooth, nonuniform::B
     end
 end
 
-"""Collocation and roughness operators of the fit on the interior unknowns, `(A*S, R*S)`,
-for the given axes. Ranges mean a uniform grid: the uniform kernels with the `:poly` ghost
-tables, as the uniform path has always built them. Vectors mean a nonuniform grid: the
-nonuniform kernels (`:n3` or the b-kernels) through the per-axis bases of `_nu_axis`, with
-divided-difference roughness in plain-difference units; `_smooth_system` applies the same
-`rowscale` to both grid types. `isotropic = true` selects the isotropic `H^q` seminorm
-(`_scattered_roughness_iso`, one order for all axes) instead of the axis-wise differences."""
-function _scattered_operators(pts::AbstractMatrix{F}, kernels::NTuple{D,Symbol},
-                              axes::NTuple{D,<:AbstractRange}, qv::NTuple{D,Int};
-                              bc::NTuple{D,Tuple{Symbol,Symbol}} = ntuple(_ -> (:poly, :poly), D),
-                              isotropic::Bool = false) where {F,D}
-    eqs = ntuple(d -> get_equations_for_degree(kernels[d]), D)
-    ng  = ntuple(d -> eqs[d] - 1, D)                       # ghosts per side
-    Gl  = ntuple(d -> get_polynomial_ghost_coeffs(bc[d][1], kernels[d]), D)   # left ghost rule per axis
-    Gr  = ntuple(d -> get_polynomial_ghost_coeffs(bc[d][2], kernels[d]), D)   # right ghost rule per axis
-    n_int   = ntuple(d -> length(axes[d]), D)
-    h       = ntuple(d -> F(step(axes[d])), D)
-    n_full  = ntuple(d -> n_int[d] + 2ng[d], D)
-    x0_full = ntuple(d -> F(first(axes[d])) - ng[d] * h[d], D)
-
-    A = _scattered_collocation(pts, kernels, eqs, n_full, x0_full, h)
-    S = _scattered_extension(n_full, n_int, ng, Gl, Gr, F)
-    if isotropic
-        R = _scattered_roughness_iso(n_full, _isotropic_order(qv), F)
-    else
-        R = _scattered_roughness(n_full, qv, F)
-    end
-    return A * S, R * S
+"""Whether `solver = :dual` can solve this fit: it needs a uniform grid, Float64, and more
+data points than there are polynomials of total degree below `q` in `D` variables, which its
+penalty does not see and which it determines from the data."""
+function _scattered_dual_applies(D::Int, nonuniform::Bool, ::Type{F}, Np::Int,
+                                 q::Int) where {F}
+    return !nonuniform && F === Float64 && Np > binomial(q - 1 + D, D)
 end
 
-function _scattered_operators(pts::AbstractMatrix{F}, kernels::NTuple{D,Symbol},
-                              axes::NTuple{D,<:AbstractVector}, qv::NTuple{D,Int};
-                              isotropic::Bool = false) where {F,D}
-    bases = ntuple(d -> _nu_axis(kernels[d], axes[d], F), D)   # per-axis nonuniform basis
-    M     = ntuple(d -> bases[d].M, D)                         # ghosts per side
-
-    A = _scattered_collocation(pts, axes, bases)
-    S = _scattered_extension(axes, bases, F)
-    if isotropic
-        R = _scattered_roughness_iso(axes, M, _isotropic_order(qv), F)
-    else
-        R = _scattered_roughness(axes, M, qv, F)
+"""Default solver of the `:exact` fit. `:cholesky` up to 3D, where the sparse factorization
+is the more accurate choice near the faces of the box. From 4D `:dual` where it applies
+(`_scattered_dual_applies`): there the fill of the factorization makes `:cholesky` slow and
+heavy on memory, while the dual system has only one unknown per data point."""
+function _default_scattered_solver(D::Int, nonuniform::Bool, ::Type{F}, Np::Int,
+                                   q::Int) where {F}
+    if D >= 4 && _scattered_dual_applies(D, nonuniform, F, Np, q)
+        return :dual
     end
-    return A * S, R * S
-end
-
-"""The single roughness order of an isotropic seminorm: the per-axis orders must agree."""
-function _isotropic_order(qv::NTuple{D,Int}) where {D}
-    all(==(qv[1]), qv) ||
-        throw(ArgumentError("the isotropic roughness seminorm needs one order on every axis, got $qv."))
-    return qv[1]
-end
-
-"""Nonuniform basis of one axis for the scattered fit: everything the collocation, extension
-and roughness operators need, built once from the kernel and the knots. Fields: `M` ghosts per
-side; `ns`, `Gl`, `Gr` the ghost extrapolation (each ghost is a combination of the `ns`
-nearest interior knots, `Gl[g, :]` for the g-th left ghost from knots `1:ns`, `Gr[g, :]` for the
-g-th right ghost from knots `n-ns+1:n`), exactly as the interpolant constructor fills them;
-`stencil` the number of weights per point; and `eval(x)`, returning `(col0, w)` such that point
-`x` has weight `w[j]` at full-grid column `col0 + j`, `j = 1:stencil`."""
-function _nu_axis(kernel::Symbol, ax::AbstractVector, ::Type{F}) where {F}
-    n_int = length(ax)
-    if kernel === :n3
-        # nonuniform Catmull-Rom: one ghost per side from a three-knot quadratic extrapolation,
-        # four closed-form weights per point from the local spacings (`_nonuniform_dim_ghost`)
-        kexp = vcat(ax[1] - (ax[2] - ax[1]), ax, ax[end] + (ax[end] - ax[end - 1]))
-        Gl = F.(nonuniform_ghost_coefficients(ax, 1, 2, :left))
-        Gr = F.(nonuniform_ghost_coefficients(ax, 1, 2, :right))
-        eval = function (x)
-            i, w = _nonuniform_dim_ghost(kexp, x)          # expanded index i, weights at i-1 … i+2
-            return i - 2, F[w[1], w[2], w[3], w[4]]
-        end
-        return (M = 1, ns = 3, Gl = Gl, Gr = Gr, stencil = 4, eval = eval)
-    else
-        # b-kernels: M ghosts per side from a degree-p Vandermonde extrapolation, 2M weight
-        # polynomials per interval from the exact per-interval projection
-        M, p = nonuniform_b_params(kernel)
-        weights = precompute_nonuniform_b_all(ax, kernel, 0)[1]
-        Gl = F.(nonuniform_b_ghost_coefficients(ax, M, p, :left))
-        Gr = F.(nonuniform_b_ghost_coefficients(ax, M, p, :right))
-        eval = function (x)
-            k  = clamp(searchsortedlast(ax, x), 1, n_int - 1)    # interval in the interior axis
-            s  = (x - ax[k]) / (ax[k + 1] - ax[k])
-            coeffs = weights[k]
-            n_poly = size(coeffs, 2)
-            w = Vector{F}(undef, 2M)
-            for j in 1:2M
-                val = F(coeffs[j, n_poly])
-                for q in (n_poly - 1):-1:1
-                    val = val * s + F(coeffs[j, q])
-                end
-                w[j] = val
-            end
-            return k, w                                           # columns k+1 … k+2M, as in `_nb_dim`
-        end
-        return (M = M, ns = p + 1, Gl = Gl, Gr = Gr, stencil = 2M, eval = eval)
-    end
-end
-
-"""Sparse collocation matrix over the full (ghost-extended) grid: row i holds
-the tensor-product kernel weights of data point i at the grid knots."""
-function _scattered_collocation(pts::AbstractMatrix{F}, kernels::NTuple{D,Symbol},
-                                eqs::NTuple{D,Int}, n_full::NTuple{D,Int},
-                                x0_full::NTuple{D,F}, h::NTuple{D,F}) where {F,D}
-    Np = size(pts, 2)
-    lin = LinearIndices(n_full)
-    stencil_max = prod(d -> 2eqs[d], 1:D)
-    I_ = Vector{Int}(undef, 0);  sizehint!(I_, Np * stencil_max)
-    J_ = Vector{Int}(undef, 0);  sizehint!(J_, Np * stencil_max)
-    V_ = Vector{F}(undef, 0);    sizehint!(V_, Np * stencil_max)
-
-    kers = ntuple(d -> ConvolutionKernel(Val(kernels[d]), Val(0)), D)
-    wbuf = ntuple(d -> Vector{F}(undef, 2eqs[d]), D)
-
-    for i in 1:Np
-        pos    = ntuple(d -> (pts[d, i] - x0_full[d]) / h[d] + 1, D)   # 1-based
-        base   = ntuple(d -> floor(Int, pos[d]), D)
-        jlo    = ntuple(d -> max(1, base[d] - eqs[d] + 1), D)
-        jhi    = ntuple(d -> min(n_full[d], base[d] + eqs[d]), D)
-        for d in 1:D
-            for (m, j) in enumerate(jlo[d]:jhi[d])
-                wbuf[d][m] = kers[d](pos[d] - j)
-            end
-        end
-        for ci in CartesianIndices(ntuple(d -> jlo[d]:jhi[d], D))
-            w = one(F)
-            for d in 1:D
-                w *= wbuf[d][ci[d] - jlo[d] + 1]
-            end
-            if w != zero(F)
-                push!(I_, i); push!(J_, lin[ci]); push!(V_, w)
-            end
-        end
-    end
-    return sparse(I_, J_, V_, Np, prod(n_full))
-end
-
-"""Sparse collocation matrix over the full (ghost-extended) nonuniform grid: row i holds the
-tensor-product weights of data point i at the grid knots, from the per-axis bases of
-`_nu_axis` (`basis.eval(x)` gives the first column minus one and the weights of a point along
-that axis)."""
-function _scattered_collocation(pts::AbstractMatrix{F}, axes::NTuple{D,<:AbstractVector},
-                                bases::NTuple{D,<:NamedTuple}) where {F,D}
-    Np      = size(pts, 2)
-    n_full  = ntuple(d -> length(axes[d]) + 2bases[d].M, D)
-    stencil = ntuple(d -> bases[d].stencil, D)
-    lin     = LinearIndices(n_full)
-    stencil_max = prod(stencil)
-    I_ = Vector{Int}(undef, 0);  sizehint!(I_, Np * stencil_max)
-    J_ = Vector{Int}(undef, 0);  sizehint!(J_, Np * stencil_max)
-    V_ = Vector{F}(undef, 0);    sizehint!(V_, Np * stencil_max)
-
-    for i in 1:Np
-        cw   = ntuple(d -> bases[d].eval(pts[d, i]), D)          # (col0, weights) per axis
-        col0 = ntuple(d -> cw[d][1], D)
-        for ci in CartesianIndices(stencil)
-            w = one(F)
-            for d in 1:D
-                w *= cw[d][2][ci[d]]
-            end
-            if w != zero(F)
-                push!(I_, i)
-                push!(J_, lin[ntuple(d -> col0[d] + ci[d], D)...])
-                push!(V_, w)
-            end
-        end
-    end
-    return sparse(I_, J_, V_, Np, prod(n_full))
-end
-
-"""Per-dimension extension operators (interior -> full grid via the polynomial
-BC), combined column-major: S = kron(E_D, ..., E_1)."""
-function _scattered_extension(n_full::NTuple{D,Int}, n_int::NTuple{D,Int},
-                              ng::NTuple{D,Int}, Gl::NTuple{D,Matrix{Int}},
-                              Gr::NTuple{D,Matrix{Int}}, ::Type{F}) where {F,D}
-    Es = ntuple(D) do d
-        nl, nr = size(Gl[d], 2), size(Gr[d], 2)      # stencil widths of the two ends' ghost rules
-        I_ = Int[]; J_ = Int[]; V_ = F[]
-        for j in 1:n_int[d]                          # interior identity
-            push!(I_, ng[d] + j); push!(J_, j); push!(V_, one(F))
-        end
-        for g in 1:ng[d], j in 1:nl                  # left ghosts, nearest-first
-            push!(I_, ng[d] + 1 - g); push!(J_, j); push!(V_, F(Gl[d][g, j]))
-        end
-        for g in 1:ng[d], j in 1:nr                  # right ghosts, mirrored
-            push!(I_, n_full[d] - ng[d] + g)
-            push!(J_, n_int[d] - nr + j)
-            push!(V_, F(Gr[d][g, nr + 1 - j]))
-        end
-        sparse(I_, J_, V_, n_full[d], n_int[d])
-    end
-    return reduce(kron, reverse(Es))
-end
-
-"""Per-dimension extension operators on a nonuniform grid (interior -> full grid via the ghost
-extrapolation of the kernel, from the per-axis bases of `_nu_axis`), combined column-major:
-S = kron(E_D, ..., E_1). Ghost g (g = 1 nearest the boundary) sits at full index M+1-g on the
-left and M+n+g on the right, and combines the `ns` nearest interior knots, exactly as the
-interpolant constructor fills them."""
-function _scattered_extension(axes::NTuple{D,<:AbstractVector}, bases::NTuple{D,<:NamedTuple},
-                              ::Type{F}) where {F,D}
-    Es = ntuple(D) do d
-        n_int  = length(axes[d])
-        M, ns  = bases[d].M, bases[d].ns
-        Gl, Gr = bases[d].Gl, bases[d].Gr
-        n_full = n_int + 2M
-        I_ = Int[]; J_ = Int[]; V_ = F[]
-        for j in 1:n_int                                         # interior identity
-            push!(I_, M + j); push!(J_, j); push!(V_, one(F))
-        end
-        for g in 1:M, k in 1:ns                                  # left ghosts from knots 1 … ns
-            push!(I_, M + 1 - g); push!(J_, k); push!(V_, F(Gl[g, k]))
-        end
-        for g in 1:M, k in 1:ns                                  # right ghosts from knots n_int-ns+1 … n_int
-            push!(I_, M + n_int + g)
-            push!(J_, n_int - ns + k)
-            push!(V_, F(Gr[g, k]))
-        end
-        sparse(I_, J_, V_, n_full, n_int)
-    end
-    return reduce(kron, reverse(Es))
-end
-
-"""q-th differences along one uniform axis of `n` knots: `n - q` rows with the binomial
-weights `(-1)^(q-k) binomial(q, k)` at columns `i … i+q`."""
-function _difference_rows(n::Int, q::Int, ::Type{F}) where {F}
-    I_ = Int[]; J_ = Int[]; V_ = F[]
-    for i in 1:(n - q), k in 0:q
-        push!(I_, i); push!(J_, i + k)
-        push!(V_, F((-1)^(q - k) * binomial(q, k)))
-    end
-    return sparse(I_, J_, V_, n - q, n)
-end
-
-"""All multi-indices `α` of `D` nonnegative integers with `sum(α) == q`: the orders of the
-mixed differences of total order `q`."""
-function _multi_indices(q::Int, D::Int)
-    D == 1 && return [(q,)]
-    out = NTuple{D,Int}[]
-    for a in 0:q, rest in _multi_indices(q - a, D - 1)
-        push!(out, (a, rest...))
-    end
-    return out
-end
-
-"""Roughness operator on the full grid: q-th differences along each axis,
-stacked. Column-major kron ordering to match `_scattered_extension`."""
-function _scattered_roughness(n_full::NTuple{D,Int}, q::NTuple{D,Int},
-                              ::Type{F}) where {F,D}
-    blocks = map(1:D) do dd
-        ops = ntuple(d -> d == dd ? _difference_rows(n_full[d], q[d], F) :
-                                    sparse(one(F) * I, n_full[d], n_full[d]), D)
-        reduce(kron, reverse(ops))
-    end
-    return reduce(vcat, blocks)
-end
-
-"""Isotropic roughness operator on the full grid: the discrete `H^q` seminorm, every mixed
-difference of total order `q` weighted by `sqrt(q!/α!)`, so that `‖R c‖²` discretises
-`∫ Σ_{|α|=q} (q!/α!) |∂^α s|²`, the seminorm the polyharmonic splines minimise. Unlike the
-axis-wise operator it also penalises the mixed modes, which from three dimensions up the
-scattered data pin too loosely on their own; in 1D the two operators coincide.
-Column-major kron ordering to match `_scattered_extension`."""
-function _scattered_roughness_iso(n_full::NTuple{D,Int}, q::Int, ::Type{F}) where {F,D}
-    blocks = map(_multi_indices(q, D)) do α
-        w = sqrt(F(factorial(q)) / F(prod(factorial, α)))
-        ops = ntuple(d -> α[d] == 0 ? sparse(one(F) * I, n_full[d], n_full[d]) :
-                                      _difference_rows(n_full[d], α[d], F), D)
-        w * reduce(kron, reverse(ops))
-    end
-    return reduce(vcat, blocks)
-end
-
-"""Full knot vectors of a nonuniform grid for the roughness operators: each axis normalised to
-[0, 1] over the interior, with `M[d]` ghost knots per side mirroring the end spacings, as the
-interpolant constructor places them."""
-function _roughness_knots(axes::NTuple{D,<:AbstractVector}, M::NTuple{D,Int},
-                          ::Type{F}) where {F,D}
-    return ntuple(D) do d
-        ax   = axes[d]
-        lo   = F(first(ax))
-        span = F(last(ax)) - lo
-        x    = [(F(a) - lo) / span for a in ax]
-        h1   = x[2] - x[1]
-        hn   = x[end] - x[end - 1]
-        vcat([x[1] - g * h1 for g in M[d]:-1:1], x, [x[end] + g * hn for g in 1:M[d]])
-    end
-end
-
-"""q-th divided differences along one nonuniform axis with knots `x`, each row times ℓ^q with
-ℓ its support length over q: a plain q-th difference on the local scale, O(1) on any grid and
-equal to the uniform operator's binomial differences on a uniform grid."""
-function _divided_difference_rows(x::Vector{F}, q::Int) where {F}
-    n = length(x)
-    I_ = Int[]; J_ = Int[]; V_ = F[]
-    fac = F(factorial(q))
-    for i in 1:(n - q)
-        ell = (x[i + q] - x[i]) / q
-        for k in 0:q
-            denom = one(F)
-            for m in 0:q
-                m == k && continue
-                denom *= x[i + k] - x[i + m]
-            end
-            push!(I_, i); push!(J_, i + k); push!(V_, ell^q * fac / denom)
-        end
-    end
-    return sparse(I_, J_, V_, n - q, n)
-end
-
-"""Roughness operator on the full nonuniform grid: q-th divided differences along each axis
-in plain-difference units (`_divided_difference_rows`), identity along the transverse axes,
-stacked over the axes. `_smooth_system` applies the same mean-grid `rowscale` as on uniform
-grids, so on a nonuniform grid the `:smooth` penalty is the sum of squared local differences
-in mean-grid units rather than exactly ∫|∂^q s|²: λ's cutoff interpretation is then
-approximate, while GCV still chooses λ from the data. Column-major kron ordering to match
-`_scattered_extension`."""
-function _scattered_roughness(axes::NTuple{D,<:AbstractVector}, M::NTuple{D,Int},
-                              q::NTuple{D,Int}, ::Type{F}) where {F,D}
-    xs = _roughness_knots(axes, M, F)
-    blocks = map(1:D) do dd
-        ops = ntuple(d -> d == dd ? _divided_difference_rows(xs[d], q[d]) :
-                                    sparse(one(F) * I, length(xs[d]), length(xs[d])), D)
-        reduce(kron, reverse(ops))
-    end
-    return reduce(vcat, blocks)
-end
-
-"""Isotropic roughness operator on the full nonuniform grid: the discrete `H^q` seminorm of
-the uniform `_scattered_roughness_iso`, with the divided differences of
-`_divided_difference_rows` along each axis in place of the binomial differences. Column-major
-kron ordering to match `_scattered_extension`."""
-function _scattered_roughness_iso(axes::NTuple{D,<:AbstractVector}, M::NTuple{D,Int},
-                                  q::Int, ::Type{F}) where {F,D}
-    xs = _roughness_knots(axes, M, F)
-    blocks = map(_multi_indices(q, D)) do α
-        w = sqrt(F(factorial(q)) / F(prod(factorial, α)))
-        ops = ntuple(d -> α[d] == 0 ? sparse(one(F) * I, length(xs[d]), length(xs[d])) :
-                                      _divided_difference_rows(xs[d], α[d]), D)
-        w * reduce(kron, reverse(ops))
-    end
-    return reduce(vcat, blocks)
-end
-
-"""Sparse least-squares factorization: SPQR for Float64, dense QR otherwise."""
-_scattered_lsq_factorize(K::SparseMatrixCSC{Float64}) = qr(K)
-_scattered_lsq_factorize(K::SparseMatrixCSC{F}) where {F} = qr(Matrix(K))
-
-"""SPD factorization helper: CHOLMOD for Float64 sparse, dense Cholesky
-otherwise (BigFloat and friends)."""
-_scattered_spd_factorize(H::SparseMatrixCSC{Float64}) = cholesky(Symmetric(H))
-function _scattered_spd_factorize(H::SparseMatrixCSC{F}) where {F}
-    # generic dense path (BigFloat etc.): tiny relative shift guards against
-    # roundoff-indefiniteness in the penalty-scaled system
-    Hd = Matrix(H)
-    shift = sqrt(eps(F)) * F(1e-3) * maximum(abs, view(Hd, diagind(Hd)))
-    @inbounds for i in diagind(Hd)
-        Hd[i] += shift
-    end
-    return cholesky!(Symmetric(Hd))
-end
-
-"""Augmented Lagrangian for  min ||R c||^2  s.t.  A c = f  (or its
-least-squares limit when the constraints are infeasible). One factorization,
-few multiplier iterations; early exit when the violation stops contracting.
-QR-based multiplier iteration: each step solves the least-squares problem
-min ||sqrt(W)(A c - g)||^2 + ||R c||^2 with g = f - lam/W, factored once as
-qr([sqrt(W) A; R]). No normal equations are formed, so the roundoff floor
-scales with cond(K) rather than cond(K)^2."""
-function _scattered_auglag(A::SparseMatrixCSC{F}, f::Vector{F},
-                           R::SparseMatrixCSC{F}, W::F, iters::Int, tol::F,
-                           verbose::Bool, ::Val{:qr}) where {F}
-    sqW = sqrt(W)
-    fac = _scattered_lsq_factorize([sqW * A; R])
-    mR  = size(R, 1)
-    lam = zeros(F, size(A, 1))
-    c   = zeros(F, size(A, 2))
-    viol = F(Inf); prev = F(Inf)
-    for it in 1:iters
-        rhs = [sqW .* (f .- lam ./ W); zeros(F, mR)]
-        c = fac \ rhs
-        r = A * c - f
-        viol = maximum(abs, r)
-        verbose && println("  fit_scattered iter $it: constraint violation $viol")
-        (viol < tol || viol > F(0.5) * prev) && break
-        prev = viol
-        lam .+= W .* r
-    end
-    return c, viol
-end
-
-function _scattered_auglag(A::SparseMatrixCSC{F}, f::Vector{F},
-                           R::SparseMatrixCSC{F}, W::F, iters::Int, tol::F,
-                           verbose::Bool, ::Val{:cholesky}) where {F}
-    H = W * (A' * A) + R' * R
-    # Jacobi equilibration: boundary-adjacent columns carry the (large)
-    # polynomial-extrapolation weights of the deep ghosts, so column norms
-    # span many orders of magnitude for wide kernels (b9-b13). Symmetric
-    # diagonal scaling D H D with D = diag(1 ./ sqrt.(diag(H))) restores
-    # balanced scaling, preserves SPD, and lowers the roundoff error floor.
-    d = [one(F) / sqrt(max(H[i, i], eps(F))) for i in 1:size(H, 1)]
-    Dm = spdiagm(0 => d)
-    Hs = Dm * H * Dm
-    fac = try
-        _scattered_spd_factorize(Hs)
-    catch err
-        err isa PosDefException || rethrow()
-        # the normal matrix lost positive definiteness numerically (large grids with few data
-        # rows): solve the stacked least-squares system by sparse QR instead, which does not
-        # square the condition number
-        @warn "fit_scattered (:exact): the normal equations are not numerically positive " *
-              "definite on this grid ($(size(A, 2)) unknowns for $(size(A, 1)) points); " *
-              "falling back to solver = :qr. A smaller gridsize/oversample avoids this."
-        return _scattered_auglag(A, f, R, W, iters, tol, verbose, Val(:qr))
-    end
-    lam = zeros(F, size(A, 1))
-    c   = zeros(F, size(A, 2))
-    viol = F(Inf); prev = F(Inf)
-    for it in 1:iters
-        rhs = A' * (W .* f .- lam)
-        c = d .* (fac \ Vector(d .* rhs))
-        r = A * c - f
-        viol = maximum(abs, r)
-        verbose && println("  fit_scattered iter $it: constraint violation $viol")
-        (viol < tol || viol > F(0.5) * prev) && break
-        prev = viol
-        lam .+= W .* r
-    end
-    return c, viol
-end
-
-function _scattered_auglag(A::SparseMatrixCSC{F}, f::Vector{F},
-                           R::SparseMatrixCSC{F}, W::F, iters::Int, tol::F,
-                           verbose::Bool, ::Val{:nullspace}) where {F}
-    N, M = size(A)
-    M <= 5_000 ||
-        error("solver = :nullspace is dense (O(M^2) memory in M = $M unknowns); " *
-              "use :cholesky or :qr for systems this large.")
- 
-    Ad = Matrix(A)
-    Rd = Matrix(R)
- 
-    # particular solution: pivoted-QR least squares (exact when feasible)
-    c0 = Ad \ f
- 
-    # nullspace basis of A from the full Q of a pivoted QR of A' (M x N):
-    # A' = Q S P'  =>  the columns of Q beyond rank(A) span null(A).
-    qrf = qr(Matrix(Ad'), ColumnNorm())
-    dS = abs.(diag(qrf.R))
-    rtol = maximum(dS; init = zero(F)) * max(N, M) * eps(F)
-    r = count(>(rtol), dS)
-    Qfull = qrf.Q * Matrix{F}(I, M, M)
-    Z = Qfull[:, r+1:M]
- 
-    # reduced problem in the nullspace (pivoted-QR least squares again)
-    c = if size(Z, 2) == 0
-        c0                                   # constraints determine everything
-    else
-        z = (Rd * Z) \ (-(Rd * c0))
-        c0 + Z * z
-    end
- 
-    viol = maximum(abs, A * c - f)
-    verbose && println("  fit_scattered nullspace: rank $r of $N constraints, " *
-                       "$(size(Z, 2)) free directions, violation $viol")
-    return c, viol
+    return :cholesky
 end

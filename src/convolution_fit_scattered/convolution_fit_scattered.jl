@@ -1,3 +1,6 @@
 include("fit_axes.jl")
-include("fit_scattered.jl")
+include("fit_operators.jl")
+include("fit_exact.jl")
+include("fit_dual.jl")
 include("fit_smooth.jl")
+include("fit_scattered.jl")

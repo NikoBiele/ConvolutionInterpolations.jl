@@ -39,6 +39,7 @@ Random.seed!(20260924)
     include("test_resample.jl")
     include("test_fit_scattered.jl")
     include("test_fit_scattered_adaptive.jl")
+    include("test_fit_scattered_dual.jl")
     include("test_roughness_isotropic.jl")
     include("test_show.jl")
 end

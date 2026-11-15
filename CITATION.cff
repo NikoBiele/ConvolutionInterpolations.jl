@@ -11,7 +11,7 @@ abstract: >-
   arbitrary dimensions.
 license: MIT
 version: 1.6.0
-date-released: 2026-11-15
+date-released: 2026-11-16
 doi: "10.5281/zenodo.23354656"
 repository-code: "https://github.com/NikoBiele/ConvolutionInterpolations.jl"
 keywords:

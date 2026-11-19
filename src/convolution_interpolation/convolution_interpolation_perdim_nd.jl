@@ -19,7 +19,8 @@ function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},K
     w = _column_weights_per_dim(Val(_kernel_sym(itp.kernel_sym)), Val(DO), diff_right)
 
     result = zero(T)
-    @inbounds for offsets in Iterators.product(ntuple(d -> -(itp.eqs[d]-1):itp.eqs[d], N)...)
+    @inbounds for offsets in Iterators.product(ntuple(d -> -(itp.eqs[d]-1):itp.eqs[d],
+                                                      N)...)
         c = itp.coefs[(pos_ids .+ offsets)...]
         kernel_val = prod(ntuple(d -> w[d][offsets[d] + itp.eqs[d]], Val(N)))
         result += c * kernel_val

@@ -3,11 +3,14 @@ println("Testing mixed integral/derivative order in 2D (with and without stored 
 println("-"^60)
 
 # f(x,y) = sin(x)*cos(y)
-# ∫f dx   = -cos(x)*cos(y) + C,  anchor ax: C = cos(ax)*cos(y)  → exact(x,y) = (-cos(x) + cos(ax))*cos(y)
-# ∫f dy   = sin(x)*sin(y) + C,   anchor ay: C = -sin(x)*sin(ay) → exact(x,y) = sin(x)*(sin(y) - sin(ay))
+# ∫f dx   = -cos(x)*cos(y) + C,  anchor ax: C = cos(ax)*cos(y)
+#           → exact(x,y) = (-cos(x) + cos(ax))*cos(y)
+# ∫f dy   = sin(x)*sin(y) + C,   anchor ay: C = -sin(x)*sin(ay)
+#           → exact(x,y) = sin(x)*(sin(y) - sin(ay))
 # ∂f/∂x   = cos(x)*cos(y)
 # ∂f/∂y   = -sin(x)*sin(y)
-# ∫(∂f/∂y)dx = cos(x)*sin(y) + C, anchor ax: C = -cos(ax)*sin(y) → exact = (cos(x) - cos(ax))*sin(y)
+# ∫(∂f/∂y)dx = cos(x)*sin(y) + C, anchor ax: C = -cos(ax)*sin(y)
+#           → exact = (cos(x) - cos(ax))*sin(y)
 # ∂(∫f dx)/∂y = (-cos(x)+cos(ax))*(-sin(y))
 
 mixed_kernels = [:b5]

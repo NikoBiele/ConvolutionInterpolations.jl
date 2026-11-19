@@ -10,10 +10,10 @@ g2_int(a, b, c, d) = (cos(3a) - cos(3b)) / 3 * (sin(2d) - sin(2c)) / 2
 g3(x, y, z)  = sin(3x) * cos(2y) * exp(-z)
 g1(x)        = sin(6x) + 0.3cos(11x)
 
-# scattered points in the unit box: the centres of an n_side^dims grid of cells, each moved by
-# up to `jitter` cell widths along every axis. The moves come from `stable_rand(seed, ...)`, so
-# the points are the same on every Julia version, and no two are closer than (1 - 2 jitter)
-# cell widths
+# scattered points in the unit box: the centres of an n_side^dims grid of cells, each moved
+# by up to `jitter` cell widths along every axis. The moves come from
+# `stable_rand(seed, ...)`, so the points are the same on every Julia version, and no two
+# are closer than (1 - 2 jitter) cell widths
 function jittered_pts(n_side, jitter, seed; dims = 2)
     pts = Matrix{Float64}(undef, dims, n_side^dims)
     u = stable_rand(seed, dims, n_side^dims)
@@ -63,9 +63,9 @@ end
 
     @testset "accuracy improves with density (2D, :b5)" begin
         println("    - Testing scattered fit accuracy at two densities")
-        # the error must fall clearly from 20 to 40 points per side; the rate itself is not a
-        # clean power law for a scattered fit (the completion, not the kernel, sets it), so the
-        # test asserts the error levels rather than a slope
+        # the error must fall clearly from 20 to 40 points per side; the rate itself is not
+        # a clean power law for a scattered fit (the completion, not the kernel, sets it),
+        # so the test asserts the error levels rather than a slope
         rmss = Float64[]
         for n_side in (20, 40)
             pts = jittered_pts(n_side, 0.35, 3)
@@ -104,16 +104,16 @@ end
         end
     end
 
-    @testset "solvers agree with the deprecated null-space solve" begin
-        println("    - Testing scattered solver agreement with the deprecated null-space solve")
-        pts = jittered_pts(60, 0.35, 5; dims = 1)   # 60 scattered points on [0, 1], in increasing order
+    @testset "the sparse solvers agree" begin
+        println("    - Testing that the sparse solvers of the scattered fit agree")
+        # 60 scattered points on [0, 1], in increasing order
+        pts = jittered_pts(60, 0.35, 5; dims = 1)
         xs = vec(pts)
         vals = g1.(xs)
-        _, v_ns, _ = fit_scattered(pts, vals; mode = :exact, solver = :nullspace, gridsize = 96)
-        for s in (:cholesky, :qr)
-            _, v_s, _ = fit_scattered(pts, vals; mode = :exact, solver = s, gridsize = 96)
-            @test maximum(abs, v_ns .- v_s) < 1e-4
-        end
+        _, v_cholesky, _ = fit_scattered(pts, vals; mode = :exact, solver = :cholesky,
+                                         gridsize = 96)
+        _, v_qr, _ = fit_scattered(pts, vals; mode = :exact, solver = :qr, gridsize = 96)
+        @test maximum(abs, v_cholesky .- v_qr) < 1e-4
     end
 
     @testset ":smooth fits noisy data" begin
@@ -140,12 +140,15 @@ end
         @test info2.lambda ≈ info.lambda
 
         # a given gridsize is used as is
-        knots3, gvals3, _ = fit_scattered(pts, noisy; kernel = :b5, mode = :smooth, gridsize = 20)
+        knots3, gvals3, _ = fit_scattered(pts, noisy; kernel = :b5, mode = :smooth,
+                                          gridsize = 20)
         @test length.(knots3) == (20, 20)
         @test size(gvals3) == (20, 20)
 
         # noise-free data: the fit approaches interpolation, and the capped grid warns
-        knots4, gvals4, info4 = @test_logs (:warn, r"limited by `oversample`") match_mode = :any fit_scattered(pts, clean; kernel = :b5, mode = :smooth)
+        knots4, gvals4, info4 =
+            @test_logs (:warn, r"limited by `oversample`") match_mode = :any fit_scattered(
+                pts, clean; kernel = :b5, mode = :smooth)
         itp4 = ConvolutionInterpolation(knots4, gvals4; kernel = :b5, bc = :poly)
         rms4 = sqrt(mean((itp4(x, y) - g2(x, y))^2 for x in ev, y in ev))
         @test rms4 < 1e-3
@@ -156,10 +159,12 @@ end
         @test maximum(abs(itp5(x, y) - itp(x, y)) for x in ev, y in ev) < 1e-10
 
         # 1D: noise reduction with grid refinement
-        xs = vec(jittered_pts(400, 0.35, 29; dims = 1))   # 400 scattered points on [0, 1], in increasing order
+        # 400 scattered points on [0, 1], in increasing order
+        xs = vec(jittered_pts(400, 0.35, 29; dims = 1))
         clean1 = g1.(xs)
         noisy1 = clean1 .+ sigma .* stable_randn(39, length(xs))
-        knots1, gvals1, info1 = fit_scattered(reshape(xs, 1, :), noisy1)         # defaults: :smooth, :b5
+        # defaults: :smooth, :b5
+        knots1, gvals1, info1 = fit_scattered(reshape(xs, 1, :), noisy1)
         itp1 = ConvolutionInterpolation(knots1, gvals1; kernel = :b5, bc = :poly)
         ev1 = range(0.1, 0.9, length = 201)
         rms1 = sqrt(mean((itp1(x) - g1(x))^2 for x in ev1))
@@ -167,7 +172,8 @@ end
         @test abs(info1.noise - sigma) < 0.2 * sigma
 
         # element type: Float32 data give a Float32 grid
-        _, gvals32, _ = fit_scattered(Float32.(pts), Float32.(noisy); kernel = :b5, mode = :smooth)
+        _, gvals32, _ = fit_scattered(Float32.(pts), Float32.(noisy); kernel = :b5,
+                                      mode = :smooth)
         @test eltype(gvals32) == Float32
 
         # defaults: :smooth with kernel :b5 and q = 5, in fit_scattered and the constructor
@@ -179,7 +185,8 @@ end
         itp7 = ConvolutionInterpolation(knots6, gvals6; kernel = :b5, bc = :poly)
         @test maximum(abs(itp6(x, y) - itp7(x, y)) for x in ev, y in ev) < 1e-12
 
-        # a small cap is accepted; whether it warns depends on the fitted smoothing (the noise-free case above warns)
+        # a small cap is accepted; whether it warns depends on the fitted smoothing (the
+        # noise-free case above warns)
         @test fit_scattered(pts, noisy; oversample = 0.2) isa Tuple
 
         # errors: the removed :lsq mode and invalid smoothing parameters
@@ -234,10 +241,9 @@ end
         # bad mode / solver symbols
         @test_throws ArgumentError fit_scattered(pts, vals; mode = :magic)
         @test_throws ArgumentError fit_scattered(pts, vals; solver = :abacus)
-        # nullspace size cap is a hard error, not a hang
-        big = halton_points(2, 4000)
-        bigv = vec(sum(big; dims = 1))
-        @test_throws Exception fit_scattered(big, bigv; mode = :exact, solver = :nullspace)
+        # the removed solver is rejected like any other unknown symbol
+        @test_throws ArgumentError fit_scattered(pts, vals; mode = :exact,
+                                                 solver = :nullspace)
         # :smooth needs more points than the penalty's null space (5^D with q = 5)
         few = halton_points(2, 25)
         fewv = vec(sum(few; dims = 1))

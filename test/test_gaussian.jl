@@ -35,7 +35,8 @@ println("    - Convolution_smooth")
         signal = sin.(xs)
         noisy  = signal .+ 0.1 .* stable_randn(1, 200)
         smoothed = convolution_smooth(xs, noisy, 0.05)
-        # smoothing must remove most of the noise: error well below the noise level (measured 0.29)
+        # smoothing must remove most of the noise: error well below the noise level
+        # (measured 0.29)
         @test rms(smoothed .- signal) < 0.45 * rms(noisy .- signal)
         @test length(smoothed) == length(xs)
         @test eltype(smoothed) == Float64
@@ -107,7 +108,7 @@ end
         itp = convolution_gaussian(xs, fill(C, 161), B)
         @test maximum(abs.(itp.(range(0.0, 2π, length=401)) .- C)) < 1e-12 * C
     end
-    @test_throws ErrorException convolution_gaussian(xs, fill(1.0, 161), 0.5)
+    @test_throws ArgumentError convolution_gaussian(xs, fill(1.0, 161), 0.5)
 
     # Between nodes a sampled Gaussian is not a partition of unity. By
     # Poisson summation the taps sum to 1 + 2q*cos(2*pi*x) + O(q^2) with

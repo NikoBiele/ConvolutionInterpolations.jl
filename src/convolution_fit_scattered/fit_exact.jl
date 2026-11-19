@@ -1,5 +1,5 @@
 # =============================================================================
-# mode = :exact: the sparse solvers (:cholesky, :qr and the deprecated :nullspace)
+# mode = :exact: the sparse solvers (:cholesky and :qr)
 # =============================================================================
 
 """Sparse least-squares factorization: SPQR for Float64, dense QR otherwise."""
@@ -49,37 +49,14 @@ function _scattered_auglag(A::SparseMatrixCSC{F}, f::Vector{F},
     return c, viol
 end
 
-const _EXACT_QR_FALLBACK_BYTES = 2^31   # largest sparse-QR fallback of :cholesky, estimated as rows x unknowns x 8 bytes
-
-"""Whether the CHOLMOD factorization of `Hs` is predicted to need more than `memory_limit`
-bytes. The prediction is twice the size of the factor, which the symbolic analysis gives
-before any numbers are computed; the other half is the matrix, CHOLMOD's copy of it and its
-working space. A factor is never larger than a dense triangle, so systems for which even
-that fits are not analysed. The factor size is read from CHOLMOD's own structures; where a
-Julia version does not provide them, the answer is `false` and the fit proceeds unchecked."""
-function _scattered_cholesky_exceeds(Hs::SparseMatrixCSC{Float64}, memory_limit::Real)
-    n = size(Hs, 1)
-    if 8.0 * n * n <= memory_limit
-        return false
-    end
-    try
-        analysis = SparseArrays.CHOLMOD.symbolic(SparseArrays.CHOLMOD.Sparse(Symmetric(Hs)))
-        factor_bytes = 8.0 * unsafe_load(pointer(analysis)).xsize
-        return 2 * factor_bytes > memory_limit
-    catch err
-        err isa InterruptException && rethrow()
-        return false
-    end
-end
-_scattered_cholesky_exceeds(Hs::SparseMatrixCSC, memory_limit::Real) = false
+# largest sparse-QR fallback of :cholesky, estimated as rows x unknowns x 8 bytes
+const _EXACT_QR_FALLBACK_BYTES = 2^31
 
 """Cholesky-based multiplier iteration on the normal equations `W A'A + R'R`. Returns
-`(c, viol)`, or `nothing` when the factorization is predicted to need more than
-`memory_limit` bytes (`_scattered_cholesky_exceeds`); the default sets no limit."""
+`(c, viol)`."""
 function _scattered_auglag(A::SparseMatrixCSC{F}, f::Vector{F},
                            R::SparseMatrixCSC{F}, W::F, iters::Int, tol::F,
-                           verbose::Bool, ::Val{:cholesky};
-                           memory_limit::Real = Inf) where {F}
+                           verbose::Bool, ::Val{:cholesky}) where {F}
     H = W * (A' * A) + R' * R
     # Jacobi equilibration: boundary-adjacent columns carry the (large)
     # polynomial-extrapolation weights of the deep ghosts, so column norms
@@ -89,24 +66,22 @@ function _scattered_auglag(A::SparseMatrixCSC{F}, f::Vector{F},
     d = [one(F) / sqrt(max(H[i, i], eps(F))) for i in 1:size(H, 1)]
     Dm = spdiagm(0 => d)
     Hs = Dm * H * Dm
-    if _scattered_cholesky_exceeds(Hs, memory_limit)
-        return nothing
-    end
     fac = try
         _scattered_spd_factorize(Hs)
     catch err
         err isa PosDefException || rethrow()
-        # the normal matrix lost positive definiteness numerically (large grids with few data
-        # rows). Sparse QR of the stacked least-squares system does not square the condition
-        # number, but its memory grows as rows x unknowns: it is the fallback only while that
-        # stays small, and an error otherwise
+        # the normal matrix lost positive definiteness numerically (large grids with few
+        # data rows). Sparse QR of the stacked least-squares system does not square the
+        # condition number, but its memory grows as rows x unknowns: it is the fallback only
+        # while that stays small, and an error otherwise
         qr_bytes = (size(A, 1) + size(R, 1)) * size(A, 2) * sizeof(F)
         if qr_bytes > _EXACT_QR_FALLBACK_BYTES
-            error("fit_scattered (:exact): the normal equations are not numerically positive " *
-                  "definite on this grid ($(size(A, 2)) unknowns for $(size(A, 1)) points), and " *
-                  "solving by sparse QR instead would need about " *
-                  "$(round(qr_bytes / 2^30; digits = 1)) GB. Use solver = :dual on a uniform " *
-                  "grid, or a smaller gridsize/oversample; solver = :qr forces the sparse QR.")
+            error("fit_scattered (:exact): the normal equations are not numerically " *
+                  "positive definite on this grid ($(size(A, 2)) unknowns for " *
+                  "$(size(A, 1)) points), and solving by sparse QR instead would need " *
+                  "about $(round(qr_bytes / 2^30; digits = 1)) GB. Use solver = :dual on " *
+                  "a uniform grid, or a smaller gridsize/oversample; solver = :qr forces " *
+                  "the sparse QR.")
         end
         @warn "fit_scattered (:exact): the normal equations are not numerically positive " *
               "definite on this grid ($(size(A, 2)) unknowns for $(size(A, 1)) points); " *
@@ -126,42 +101,5 @@ function _scattered_auglag(A::SparseMatrixCSC{F}, f::Vector{F},
         prev = viol
         lam .+= W .* r
     end
-    return c, viol
-end
-
-function _scattered_auglag(A::SparseMatrixCSC{F}, f::Vector{F},
-                           R::SparseMatrixCSC{F}, W::F, iters::Int, tol::F,
-                           verbose::Bool, ::Val{:nullspace}) where {F}
-    N, M = size(A)
-    M <= 5_000 ||
-        error("solver = :nullspace is dense (O(M^2) memory in M = $M unknowns); " *
-              "use :cholesky or :qr for systems this large.")
- 
-    Ad = Matrix(A)
-    Rd = Matrix(R)
- 
-    # particular solution: pivoted-QR least squares (exact when feasible)
-    c0 = Ad \ f
- 
-    # nullspace basis of A from the full Q of a pivoted QR of A' (M x N):
-    # A' = Q S P'  =>  the columns of Q beyond rank(A) span null(A).
-    qrf = qr(Matrix(Ad'), ColumnNorm())
-    dS = abs.(diag(qrf.R))
-    rtol = maximum(dS; init = zero(F)) * max(N, M) * eps(F)
-    r = count(>(rtol), dS)
-    Qfull = qrf.Q * Matrix{F}(I, M, M)
-    Z = Qfull[:, r+1:M]
- 
-    # reduced problem in the nullspace (pivoted-QR least squares again)
-    c = if size(Z, 2) == 0
-        c0                                   # constraints determine everything
-    else
-        z = (Rd * Z) \ (-(Rd * c0))
-        c0 + Z * z
-    end
- 
-    viol = maximum(abs, A * c - f)
-    verbose && println("  fit_scattered nullspace: rank $r of $N constraints, " *
-                       "$(size(Z, 2)) free directions, violation $viol")
     return c, viol
 end

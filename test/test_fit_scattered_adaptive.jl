@@ -2,15 +2,17 @@ println("\n" * "-"^60)
 println("Testing fit_scattered on adaptive and user-supplied grids...")
 println("-"^60)
 
-# Deterministic point sets: these tests assert interpolation to 1e-9, which a random draw with
-# a close pair of points turns into a least-squares fit. Low-discrepancy sequences (`vdc`, from
-# test_helpers.jl) give the same clustering with a guaranteed minimum separation on every
-# Julia version.
-layer(x) = exp(-20x)                                                 # boundary-layer test signal
-gsmooth(x) = sin(6x) + 0.3cos(11x)                                   # smooth test signal
-clustered_1d(n) = sort([((i - 0.5) / n)^3 for i in 1:n])            # dense near 0, evenly spaced in the cube root
-jittered_1d(n)  = reshape(sort([(i - 0.5 + 0.35 * (2vdc(i, 2) - 1)) / n for i in 1:n]), 1, :)
-function clustered_2d(n)                                             # dense near x = 0 and y = 0.5
+# Deterministic point sets: these tests assert interpolation to 1e-9, which a random draw
+# with a close pair of points turns into a least-squares fit. Low-discrepancy sequences
+# (`vdc`, from test_helpers.jl) give the same clustering with a guaranteed minimum
+# separation on every Julia version.
+layer(x) = exp(-20x)                                          # boundary-layer test signal
+gsmooth(x) = sin(6x) + 0.3cos(11x)                            # smooth test signal
+# dense near 0, evenly spaced in the cube root
+clustered_1d(n) = sort([((i - 0.5) / n)^3 for i in 1:n])
+jittered_1d(n)  = reshape(sort([(i - 0.5 + 0.35 * (2vdc(i, 2) - 1)) / n for i in 1:n]), 1,
+                          :)
+function clustered_2d(n)                                      # dense near x = 0 and y = 0.5
     xs = [vdc(i, 2)^3 for i in 1:n]
     ys = [(u = 2vdc(i, 3) - 1; 0.5 + 0.5 * sign(u) * abs(u)^3) for i in 1:n]
     return permutedims(hcat(xs, ys))
@@ -38,7 +40,8 @@ end
         k1 = ConvolutionInterpolations._fit_axis_adaptive(c, 20, lo, hi; alpha = 1.0)
         @test diff(k1)[1] < diff(k1)[end]
         # duplicated coordinates do not break the builder
-        kd = ConvolutionInterpolations._fit_axis_adaptive(vcat(fill(0.2, 50), c), 30, lo, hi)
+        kd = ConvolutionInterpolations._fit_axis_adaptive(vcat(fill(0.2, 50), c), 30, lo,
+                                                          hi)
         @test all(diff(kd) .> 0)
     end
 
@@ -47,14 +50,14 @@ end
         pts = jittered_1d(200)
         f = gsmooth.(vec(pts))
         ku, vu, viol_u = fit_scattered(pts, f; mode = :exact, kernel = :b5)
-        ax = (collect(ku[1]),)                                          # the same knots as a Vector
+        ax = (collect(ku[1]),)                          # the same knots as a Vector
         ka, va, viol_a = fit_scattered(pts, f; mode = :exact, kernel = :b5, grid = ax)
         @test viol_u < 1e-9
         @test viol_a < 1e-9
         @test ka[1] == ax[1]
         itp_u = convolution_interpolation(ku, vu; kernel = :b5, bc = :poly)
         itp_a = convolution_interpolation(ka, va; kernel = :b5)
-        ev = range(0.2, 0.8, length = 61)                               # away from the ghost regions
+        ev = range(0.2, 0.8, length = 61)               # away from the ghost regions
         @test maximum(abs(itp_u(x) - itp_a(x)) for x in ev) < 1e-6
     end
 
@@ -63,8 +66,9 @@ end
         x = clustered_1d(60)
         pts = reshape(x, 1, :)
         f = layer.(x)
-        for kern in (:b5, :n3)                                          # :b5 is the adaptive :exact default
-            ka, va, viol = fit_scattered(pts, f; mode = :exact, grid = :adaptive, kernel = kern)
+        for kern in (:b5, :n3)                          # :b5 is the adaptive :exact default
+            ka, va, viol = fit_scattered(pts, f; mode = :exact, grid = :adaptive,
+                                         kernel = kern)
             @test viol < 1e-9
             itp = convolution_interpolation(ka, va; kernel = kern)
             @test maximum(abs(itp(x[i]) - f[i]) for i in eachindex(x)) < 1e-9
@@ -86,7 +90,8 @@ end
         f = [layer(pts[1, i]) * (1 + tanh(40 * (pts[2, i] - 0.5))) for i in 1:n]
         ka, va, viol = fit_scattered(pts, f; mode = :exact, grid = :adaptive)
         @test viol < 1e-9
-        itp = convolution_interpolation(pts, f; mode = :exact, grid = :adaptive)   # same fit, built with its own kernel
+        # same fit, built with its own kernel
+        itp = convolution_interpolation(pts, f; mode = :exact, grid = :adaptive)
         @test maximum(abs(itp(pts[1, i], pts[2, i]) - f[i]) for i in 1:n) < 1e-8
         @test maximum(abs.([itp(x, y) for x in ka[1], y in ka[2]] .- va)) < 1e-10
     end
@@ -95,20 +100,26 @@ end
         println("    - Testing :smooth adaptive vs uniform at a fixed knot budget")
         x = clustered_1d(2000)
         pts = reshape(x, 1, :)
-        sharp(t) = exp(-50t)                                            # a layer the uniform 40-knot grid cannot resolve
+        # a layer the uniform 40-knot grid cannot resolve
+        sharp(t) = exp(-50t)
         noisy = sharp.(x) .+ 1e-3 .* stable_randn(4, 2000)
         ev = range(x[1], x[end], length = 1001)
         # uniform grid with its :smooth default kernel (:b5), the comparison the docs make
-        ku, vu, iu = fit_scattered(pts, noisy; mode = :smooth, grid = :uniform, gridsize = 40)
+        ku, vu, iu = fit_scattered(pts, noisy; mode = :smooth, grid = :uniform,
+                                   gridsize = 40)
         su = convolution_interpolation(ku, vu; kernel = :b5, bc = :poly)
         eu = maximum(abs(su(t) - sharp(t)) for t in ev)
-        for kern in (:n3, :b5)                                          # :n3 is the adaptive :smooth default
-            ka, va, ia = fit_scattered(pts, noisy; mode = :smooth, grid = :adaptive, gridsize = 40, kernel = kern)
+        # :n3 is the adaptive :smooth default
+        for kern in (:n3, :b5)
+            ka, va, ia = fit_scattered(pts, noisy; mode = :smooth, grid = :adaptive,
+                                       gridsize = 40, kernel = kern)
             sa = convolution_interpolation(ka, va; kernel = kern)
             ea = maximum(abs(sa(t) - sharp(t)) for t in ev)
-            @test ea < 0.7 * eu                                         # adaptive resolves the layer better; the noise draw moves the ratio
-            @test 0.5e-3 < ia.noise < 2e-3                              # noise estimate in range
-            @test maximum(abs.(sa.(ka[1]) .- va)) < 1e-10               # cardinality: ghosts match the constructor
+            # adaptive resolves the layer better; the noise draw moves the ratio
+            @test ea < 0.7 * eu
+            @test 0.5e-3 < ia.noise < 2e-3                         # noise estimate in range
+            # cardinality: ghosts match the constructor
+            @test maximum(abs.(sa.(ka[1]) .- va)) < 1e-10
         end
         # the default kernel on an adaptive grid is :b5 for :smooth in 1D and 2D
         itp = convolution_interpolation(pts, noisy; grid = :adaptive, gridsize = 40)
@@ -124,10 +135,12 @@ end
         sau = convolution_interpolation(kau, vau; kernel = :b5)
         euu = maximum(abs(suu(t) - layer(t)) for t in ev)
         eau = maximum(abs(sau(t) - layer(t)) for t in ev)
-        @test eau < 2 * euu                                             # on this gently varying signal, within a factor of the uniform fit
-        @test length(kau[1]) < length(kuu[1])                           # on about half the knots
+        # on this gently varying signal, within a factor of the uniform fit
+        @test eau < 2 * euu
+        @test length(kau[1]) < length(kuu[1])                      # on about half the knots
         @test 0.5e-3 < iau.noise < 2e-3
-        @test maximum(abs.(sau.(kau[1]) .- vau)) < 1e-10                # cardinality: ghosts match the constructor
+        # cardinality: ghosts match the constructor
+        @test maximum(abs.(sau.(kau[1]) .- vau)) < 1e-10
     end
 
     @testset "guardrails" begin
@@ -136,12 +149,14 @@ end
         f = vec(sum(pts; dims = 1))
         @test_throws ArgumentError fit_scattered(pts, f; grid = :foo)
         @test_throws ArgumentError fit_scattered(pts, f; grid = :adaptive, kernel = :a4)
-        @test_throws ArgumentError fit_scattered(pts, f; grid = :adaptive, kernel = :a3)   # uniform-only name, even though it equals :n3 there
-        @test fit_scattered(pts, f; grid = :adaptive, kernel = :n3) isa Tuple                 # :n3 is accepted
+        # uniform-only name, even though it equals :n3 there
+        @test_throws ArgumentError fit_scattered(pts, f; grid = :adaptive, kernel = :a3)
+        # :n3 is accepted
+        @test fit_scattered(pts, f; grid = :adaptive, kernel = :n3) isa Tuple
         ax = (collect(range(0.0, 1.0, length = 12)), collect(range(0.0, 1.0, length = 12)))
         @test_throws ArgumentError fit_scattered(pts, f; grid = ax, gridsize = 12)
         @test_throws ArgumentError fit_scattered(pts, f; grid = (ax[1],))
-        short = (collect(range(0.1, 0.9, length = 12)), ax[2])          # does not cover the data
+        short = (collect(range(0.1, 0.9, length = 12)), ax[2])     # does not cover the data
         @test_throws ArgumentError fit_scattered(pts, f; grid = short)
         unsorted = (reverse(ax[1]), ax[2])
         @test_throws ArgumentError fit_scattered(pts, f; grid = unsorted)

@@ -1,6 +1,8 @@
-@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a0, :a0)},
-                    EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,2}) where 
-                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
+                    LowerOrderKernel{(:a0, :a0)},
+                    EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,2}) where
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
+                    Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
@@ -27,9 +29,11 @@
     end
 end
 
-@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a1, :a1)},
-                    EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,2}) where 
-                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
+                    LowerOrderKernel{(:a1, :a1)},
+                    EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,2}) where
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
+                    Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
@@ -55,7 +59,8 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
             K,EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,2}) where
-            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
+            Axs<:Tuple{<:AbstractVector,<:AbstractVector},
             KA<:Tuple{<:Nothing,<:Nothing},K,EQ<:Tuple{Int,Int},
             KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
@@ -73,10 +78,12 @@ end
     # Kernel weights per dimension at τ = diff_right (column c ↔ stencil offset c − eqs)
     x_diff_right = one(T) - (x[1] - itp.knots[1][i]) / itp.h[1]
     y_diff_right = one(T) - (x[2] - itp.knots[2][j]) / itp.h[2]
-    wx, wy = _column_weights_per_dim(Val(_kernel_sym(itp.kernel_sym)), Val(DO), (x_diff_right, y_diff_right))
+    wx, wy = _column_weights_per_dim(Val(_kernel_sym(itp.kernel_sym)), Val(DO),
+                                     (x_diff_right, y_diff_right))
 
     result = if is_boundary_x || is_boundary_y
-        # the stencil reaches past the domain: ghosts formed on a local patch, as eager forms them
+        # the stencil reaches past the domain: ghosts formed on a local patch, as eager
+        # forms them
         _lazy_patch_sum(itp, (i, j), (wx, wy))
     else
         # the whole stencil lies inside the domain: a plain tensor sum, as in eager mode

@@ -5,18 +5,21 @@ Dispatches on kernel type:
 
 :a0 — Nearest neighor, ~4ns
 :a1 — Linear interpolation, ~4ns
-Higher-order kernels — exact column polynomials (see `_kernel_weights`). Near the boundaries,
-ghost values are computed on the fly from the raw data, exactly as eager mode stores them
-(see `_lazy_patch_sum`).
+Higher-order kernels — exact column polynomials (see `_kernel_weights`). Near the
+boundaries, ghost values are computed on the fly from the raw data, exactly as eager mode
+stores them (see `_lazy_patch_sum`).
 
 O(1) evaluation time, allocation-free, exact to rounding for every derivative order.
 Results scaled by (-1/h)^derivative for derivative evaluation.
 See also: ConvolutionInterpolation, _kernel_weights.
 """
-@inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},LowerOrderKernel{K},
-                    EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,1}) where 
-                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},Axs<:Tuple{<:AbstractVector},
-                    KA<:Tuple{<:Nothing},K,EQ<:Tuple{Int},KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
+@inline function (itp::ConvolutionInterpolation{T,1,0,TCoefs,Axs,KA,Val{1},
+                    LowerOrderKernel{K},
+                    EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,1}) where
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,1},
+                    Axs<:Tuple{<:AbstractVector},
+                    KA<:Tuple{<:Nothing},K,EQ<:Tuple{Int},
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     if K[1] == :a1
@@ -59,7 +62,8 @@ end
     w = _kernel_weights(Val(K[1]), Val(DO[1]), x_diff_right)
 
     result = if is_boundary
-        # the stencil reaches past the domain: ghosts formed on a local patch, as eager forms them
+        # the stencil reaches past the domain: ghosts formed on a local patch, as eager
+        # forms them
         _lazy_patch_sum(itp, (i,), (w,))
     else
         # the whole stencil lies inside the domain: a plain dot product, as in eager mode

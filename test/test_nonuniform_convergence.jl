@@ -4,7 +4,9 @@ println("-"^60)
 
 convergence_nu_kernels = [:b5] #, :b7, :b9, :b11]
 expected_order_nonuniform = Dict(
-    :b5 => 7 #, :b7 => 7, :b9 => 7, :b11 => 6 # no accumulated floating point error (exact kernel coefficients)
+    :b5 => 7
+    # , :b7 => 7, :b9 => 7, :b11 => 6 # no accumulated floating point error (exact kernel
+    # coefficients)
 )
 
 # shared helper
@@ -76,7 +78,8 @@ println("\n" * "-"^60)
 println("Testing nearly-uniform via nonuniform path in 1D...")
 println("-"^60)
 
-nu_regression_kernels = [:a0, :a1, :a3, :b5] # :a3 kernel triggers nonuniform lower order kernel
+# :a3 kernel triggers nonuniform lower order kernel
+nu_regression_kernels = [:a0, :a1, :a3, :b5]
 @testset "1D nearly-uniform via nonuniform matches fast" begin
     for kernel in nu_regression_kernels
         println("    - Nearly-uniform via nonuniform path: ", kernel)

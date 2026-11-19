@@ -8,13 +8,17 @@ println("-"^60)
         println("    - lazy=true is an error on nonuniform grids...")
         knots = [0.0, 0.3, 0.7, 1.2, 1.5, 2.0]
         vs = sin.(knots)
-        @test_throws ErrorException convolution_interpolation(knots, vs; kernel=:a3, lazy=true)
-        @test_throws ErrorException convolution_interpolation(knots, vs; kernel=:n3, lazy=true)
-        @test_throws ErrorException convolution_interpolation(knots, vs; kernel=:b5, lazy=true)
+        @test_throws ArgumentError convolution_interpolation(knots, vs; kernel=:a3,
+                                                             lazy=true)
+        @test_throws ArgumentError convolution_interpolation(knots, vs; kernel=:n3,
+                                                             lazy=true)
+        @test_throws ArgumentError convolution_interpolation(knots, vs; kernel=:b5,
+                                                             lazy=true)
         kx = [0.0, 0.4, 0.9, 1.5, 2.0]
         ky = [0.0, 0.3, 0.8, 1.2, 1.7, 2.0]
         vs2 = Float64[sin(x + y) for x in kx, y in ky]
-        @test_throws ErrorException convolution_interpolation((kx, ky), vs2; kernel=:a3, lazy=true)
+        @test_throws ArgumentError convolution_interpolation((kx, ky), vs2; kernel=:a3,
+                                                             lazy=true)
     end
 
     @testset "the default resolves to eager on nonuniform grids" begin

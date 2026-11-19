@@ -1,10 +1,10 @@
 """
 Per-dimension fast convolution interpolation functors for `ConvolutionInterpolation`.
 
-Dispatch on a mixed kernel type (`AbstractMixedConvolutionKernel`): kernels and/or derivative
-orders differ per dimension. Each dimension's kernel weights come from its own exact column
-polynomials (see `_kernel_weights`), so every combination is evaluated exactly, with one product
-per coefficient in the tensor-product support.
+Dispatch on a mixed kernel type (`AbstractMixedConvolutionKernel`): kernels and/or
+derivative orders differ per dimension. Each dimension's kernel weights come from its own
+exact column polynomials (see `_kernel_weights`), so every combination is evaluated exactly,
+with one product per coefficient in the tensor-product support.
 
 2D and 3D: nested reductions over the support. ND: tensor product over all support points.
 
@@ -27,7 +27,8 @@ end
 # ==============================================================
 @inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},K,EQ,KBC,
             DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,2}) where
-            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
+            Axs<:Tuple{<:AbstractVector,<:AbstractVector},
             KA<:Tuple{<:Nothing,<:Nothing},K<:AbstractMixedConvolutionKernel,
             EQ<:Tuple{Int,Int},KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
             DO}

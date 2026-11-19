@@ -4,7 +4,8 @@ println("-"^60)
 
 const CI_LIM = ConvolutionInterpolations
 
-# a deterministic nonuniform grid on [a, b]: uniform knots with a ±30 % sine jitter, ends fixed
+# a deterministic nonuniform grid on [a, b]: uniform knots with a ±30 % sine jitter, ends
+# fixed
 function jittered_knots(n; a = 0.0, b = 1.0)
     x = collect(range(a, b, length = n))
     h = (b - a) / (n - 1)
@@ -23,12 +24,14 @@ end
             itp = convolution_interpolation(x, y; kernel, derivative = kmax)
             @test isfinite(itp(0.5))
         end
-        @test_throws ErrorException convolution_interpolation(x, y; kernel, derivative = kmax + 1)
+        @test_throws ArgumentError convolution_interpolation(x, y; kernel,
+                                                             derivative = kmax + 1)
         # the direct (non-fast) constructor enforces the same limit
         if kmax > 0
             @test isfinite(ConvolutionInterpolation(x, y; kernel, derivative = kmax)(0.5))
         end
-        @test_throws ErrorException ConvolutionInterpolation(x, y; kernel, derivative = kmax + 1)
+        @test_throws ArgumentError ConvolutionInterpolation(x, y; kernel,
+                                                            derivative = kmax + 1)
     end
 end
 
@@ -41,10 +44,11 @@ end
             itp = convolution_interpolation(x, y; kernel, derivative = kmax)
             @test isfinite(itp(0.5))
         end
-        @test_throws ErrorException convolution_interpolation(x, y; kernel, derivative = kmax + 1)
+        @test_throws ArgumentError convolution_interpolation(x, y; kernel,
+                                                             derivative = kmax + 1)
     end
     # :a3 evaluates as :n3 on a nonuniform grid and inherits its limit
-    @test_throws ErrorException convolution_interpolation(x, y; kernel = :a3, derivative = 1)
+    @test_throws ArgumentError convolution_interpolation(x, y; kernel = :a3, derivative = 1)
 end
 
 @testset "mixed grid: the limit is per axis" begin
@@ -54,8 +58,10 @@ end
     z = [exp(xi + yj) for xi in xu, yj in yn]
     itp = convolution_interpolation((xu, yn), z; kernel = :b13, derivative = (5, 11))
     @test isfinite(itp(0.5, 0.5))
-    @test_throws ErrorException convolution_interpolation((xu, yn), z; kernel = :b13, derivative = (6, 11))
-    @test_throws ErrorException convolution_interpolation((xu, yn), z; kernel = :b13, derivative = (5, 12))
+    @test_throws ArgumentError convolution_interpolation((xu, yn), z; kernel = :b13,
+                                                         derivative = (6, 11))
+    @test_throws ArgumentError convolution_interpolation((xu, yn), z; kernel = :b13,
+                                                         derivative = (5, 12))
 end
 
 @testset "high nonuniform derivatives converge (:b13, 7th derivative, BigFloat)" begin

@@ -32,7 +32,8 @@ end
         x_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π)
         y_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π, strength=0.2)
         vals = [sin(x) * cos(y) for x in x_nu, y in y_nu]
-        itp = convolution_interpolation((x_nu, y_nu), vals; kernel=(kx, ky), derivative=(0, 0))
+        itp = convolution_interpolation((x_nu, y_nu), vals; kernel=(kx, ky),
+                                        derivative=(0, 0))
         test_x = [(x_nu[i] + x_nu[i+1]) / 2 for i in 1:N_nu_pd-1]
         test_y = [(y_nu[i] + y_nu[i+1]) / 2 for i in 1:N_nu_pd-1]
         err = maximum(abs(itp(x, y) - sin(x)*cos(y)) for x in test_x, y in test_y)
@@ -46,7 +47,8 @@ end
         x_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π)
         y_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π, strength=0.2)
         vals = [sin(x) * cos(y) for x in x_nu, y in y_nu]
-        itp = convolution_interpolation((x_nu, y_nu), vals; kernel=(kx, ky), derivative=(1, 0))
+        itp = convolution_interpolation((x_nu, y_nu), vals; kernel=(kx, ky),
+                                        derivative=(1, 0))
         test_x = [(x_nu[i] + x_nu[i+1]) / 2 for i in 1:N_nu_pd-1]
         test_y = [(y_nu[i] + y_nu[i+1]) / 2 for i in 1:N_nu_pd-1]
         err = maximum(abs(itp(x, y) - cos(x)*cos(y)) for x in test_x, y in test_y)
@@ -60,7 +62,8 @@ end
         x_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π)
         y_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π, strength=0.2)
         vals = [sin(x) * cos(y) for x in x_nu, y in y_nu]
-        itp = convolution_interpolation((x_nu, y_nu), vals; kernel=(kx, ky), derivative=(0, 1))
+        itp = convolution_interpolation((x_nu, y_nu), vals; kernel=(kx, ky),
+                                        derivative=(0, 1))
         test_x = [(x_nu[i] + x_nu[i+1]) / 2 for i in 1:N_nu_pd-1]
         test_y = [(y_nu[i] + y_nu[i+1]) / 2 for i in 1:N_nu_pd-1]
         err = maximum(abs(itp(x, y) - (-sin(x)*sin(y))) for x in test_x, y in test_y)
@@ -74,7 +77,8 @@ end
         x_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π)
         y_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π, strength=0.2)
         vals = [sin(x) * cos(y) for x in x_nu, y in y_nu]
-        itp = convolution_interpolation((x_nu, y_nu), vals; kernel=(kx, ky), derivative=(1, 1))
+        itp = convolution_interpolation((x_nu, y_nu), vals; kernel=(kx, ky),
+                                        derivative=(1, 1))
         test_x = [(x_nu[i] + x_nu[i+1]) / 2 for i in 1:N_nu_pd-1]
         test_y = [(y_nu[i] + y_nu[i+1]) / 2 for i in 1:N_nu_pd-1]
         err = maximum(abs(itp(x, y) - (-cos(x)*sin(y))) for x in test_x, y in test_y)
@@ -88,7 +92,8 @@ end
         x_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π)
         y_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π, strength=0.2)
         vals = [sin(x) * cos(y) for x in x_nu, y in y_nu]
-        itp = convolution_interpolation((x_nu, y_nu), vals; kernel=(kx, ky), derivative=(2, 0))
+        itp = convolution_interpolation((x_nu, y_nu), vals; kernel=(kx, ky),
+                                        derivative=(2, 0))
         test_x = [(x_nu[i] + x_nu[i+1]) / 2 for i in 1:N_nu_pd-1]
         test_y = [(y_nu[i] + y_nu[i+1]) / 2 for i in 1:N_nu_pd-1]
         err = maximum(abs(itp(x, y) - (-sin(x)*cos(y))) for x in test_x, y in test_y)
@@ -101,13 +106,18 @@ end
     for kernel in nu_pd_kernels
         for deriv in [(0,0), (1,0), (0,1), (1,1)]
             x_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π)
-            y_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π, strength=0.2)
+            y_nu = make_nonuniform_grid_perdim_derivatives(N_nu_pd; a=0.0, b=2π,
+                                                           strength=0.2)
             vals = [sin(x) * cos(y) for x in x_nu, y in y_nu]
-            itp_tuple  = convolution_interpolation((x_nu, y_nu), vals; kernel=(kernel, kernel), derivative=deriv)
-            itp_scalar = convolution_interpolation((x_nu, y_nu), vals; kernel=kernel,           derivative=deriv)
+            itp_tuple  = convolution_interpolation((x_nu, y_nu),
+                                                   vals; kernel=(kernel, kernel),
+                                                   derivative=deriv)
+            itp_scalar = convolution_interpolation((x_nu, y_nu), vals; kernel=kernel,
+                                                   derivative=deriv)
             test_x = [(x_nu[i] + x_nu[i+1]) / 2 for i in 1:N_nu_pd-1]
             test_y = [(y_nu[i] + y_nu[i+1]) / 2 for i in 1:N_nu_pd-1]
-            err = maximum(abs(itp_tuple(x, y) - itp_scalar(x, y)) for x in test_x, y in test_y)
+            err = maximum(abs(itp_tuple(x, y) - itp_scalar(x, y))
+                          for x in test_x, y in test_y)
             @test err < 1e-10
         end
     end

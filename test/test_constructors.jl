@@ -20,7 +20,7 @@ println("-"^60)
         @test etp(-0.5) isa Float64  # doesn't throw
 
         etp_throw = ConvolutionExtrapolation(itp_fast, Throw())
-        @test_throws ErrorException etp_throw(-0.5)
+        @test_throws DomainError etp_throw(-0.5)
 
         # Lazy variant (only fast path)
         itp_fast_lazy = ConvolutionInterpolation((x,), vs, kernel=(kernel,), lazy=true)
@@ -32,7 +32,8 @@ println("-"^60)
         knots_2d = (x, y)
 
         itp_fast_2d = ConvolutionInterpolation(knots_2d, vs_2d, kernel=(kernel, kernel),
-                                                   bc=((:detect, :detect), (:detect, :detect)),
+                                                   bc=((:detect, :detect),
+                                                       (:detect, :detect)),
                                                    derivative=(0, 0))
         @test itp_fast_2d(1.0, 1.0) ≈ sin(1.0) * cos(1.0) atol=0.1
     end
@@ -48,7 +49,8 @@ vs = [sin(x)*cos(y) for x in xs, y in ys]
     for k1 in kernels, k2 in kernels
         println("        - kernel combination: ", k1, ", ", k2)
         itp_fast = ConvolutionInterpolation((xs, ys), vs; kernel=(k1, k2),
-                                                   bc=((:detect, :detect), (:detect, :detect)),
+                                                   bc=((:detect, :detect),
+                                                       (:detect, :detect)),
                                                    derivative=(0, 0))
         @test isfinite(itp_fast(1.5, 1.0))
     end
@@ -62,7 +64,9 @@ vs3 = [sin(x)*cos(y)*sin(z) for x in xs, y in ys, z in zs]
     for k1 in kernels, k2 in kernels, k3 in kernels
         println("        - kernel combination: ", k1, ", ", k2, ", ", k3)
         itp_fast = ConvolutionInterpolation((xs, ys, zs), vs3; kernel=(k1, k2, k3),
-                                                   bc=((:detect, :detect), (:detect, :detect), (:detect, :detect)),
+                                                   bc=((:detect, :detect),
+                                                       (:detect, :detect),
+                                                       (:detect, :detect)),
                                                    derivative=(0, 0, 0))
         @test isfinite(itp_fast(1.5, 1.0, 2.0))
     end
@@ -70,7 +74,8 @@ end
 
 @testset "Keyword-free calls on nonuniform knots" begin
     println("    - Keyword-free calls on nonuniform knots...")
-    xn = sort([0.0; 2π .* stable_rand(21, 38); 2π])       # nonuniform knots on [0, 2π], the same on every Julia version
+    # nonuniform knots on [0, 2π], the same on every Julia version
+    xn = sort([0.0; 2π .* stable_rand(21, 38); 2π])
     xu = range(0.0, 2π, length=40)                        # uniform knots
     # uniform: the keyword-free call takes the fast path
     @test convolution_interpolation(xu, sin.(xu)).itp isa ConvolutionInterpolation
@@ -84,5 +89,6 @@ end
     # 2D, nonuniform along one axis only
     yn = sort([0.0; 2π .* stable_rand(14, 28); 2π])       # nonuniform second axis
     z = [sin(a) * cos(b) for a in xu, b in yn]
-    @test convolution_interpolation((xu, yn), z)(1.3, 2.1) == convolution_interpolation((xu, yn), z; kernel=:auto)(1.3, 2.1)
+    @test convolution_interpolation((xu, yn), z)(1.3, 2.1) ==
+        convolution_interpolation((xu, yn), z; kernel=:auto)(1.3, 2.1)
 end

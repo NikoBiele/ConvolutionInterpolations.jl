@@ -10,7 +10,7 @@ const CI = ConvolutionInterpolations
         println("    - Testing the multi-index enumeration")
         for q in 0:5, D in 1:4
             α = CI._multi_indices(q, D)
-            @test length(α) == binomial(q + D - 1, D - 1)        # compositions of q into D parts
+            @test length(α) == binomial(q + D - 1, D - 1)   # compositions of q into D parts
             @test all(a -> sum(a) == q, α)
             @test allunique(α)
         end
@@ -20,11 +20,13 @@ const CI = ConvolutionInterpolations
         println("    - Testing 1D agreement with the axis-wise operator")
         for q in 1:6
             n = (12 + 2 * 5,)
-            @test CI._scattered_roughness_iso(n, q, Float64) == CI._scattered_roughness(n, (q,), Float64)
+            @test CI._scattered_roughness_iso(n, q, Float64) ==
+                CI._scattered_roughness(n, (q,), Float64)
         end
         ax = ([0.0, 0.1, 0.25, 0.3, 0.55, 0.6, 0.9, 1.0],)
         for q in 1:4
-            @test CI._scattered_roughness_iso(ax, (2,), q, Float64) == CI._scattered_roughness(ax, (2,), (q,), Float64)
+            @test CI._scattered_roughness_iso(ax, (2,), q, Float64) ==
+                CI._scattered_roughness(ax, (2,), (q,), Float64)
         end
     end
 
@@ -33,11 +35,13 @@ const CI = ConvolutionInterpolations
         n  = (9, 11)
         xs = 0:n[1]-1
         ys = 0:n[2]-1
-        grid(f) = vec([Float64(f(x, y)) for x in xs, y in ys])     # column-major, as the kron ordering
+        # column-major, as the kron ordering
+        grid(f) = vec([Float64(f(x, y)) for x in xs, y in ys])
         R_iso  = CI._scattered_roughness_iso(n, 2, Float64)
         R_axis = CI._scattered_roughness(n, (2, 2), Float64)
-        # both annihilate the polynomials of total degree < 2 (the isotropic operator's mixed
-        # rows carry the irrational weight sqrt(2), so their cancellation is to rounding)
+        # both annihilate the polynomials of total degree < 2 (the isotropic operator's
+        # mixed rows carry the irrational weight sqrt(2), so their cancellation is to
+        # rounding)
         for f in ((x, y) -> 1, (x, y) -> x, (x, y) -> y, (x, y) -> 3x - 2y + 1)
             @test maximum(abs, R_iso * grid(f)) < 1e-12
             @test maximum(abs, R_axis * grid(f)) == 0
@@ -45,12 +49,14 @@ const CI = ConvolutionInterpolations
         # the isotropic seminorm sees x*y, the axis-wise one does not
         @test maximum(abs, R_axis * grid((x, y) -> x * y)) == 0
         @test maximum(abs, R_iso * grid((x, y) -> x * y)) > 0
-        # the mixed block carries weight sqrt(2!/(1!1!)) = sqrt(2): Δx Δy (x*y) = 1 on every row
+        # the mixed block carries weight sqrt(2!/(1!1!)) = sqrt(2): Δx Δy (x*y) = 1 on every
+        # row
         @test sum(abs2, R_iso * grid((x, y) -> x * y)) ≈ 2 * (n[1] - 1) * (n[2] - 1)
         # the pure blocks are the axis-wise rows: Δxx (x²) = 2 on every row
         @test sum(abs2, R_iso * grid((x, y) -> x^2)) ≈ 4 * (n[1] - 2) * n[2]
         # row count: one block per multi-index
-        @test size(R_iso, 1) == (n[1] - 2) * n[2] + (n[1] - 1) * (n[2] - 1) + n[1] * (n[2] - 2)
+        @test size(R_iso, 1) == (n[1] - 2) * n[2] + (n[1] - 1) * (n[2] - 1) +
+                                n[1] * (n[2] - 2)
     end
 
     @testset "3D: null space of order 3" begin
@@ -58,8 +64,10 @@ const CI = ConvolutionInterpolations
         n  = (7, 8, 9)
         grid(f) = vec([Float64(f(x, y, z)) for x in 0:n[1]-1, y in 0:n[2]-1, z in 0:n[3]-1])
         R = CI._scattered_roughness_iso(n, 3, Float64)
-        for f in ((x, y, z) -> 1, (x, y, z) -> x * y, (x, y, z) -> y * z + x^2, (x, y, z) -> x - z^2)
-            @test maximum(abs, R * grid(f)) < 1e-12      # mixed rows weighted by sqrt(3), sqrt(6)
+        for f in ((x, y, z) -> 1, (x, y, z) -> x * y, (x, y, z) -> y * z + x^2,
+                  (x, y, z) -> x - z^2)
+            # mixed rows weighted by sqrt(3), sqrt(6)
+            @test maximum(abs, R * grid(f)) < 1e-12
         end
         @test maximum(abs, R * grid((x, y, z) -> x * y * z)) > 0
         @test maximum(abs, R * grid((x, y, z) -> x^3)) > 0
@@ -101,7 +109,8 @@ const CI = ConvolutionInterpolations
 
     @testset "3D :exact fit with the isotropic seminorm" begin
         println("    - Testing a 3D :exact fit")
-        pts = 2 .* halton_points(3, 400) .- 1               # scattered points in [-1, 1]^3, the same on every Julia version
+        # scattered points in [-1, 1]^3, the same on every Julia version
+        pts = 2 .* halton_points(3, 400) .- 1
         f   = [1 / (1 + 4 * (p[1]^2 + p[2]^2 + p[3]^2)) for p in eachcol(pts)]
         knots, vals, viol = fit_scattered(pts, f; mode = :exact)
         @test viol < 1e-9

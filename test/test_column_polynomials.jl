@@ -4,8 +4,8 @@ println("-"^60)
 
 # The exact column polynomials must equal the kernel itself exactly: on every column c
 # (offset o = c − 1 − eqs), the column polynomial at τ equals K⁽ᵈ⁾(o + τ). Both sides are
-# evaluated in exact rational arithmetic, for every kernel and every derivative order from −1
-# (antiderivative) up, at points spread over the column including both ends.
+# evaluated in exact rational arithmetic, for every kernel and every derivative order from
+# −1 (antiderivative) up, at points spread over the column including both ends.
 @testset "Column polynomials equal the kernels exactly" begin
     println("    - column polynomials equal the kernels")
     CI = ConvolutionInterpolations
@@ -27,9 +27,9 @@ println("-"^60)
 end
 
 # Exact integral kernel values at integer offsets, for every order up to each kernel's cap.
-# Order 1 must equal the antiderivative kernel itself; inside the support every order must equal
-# the column polynomials; and at the support boundary the far-field formula must continue the
-# column polynomials exactly, which confirms the per-kernel order caps.
+# Order 1 must equal the antiderivative kernel itself; inside the support every order must
+# equal the column polynomials; and at the support boundary the far-field formula must
+# continue the column polynomials exactly, which confirms the per-kernel order caps.
 @testset "Exact integral kernel values at integer offsets" begin
     CI = ConvolutionInterpolations
     println("    - exact integral kernel values at integer offsets")
@@ -38,14 +38,17 @@ end
         eqs = CI.get_equations_for_degree(kernel)
         # order 1 against the antiderivative kernel, inside and outside the support
         K1 = CI.ConvolutionKernel(Val(kernel), Val(-1))
-        @test all(CI._kernel_value_exact(kernel, 1, σ) == K1(big(σ) // 1) for σ in -eqs-2:eqs+2)
+        @test all(CI._kernel_value_exact(kernel, 1, σ) == K1(big(σ) // 1)
+                  for σ in -eqs-2:eqs+2)
         for q in 1:max_order
             columns = CI._column_polynomials_exact(kernel, -q)
             # inside the support, and at σ = −eqs: column c = σ + eqs + 1 at τ = 0
-            @test all(CI._kernel_value_exact(kernel, q, σ) == CI._poly_eval(columns[σ + eqs + 1], big(0) // 1)
+            @test all(CI._kernel_value_exact(kernel, q, σ) ==
+                      CI._poly_eval(columns[σ + eqs + 1], big(0) // 1)
                       for σ in -eqs:eqs-1)
             # at σ = eqs the far field must equal the last column at τ = 1
-            @test CI._kernel_value_exact(kernel, q, eqs) == CI._poly_eval(columns[2eqs], big(1) // 1)
+            @test CI._kernel_value_exact(kernel, q, eqs) ==
+                CI._poly_eval(columns[2eqs], big(1) // 1)
         end
     end
     # :a0 in closed form: K₁ = clamp(s, −½, ½); K₂ = s²/2 + 1/8 inside, |s|/2 outside

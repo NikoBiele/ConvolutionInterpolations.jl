@@ -13,7 +13,8 @@ println("-"^60)
             @test default_kernel(2, nonuniform) === :b7
             @test default_kernel(3, nonuniform) === :b5
         end
-        # from 4D: the uniform-only :a4 on uniform grids, :n3 as soon as an axis is nonuniform
+        # from 4D: the uniform-only :a4 on uniform grids, :n3 as soon as an axis is
+        # nonuniform
         @test default_kernel(4, false) === :a4
         @test default_kernel(5, false) === :a4
         @test default_kernel(6, false) === :a3
@@ -24,7 +25,8 @@ println("-"^60)
         @test default_kernel(4) === :a4
     end
 
-    # a linear function, which :n3 reproduces, so the interpolant can be checked between the knots
+    # a linear function, which :n3 reproduces, so the interpolant can be checked between the
+    # knots
     f4(x, y, z, w) = 1.0 + x + 2.0 * y - z + 0.5 * w
     points = [(0.5, 0.6, 0.9, 1.1), (0.2, 1.4, 0.35, 0.8), (1.7, 0.1, 1.2, 1.9)]
 

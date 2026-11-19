@@ -37,7 +37,8 @@ end
 
 
 """
-    _get_kernel_rational_coefs(degree::Symbol, derivative::Int=0) -> Dict{Int, Vector{Rational{BigInt}}}
+    _get_kernel_rational_coefs(degree::Symbol, derivative::Int=0)
+        -> Dict{Int, Vector{Rational{BigInt}}}
 
 Return the kernel piece coefficients as exact rationals. For derivative > 0 the base
 coefficients are differentiated exactly on the spot by `_derivative_coefs`. Used by both the
@@ -61,7 +62,8 @@ function _get_kernel_rational_coefs(degree::Symbol, derivative::Int=0)
     end
     max_order = _max_derivative_order(degree, true)
     0 <= derivative <= max_order ||
-        error("$degree: derivative order $derivative not available on a nonuniform grid (max $max_order)")
+        throw(ArgumentError("$degree: derivative order $derivative not available on a " *
+                            "nonuniform grid (max $max_order)"))
     coefs_dict = derivative == 0 ? base : _derivative_coefs(base, derivative)
 
     # Convert from Dict{Symbol, Vector} to Dict{Int, Vector{Rational{BigInt}}}
@@ -95,7 +97,8 @@ The three key operations for derivative support:
    For d0 this is diagonal (E[m,m] = h₀^m).
    For d1 this is sub-diagonal (E[m, m-1] = m · h₀^m).
 """
-function precompute_nonuniform_b_interval(::Type{F}, knots_r::Vector{Rational{BigInt}}, i::Int,
+function precompute_nonuniform_b_interval(::Type{F}, knots_r::Vector{Rational{BigInt}},
+                                          i::Int,
                                            kernel_coefs::Dict{Int,Vector{Rational{BigInt}}},
                                            M_eqs::Int, p_deg::Int, derivative::Int;
                                            precision_bits=256) where {F<:AbstractFloat}

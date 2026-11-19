@@ -73,7 +73,8 @@ end
 
 println("    - 2D per-dim derivatives")
 @testset "Zero allocations — 2D per-dim derivatives" begin
-    for deriv in [(1,0), (0,1), (1,1), (2,0), (0,2), (-1,0), (0,-1), (-1,1), (1,-1), (-1,-1)]
+    for deriv in [(1,0), (0,1), (1,1), (2,0), (0,2), (-1,0), (0,-1), (-1,1), (1,-1),
+                  (-1,-1)]
         for fast in [true]
             for lazy in [false, true]
                 itp = convolution_interpolation((xs,ys), vs2; kernel=:b5,

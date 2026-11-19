@@ -3,7 +3,9 @@ println("Testing uniform grid derivatives for 1D, 2D, 3D, 4D...")
 println("-"^60)
 
 ### Derivative test settings
-deriv_kernels = [:b5] #, :b7, :b9, :b11] #, :b13] # :a3, :a4, :a5, :a7, # drop lower order kernels (slow convergence)
+deriv_kernels = [:b5]
+# , :b7, :b9, :b11] #, :b13] # :a3, :a4, :a5, :a7, # drop lower order kernels (slow
+# convergence)
 N_deriv = 20 # number of test points
 bc_deriv = :poly # control kernel boundary conditions for derivatives
 tolerance_deriv = 0.01 # tolerance for derivative tests
@@ -58,7 +60,8 @@ end
         println("    - 2D derivative fast: ", kernel)
         range_2d = range(0.0, stop=2π, length=N_deriv)
         vals_2d = [sin(x) * sin(y) for x in range_2d, y in range_2d]
-        itp_d1 = convolution_interpolation((range_2d, range_2d), vals_2d; kernel=kernel, fast=true,
+        itp_d1 = convolution_interpolation((range_2d, range_2d), vals_2d; kernel=kernel,
+                                           fast=true,
                     bc=bc_deriv, derivative=1)
         
         test_points = [(range_2d[i] + range_2d[i+1]) / 2 for i in 1:N_deriv-1]
@@ -73,12 +76,15 @@ end
         println("    - 3D derivative direct: ", kernel)
         range_3d = range(0.0, stop=2π, length=N_deriv)
         vals_3d = [sin(x) * sin(y) * sin(z) for x in range_3d, y in range_3d, z in range_3d]
-        itp_d1 = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d; kernel=kernel,
+        itp_d1 = convolution_interpolation((range_3d, range_3d, range_3d),
+                                           vals_3d; kernel=kernel,
                     bc=bc_deriv, derivative=1)
         
         test_points = [(range_3d[i] + range_3d[i+1]) / 2 for i in 1:N_deriv-1]
-        analytical = [cos(x) * cos(y) * cos(z) for x in test_points, y in test_points, z in test_points]
-        interpolated = [itp_d1(x, y, z) for x in test_points, y in test_points, z in test_points]
+        analytical = [cos(x) * cos(y) * cos(z)
+                      for x in test_points, y in test_points, z in test_points]
+        interpolated = [itp_d1(x, y, z)
+                        for x in test_points, y in test_points, z in test_points]
         @test interpolated ≈ analytical atol=tolerance_deriv
     end
 end
@@ -88,12 +94,15 @@ end
         println("    - 3D derivative fast: ", kernel)
         range_3d = range(0.0, stop=2π, length=N_deriv)
         vals_3d = [sin(x) * sin(y) * sin(z) for x in range_3d, y in range_3d, z in range_3d]
-        itp_d1 = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d; kernel=kernel, fast=true,
+        itp_d1 = convolution_interpolation((range_3d, range_3d, range_3d),
+                                           vals_3d; kernel=kernel, fast=true,
                     bc=bc_deriv, derivative=1)
         
         test_points = [(range_3d[i] + range_3d[i+1]) / 2 for i in 1:N_deriv-1]
-        analytical = [cos(x) * cos(y) * cos(z) for x in test_points, y in test_points, z in test_points]
-        interpolated = [itp_d1(x, y, z) for x in test_points, y in test_points, z in test_points]
+        analytical = [cos(x) * cos(y) * cos(z)
+                      for x in test_points, y in test_points, z in test_points]
+        interpolated = [itp_d1(x, y, z)
+                        for x in test_points, y in test_points, z in test_points]
         @test interpolated ≈ analytical atol=tolerance_deriv
     end
 end
@@ -102,13 +111,20 @@ end
     for kernel in deriv_kernels
         println("    - 4D derivative direct: ", kernel)
         range_4d = range(0.0, stop=2π, length=N_deriv)
-        vals_4d = [sin(x) * sin(y) * sin(z) * sin(w) for x in range_4d, y in range_4d, z in range_4d, w in range_4d]
-        itp_d1 = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d; kernel=kernel,
+        vals_4d = [sin(x) * sin(y) * sin(z) * sin(w)
+                   for x in range_4d, y in range_4d, z in range_4d, w in range_4d]
+        itp_d1 = convolution_interpolation((range_4d, range_4d, range_4d, range_4d),
+                                           vals_4d; kernel=kernel,
                     bc=bc_deriv, derivative=1)
         
-        test_points = [(range_4d[i] + range_4d[i+1]) / 2 for i in N_deriv÷2] # 1:N_deriv-1] # go faster for direct
-        analytical = [cos(x) * cos(y) * cos(z) * cos(w) for x in test_points, y in test_points, z in test_points, w in test_points]
-        interpolated = [itp_d1(x, y, z, w) for x in test_points, y in test_points, z in test_points, w in test_points]
+        # 1:N_deriv-1] # go faster for direct
+        test_points = [(range_4d[i] + range_4d[i+1]) / 2 for i in div(N_deriv, 2)]
+        analytical = [cos(x) * cos(y) * cos(z) * cos(w)
+                      for x in test_points, y in test_points, z in test_points,
+                      w in test_points]
+        interpolated = [itp_d1(x, y, z, w)
+                        for x in test_points, y in test_points, z in test_points,
+                        w in test_points]
         @test interpolated ≈ analytical atol=tolerance_deriv
     end
 end
@@ -117,13 +133,19 @@ end
     for kernel in deriv_kernels
         println("    - 4D derivative fast: ", kernel)
         range_4d = range(0.0, stop=2π, length=N_deriv)
-        vals_4d = [sin(x) * sin(y) * sin(z) * sin(w) for x in range_4d, y in range_4d, z in range_4d, w in range_4d]
-        itp_d1 = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d; kernel=kernel, fast=true,
+        vals_4d = [sin(x) * sin(y) * sin(z) * sin(w)
+                   for x in range_4d, y in range_4d, z in range_4d, w in range_4d]
+        itp_d1 = convolution_interpolation((range_4d, range_4d, range_4d, range_4d),
+                                           vals_4d; kernel=kernel, fast=true,
                     bc=bc_deriv, derivative=1)
         
         test_points = [(range_4d[i] + range_4d[i+1]) / 2 for i in 1:N_deriv-1]
-        analytical = [cos(x) * cos(y) * cos(z) * cos(w) for x in test_points, y in test_points, z in test_points, w in test_points]
-        interpolated = [itp_d1(x, y, z, w) for x in test_points, y in test_points, z in test_points, w in test_points]
+        analytical = [cos(x) * cos(y) * cos(z) * cos(w)
+                      for x in test_points, y in test_points, z in test_points,
+                      w in test_points]
+        interpolated = [itp_d1(x, y, z, w)
+                        for x in test_points, y in test_points, z in test_points,
+                        w in test_points]
         @test interpolated ≈ analytical atol=tolerance_deriv
     end
 end

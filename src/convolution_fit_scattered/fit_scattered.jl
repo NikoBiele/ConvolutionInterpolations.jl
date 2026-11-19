@@ -137,14 +137,14 @@ Two modes:
   flat end is worth repeating with `:linear` there. Interpolate the fitted
   grid with the same `bc`. On nonuniform grids the ghosts are the basis's own.
 - `solver::Symbol=:auto` (`:exact` only): how the exact fit is solved. `:auto`
-  uses `:cholesky` up to 3D and `:dual` from 4D, where `:dual` applies. It
-  also switches from `:cholesky` to `:dual`, with a warning, when the
-  factorization is predicted to need more memory than the machine has. A
-  solver given explicitly is used as given.
+  uses `:cholesky` in 1D and 2D and `:dual` from 3D, where `:dual` applies.
+  Before it uses `:dual` it checks that the dense system of that solver fits
+  in the machine's memory, and raises an error if it does not. A solver given
+  explicitly is used as given.
   - `:cholesky` factors the Jacobi-equilibrated SPD normal system in the grid
-    unknowns with CHOLMOD. It is the most accurate choice up to 3D, and with
-    the narrow kernels its error is set by the fit, not by roundoff. The
-    memory of the factorization grows steeply with the grid from 3D on. If
+    unknowns with CHOLMOD. With the narrow kernels its error is set by the
+    fit, not by roundoff. It is the cheapest choice in 1D and 2D; from 3D on
+    the memory and time of the factorization grow steeply with the grid. If
     the system loses positive definiteness numerically it falls back to `:qr`
     while that is affordable, and raises an error otherwise.
   - `:qr` solves each multiplier iteration as a sparse least-squares problem
@@ -153,23 +153,16 @@ Two modes:
     kernel's width. Use `solver=:qr, kernel=:b7` when chasing the deepest
     accuracy. Its memory grows as the rows times the unknowns of the
     least-squares system, which limits it to small grids from 3D up.
-  - `:dual` solves a dense system with one unknown per data point: the same
-    roughness order, measured with reflecting boundaries so that it can be
-    inverted by a cosine transform of the grid. Its cost follows the point
-    count and not the grid (memory: 8 bytes times the square of the point
-    count), which makes exact fits practical in 4D and above, and makes it
-    the faster and lighter choice in 3D. It reproduces the data to rounding.
-    Its accuracy is comparable to `:cholesky` in the interior of the box;
-    near the faces it is less accurate once the data are dense enough to
-    resolve the function there. In 3D with thousands of points that loss
-    reaches orders of magnitude for smooth functions, most of all for one
-    that is steep at a face. It can be chosen in any dimension, and needs a
-    uniform grid, `Float64` data, and more data points than there are
+  - `:dual` finds the grid of `:cholesky` without factorizing in the grid
+    unknowns: it solves a dense system with one unknown per data point and
+    then refines the result by a short iteration on the roughness measure.
+    Its cost follows the point count and not the grid (memory: 8 bytes times
+    the square of the point count), which makes it the faster and lighter
+    choice from 3D and makes exact fits practical in 4D and above. It
+    reproduces the data to rounding. It can be chosen in any dimension, and
+    needs a uniform grid, `Float64` data, and more data points than there are
     polynomials of total degree below `q` in `D` variables (with `q = 5`: 35
     in 3D, 70 in 4D, 126 in 5D). It runs on the available threads.
-  - `:nullspace` is deprecated and will be removed in the next breaking
-    release: a dense direct solve through a null-space basis of the
-    constraints, limited to small problems and less accurate than the others.
 - `W::Real=1e6` (`:exact` with `:cholesky` or `:qr`): augmented-Lagrangian
   penalty weight.
 - `iters::Int=20`, `tol::Real=1e-11` (`:exact` with `:cholesky` or `:qr`):
@@ -187,12 +180,13 @@ grid, vectors otherwise), the array of fitted interior grid values, and
   `√(‖A c − f‖² / (n − edf))` with `edf` the fit's effective degrees of freedom;
 - for `:exact`, `viol`: the final maximum constraint violation.
 
-Construct an interpolant with `convolution_interpolation(knots, vals; kernel, bc=:poly, ...)`,
-or use `convolution_interpolation(points, values)` which does this directly.
+Construct an interpolant with
+`convolution_interpolation(knots, vals; kernel, bc=:poly, ...)`, or use
+`convolution_interpolation(points, values)` which does this directly.
 
-Notes: by default `:exact` solves a sparse SPD system up to 3D (CHOLMOD for
+Notes: by default `:exact` solves a sparse SPD system in 1D and 2D (CHOLMOD for
 `Float64`, dense Cholesky otherwise) and a dense system in the data points
-from 4D; see `solver`. Exact interpolation requires distinct data points with
+from 3D; see `solver`. Exact interpolation requires distinct data points with
 consistent values. With `:cholesky` and `:qr`, duplicated points with
 conflicting values are resolved in the least-squares sense and reported
 through `viol`. `:dual` cannot solve data with duplicated points: it warns,
@@ -215,19 +209,17 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
                        W::Real=1e6, iters::Int=20, tol::Real=1e-11,
                        verbose::Bool=false)
 
-    solver in (:auto, :cholesky, :qr, :dual, :nullspace) ||
+    solver in (:auto, :cholesky, :qr, :dual) ||
         throw(ArgumentError("solver must be :auto, :cholesky, :qr or :dual, got $solver."))
-    if solver === :nullspace
-        @warn "solver = :nullspace is deprecated and will be removed in the next breaking " *
-              "release: it is less accurate than :cholesky and :qr. Use one of those instead."
-    end
     # the ghost rule per axis and end, normalised to ((left, right), …): a Symbol applies
     # everywhere, a pair of Symbols to both ends of every axis, a tuple of pairs per axis
     D_bc = size(points, 1)
     bcs = bc isa Symbol ? ntuple(_ -> (bc, bc), D_bc) :
           bc isa Tuple{Symbol,Symbol} ? ntuple(_ -> bc, D_bc) :
-          length(bc) == D_bc && all(b -> b isa Tuple{Symbol,Symbol}, bc) ? NTuple{D_bc,Tuple{Symbol,Symbol}}(bc) :
-          throw(ArgumentError("bc must be a Symbol, a (left, right) pair of Symbols, or one pair per axis; got $bc."))
+          length(bc) == D_bc && all(b -> b isa Tuple{Symbol,Symbol}, bc) ?
+              NTuple{D_bc,Tuple{Symbol,Symbol}}(bc) :
+          throw(ArgumentError("bc must be a Symbol, a (left, right) pair of Symbols, or " *
+                              "one pair per axis; got $bc."))
     for (l, r) in bcs, b in (l, r)
         b in (:poly, :quadratic, :linear) ||
             throw(ArgumentError("bc must be :poly, :quadratic or :linear, got :$b."))
@@ -235,7 +227,8 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
     D  = size(points, 1)
     Np = size(points, 2)
     Np == length(values) ||
-        throw(ArgumentError("points has $Np columns but values has $(length(values)) entries."))
+        throw(ArgumentError("points has $Np columns but values has $(length(values)) " *
+                            "entries."))
     Np >= 2 || throw(ArgumentError("need at least 2 data points."))
     mode === :lsq &&
         throw(ArgumentError("mode = :lsq has been replaced by mode = :smooth, which fits " *
@@ -243,7 +236,8 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
     mode in (:exact, :smooth) ||
         throw(ArgumentError("mode must be :exact or :smooth, got $mode."))
     (grid === :uniform || grid === :adaptive || grid isa Tuple) ||
-        throw(ArgumentError("grid must be :uniform, :adaptive or a tuple of knot vectors, got $grid."))
+        throw(ArgumentError("grid must be :uniform, :adaptive or a tuple of knot " *
+                            "vectors, got $grid."))
     (grid isa Tuple && gridsize !== :auto) &&
         throw(ArgumentError("gridsize cannot be combined with user-supplied grid axes; " *
                             "the knot counts are those of the axes."))
@@ -262,18 +256,22 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
     if mode === :smooth && grid === :adaptive
         ku, vu, _ = fit_scattered(points, values; mode = :smooth, grid = :uniform,
                                   gridsize, oversample, q, lambda, bc, verbose)
-        s  = convolution_interpolation(ku, vu; kernel = _default_scattered_kernel(D, :smooth, false), bc = bc)
-        # the adaptive knot count per axis: a fraction of the uniform fit's, but at least the
-        # 1D floor where the uniform fit has that many, and never more than the uniform fit
+        s  = convolution_interpolation(
+            ku, vu; kernel = _default_scattered_kernel(D, :smooth, false), bc = bc)
+        # the adaptive knot count per axis: a fraction of the uniform fit's, but at least
+        # the 1D floor where the uniform fit has that many, and never more than the uniform
+        # fit
         g  = gridsize isa Int ? ntuple(_ -> gridsize, D) :
              gridsize isa Tuple ? NTuple{D,Int}(gridsize) :
-             ntuple(d -> max(min(_SMOOTH_MIN_KNOTS, length(ku[d])), round(Int, _SIGNAL_BUDGET * length(ku[d]))), D)
+             ntuple(d -> max(min(_SMOOTH_MIN_KNOTS, length(ku[d])),
+                             round(Int, _SIGNAL_BUDGET * length(ku[d]))), D)
         lo = ntuple(d -> minimum(view(points, d, :)), D)
         hi = ntuple(d -> maximum(view(points, d, :)), D)
         local knots, vals, info
         for pass in 1:_SIGNAL_PASSES
             axes = _signal_axes(s, g, lo, hi; alpha, ratio)
-            knots, vals, info = fit_scattered(points, values; kernel, mode = :smooth, grid = axes,
+            knots, vals, info = fit_scattered(points, values; kernel, mode = :smooth,
+                                              grid = axes,
                                               q, lambda, verbose)
             kern = kernel === :auto ? _default_scattered_kernel(D, :smooth, true) : kernel
             s = convolution_interpolation(knots, vals; kernel = kern)
@@ -300,10 +298,12 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
     if nonuniform
         for k in kernels
             k in (:n3, :b5, :b7, :b9, :b11, :b13) ||
-                throw(ArgumentError("nonuniform grids (grid = :adaptive or user axes) require " *
-                                    ":n3 or a :b kernel (:b5 … :b13) on every axis; :$k is not supported."))
+                throw(ArgumentError("nonuniform grids (grid = :adaptive or user axes) " *
+                                    "require :n3 or a :b kernel (:b5 … :b13) on every " *
+                                    "axis; :$k is not supported."))
         end
-        pdeg = ntuple(d -> kernels[d] === :n3 ? 2 : nonuniform_b_params(kernels[d])[2], D)   # ghost extrapolation degree
+        # ghost extrapolation degree
+        pdeg = ntuple(d -> kernels[d] === :n3 ? 2 : nonuniform_b_params(kernels[d])[2], D)
         ns   = ntuple(d -> pdeg[d] + 1, D)                           # knots per ghost
         qv   = ntuple(d -> q !== :auto ? q::Int :                    # roughness orders
                           _default_roughness_order(mode, kernels[d], ns[d], true, D), D)
@@ -314,7 +314,8 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
                                     "boundary-condition table; :$k is not supported."))
         end
         G  = ntuple(d -> get_polynomial_ghost_coeffs(:poly, kernels[d]), D)
-        ns = ntuple(d -> size(G[d], 2), D)                           # BC stencil width (:poly is the widest rule)
+        # BC stencil width (:poly is the widest rule)
+        ns = ntuple(d -> size(G[d], 2), D)
         qv = ntuple(d -> q !== :auto ? q::Int :                      # roughness orders
                         _default_roughness_order(mode, kernels[d], ns[d], false, D), D)
     end
@@ -332,7 +333,8 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
               gridsize isa Tuple ? (length(gridsize) == D ? NTuple{D,Int}(gridsize) :
                   throw(ArgumentError("gridsize must have $D entries."))) :
               grid isa Tuple ? (length(grid) == D ? ntuple(d -> length(grid[d]), D) :
-                  throw(ArgumentError("grid must have $D knot vectors, got $(length(grid))."))) :
+                  throw(ArgumentError("grid must have $D knot vectors, got " *
+                                      "$(length(grid))."))) :
               nothing
     if n_given !== nothing
         for d in 1:D
@@ -344,13 +346,14 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
 
     # ---- :smooth: penalised fit with GCV-chosen smoothing (fit_smooth.jl) ----
     if mode === :smooth
-        n_null = prod(qv)                                  # polynomials the penalty does not see
+        n_null = prod(qv)                             # polynomials the penalty does not see
         Np > n_null ||
-            throw(ArgumentError("mode = :smooth needs more than $n_null data points in $(D)D " *
-                                "with q = $(join(unique(qv), "/")) (the penalty's null space); " *
-                                "got $Np. Use mode = :exact, or a lower q."))
+            throw(ArgumentError("mode = :smooth needs more than $n_null data points in " *
+                                "$(D)D with q = $(join(unique(qv), "/")) (the penalty's " *
+                                "null space); got $Np. Use mode = :exact, or a lower q."))
         os    = oversample > 0 ? Float64(oversample) : 0.8
-        g_cap = ntuple(d -> max(ns[d], ceil(Int, os * Np^(1 / D)) + 1), D)   # largest :auto grid
+        # largest :auto grid
+        g_cap = ntuple(d -> max(ns[d], ceil(Int, os * Np^(1 / D)) + 1), D)
         pts64 = Float64.(pts)
         lo64  = ntuple(d -> Float64(lo[d]), D)
         hi64  = ntuple(d -> Float64(hi[d]), D)
@@ -378,67 +381,54 @@ function fit_scattered(points::AbstractMatrix, values::AbstractVector;
     q_iso = _isotropic_order(qv)
     if solver === :auto
         solver_used = _default_scattered_solver(D, nonuniform, Fs, Np, q_iso)
+        if solver_used === :dual
+            # the default must not exhaust the machine's memory: the dense system of :dual
+            # holds 8 bytes times the square of the point count; a solver chosen explicitly
+            # is honoured without this check
+            dual_bytes = 8.0 * Np^2
+            dual_bytes <= Sys.total_memory() ||
+                error("fit_scattered (:exact): the dense system of solver = :dual for " *
+                      "$Np data points needs about " *
+                      "$(round(dual_bytes / 2^30; digits = 1)) GB, more than the " *
+                      "$(round(Sys.total_memory() / 2^30; digits = 1)) GB of this " *
+                      "machine. Fit fewer points; solver = :dual forces the fit.")
+        end
     else
         solver_used = solver
     end
 
-    sparse_fit = nothing
-    if solver_used !== :dual
-        # sparse system on the interior unknowns (fit_exact.jl), with
-        # the isotropic H^q seminorm: in 1D the axis-wise differences, from 2D up every mixed
-        # difference of total order q as well, which the scattered data alone pin too loosely
-        A_eff, R_eff = _scattered_operators(pts, kernels, axes, qv; isotropic = true)
-        if solver === :auto
-            # the default must not exhaust the machine's memory: :cholesky declines a
-            # factorization predicted to need more than there is and returns nothing
-            sparse_fit = _scattered_auglag(A_eff, f, R_eff, Fs(W), iters, Fs(tol), verbose,
-                                           Val(:cholesky); memory_limit = Sys.total_memory())
-        else
-            # a solver chosen explicitly is honoured without that check
-            sparse_fit = _scattered_auglag(A_eff, f, R_eff, Fs(W), iters, Fs(tol), verbose,
-                                           Val(solver_used))
-        end
-        if sparse_fit === nothing
-            _scattered_dual_applies(D, nonuniform, Fs, Np, q_iso) ||
-                error("fit_scattered (:exact): the Cholesky factorization of this grid " *
-                      "($(prod(n_int)) unknowns) is predicted to need more memory than this " *
-                      "machine has, and solver = :dual does not apply here (it needs a " *
-                      "uniform grid, Float64 data and more data points). Use a smaller " *
-                      "gridsize/oversample; solver = :cholesky forces the factorization.")
-            @warn "fit_scattered (:exact): the Cholesky factorization of this grid " *
-                  "($(prod(n_int)) unknowns) is predicted to need more memory than this " *
-                  "machine has; solving with solver = :dual instead, which is less accurate " *
-                  "near the faces of the box. A smaller gridsize/oversample keeps " *
-                  ":cholesky; solver = :cholesky forces the factorization."
-            solver_used = :dual
-        end
-    end
-
     if solver_used === :dual
-        # dense system in the data points (fit_dual.jl): the same roughness order, measured
-        # with reflecting boundaries, inverted by a cosine transform of the uniform grid
+        # dense system in the data points (fit_dual.jl): the grid of the sparse solvers,
+        # found by an iteration whose cost follows the point count and not the grid
         nonuniform &&
-            throw(ArgumentError("solver = :dual needs a uniform grid; use :cholesky or :qr " *
-                                "with grid = :adaptive or user-supplied axes."))
+            throw(ArgumentError("solver = :dual needs a uniform grid; use :cholesky or " *
+                                ":qr with grid = :adaptive or user-supplied axes."))
         Fs === Float64 ||
-            throw(ArgumentError("solver = :dual solves in Float64; use :cholesky for $Fs data."))
+            throw(ArgumentError("solver = :dual solves in Float64; use :cholesky for $Fs " *
+                                "data."))
         c_int, viol = _scattered_dual(pts, f, kernels, axes, q_iso, verbose)
     else
-        c_int, viol = sparse_fit
+        # sparse system on the interior unknowns (fit_exact.jl), with
+        # the isotropic H^q seminorm: in 1D the axis-wise differences, from 2D up every
+        # mixed difference of total order q as well, which the scattered data alone pin too
+        # loosely
+        A_eff, R_eff = _scattered_operators(pts, kernels, axes, qv; isotropic = true)
+        c_int, viol = _scattered_auglag(A_eff, f, R_eff, Fs(W), iters, Fs(tol), verbose,
+                                        Val(solver_used))
     end
 
     if viol > max(Fs(tol), sqrt(eps(Fs))) * max(one(Fs), maximum(abs, f))
         if solver_used === :dual
-            @warn "fit_scattered (:exact, solver = :dual): constraint violation $viol did " *
-                  "not reach machine precision, so the result does not reproduce the data. " *
-                  "The dense system in the data points is singular or ill-conditioned: the " *
-                  "data may contain duplicated or nearly coincident points, or the grid may " *
-                  "be too fine for this solver (try a smaller gridsize/oversample, or " *
-                  "solver = :cholesky)."
+            @warn "fit_scattered (:exact, solver = :dual): constraint violation $viol " *
+                  "did not reach machine precision, so the result does not reproduce the " *
+                  "data. The dense system in the data points is singular or " *
+                  "ill-conditioned: the data may contain duplicated or nearly coincident " *
+                  "points, or the grid may be too fine for this solver (try a smaller " *
+                  "gridsize/oversample, or solver = :cholesky)."
         else
             hint = nonuniform ? "" :
-                   " If the points are clustered, `grid = :adaptive` places the knots where " *
-                   "the points are, so that each point gets its own knot spacing."
+                   " If the points are clustered, `grid = :adaptive` places the knots " *
+                   "where the points are, so that each point gets its own knot spacing."
             @warn "fit_scattered (:exact): constraint violation $viol did not reach " *
                   "machine precision. The system may be overdetermined for this grid " *
                   "(try a larger gridsize/oversample) or the data may contain " *
@@ -476,16 +466,24 @@ A nonuniform grid gives a nonuniform interpolant (`:b5` by default for
 `fit_scattered`): no antiderivatives (`derivative = -1`) and no lazy ghosts.
 
 ```julia
-pts = rand(2, 500)                                        # 500 scattered points in 2D, one per column
-vals = [sin(3p[1]) * cos(2p[2]) for p in eachcol(pts)]    # the signal at the points
-noisy = vals .+ 0.05 .* randn(500)                        # measured with noise
-itp = convolution_interpolation(pts, noisy)               # smoothing chosen automatically
-itp(0.4, 0.6)                                             # close to the noise-free value
+# 500 scattered points in 2D, one per column
+pts = rand(2, 500)
+# the signal at the points
+vals = [sin(3p[1]) * cos(2p[2]) for p in eachcol(pts)]
+# measured with noise
+noisy = vals .+ 0.05 .* randn(500)
+# smoothing chosen automatically
+itp = convolution_interpolation(pts, noisy)
+# close to the noise-free value
+itp(0.4, 0.6)
 
-itp_x = convolution_interpolation(pts, vals; mode = :exact)   # noise-free data: interpolate exactly
-itp_x(0.4, 0.6)                                           # evaluate anywhere inside the data's box
+# noise-free data: interpolate exactly
+itp_x = convolution_interpolation(pts, vals; mode = :exact)
+# evaluate anywhere inside the data's box
+itp_x(0.4, 0.6)
 
-itp_a = convolution_interpolation(pts, vals; mode = :exact, grid = :adaptive)   # knots follow the point density
+# knots follow the point density
+itp_a = convolution_interpolation(pts, vals; mode = :exact, grid = :adaptive)
 ```
 """
 function convolution_interpolation(points::AbstractMatrix, values::AbstractVector;
@@ -511,7 +509,8 @@ function convolution_interpolation(points::AbstractMatrix, values::AbstractVecto
     if nonuniform
         # the gridded constructor detects the nonuniform knots and builds the nonuniform
         # interpolant, whose Vandermonde ghosts are exactly the ones the fit eliminated
-        return convolution_interpolation(knots, vals; kernel = kernel_res, derivative, extrap)
+        return convolution_interpolation(knots, vals; kernel = kernel_res, derivative,
+                                         extrap)
     end
     itp = ConvolutionInterpolation(knots, vals;
                                        kernel = kernel_res, bc = :poly, derivative)
@@ -559,12 +558,13 @@ grids the `:b` kernels also oscillate where the data thin out towards the bounds
 clustered points, 1-4D."""
 function _default_scattered_kernel(D::Int, mode::Symbol = :smooth, nonuniform::Bool = false)
     if mode === :smooth
-        D <= 3 && return :b5                        # the fit coarsens its grid, so the wide kernel stays cheap
-        nonuniform && return :n3                    # 4D+: the cheap kernels
+        # the fit coarsens its grid, so the wide kernel stays cheap
+        D <= 3 && return :b5
+        nonuniform && return :n3      # 4D+: the cheap kernels
         return D <= 5 ? :a4 : :a3
-    else                                            # :exact
-        D == 1 && return :b5                        # fastest and most accurate in 1D
-        nonuniform && return :n3                    # 2D+: the grid is mostly gaps, the narrow kernels win
+    else                              # :exact
+        D == 1 && return :b5          # fastest and most accurate in 1D
+        nonuniform && return :n3      # 2D+: the grid is mostly gaps, the narrow kernels win
         return D <= 3 ? :a4 : :a3
     end
 end
@@ -577,13 +577,13 @@ function _scattered_dual_applies(D::Int, nonuniform::Bool, ::Type{F}, Np::Int,
     return !nonuniform && F === Float64 && Np > binomial(q - 1 + D, D)
 end
 
-"""Default solver of the `:exact` fit. `:cholesky` up to 3D, where the sparse factorization
-is the more accurate choice near the faces of the box. From 4D `:dual` where it applies
-(`_scattered_dual_applies`): there the fill of the factorization makes `:cholesky` slow and
-heavy on memory, while the dual system has only one unknown per data point."""
+"""Default solver of the `:exact` fit. `:cholesky` in 1D and 2D, where the sparse
+factorization is cheap. From 3D `:dual` where it applies (`_scattered_dual_applies`): it
+finds the same grid, while the fill of the factorization makes `:cholesky` slow and heavy on
+memory there."""
 function _default_scattered_solver(D::Int, nonuniform::Bool, ::Type{F}, Np::Int,
                                    q::Int) where {F}
-    if D >= 4 && _scattered_dual_applies(D, nonuniform, F, Np, q)
+    if D >= 3 && _scattered_dual_applies(D, nonuniform, F, Np, q)
         return :dual
     end
     return :cholesky

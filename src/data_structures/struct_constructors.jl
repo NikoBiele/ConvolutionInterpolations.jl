@@ -39,8 +39,8 @@ A type representing higher-order convolution kernels (`:a3` and above) for dispa
 It distinguishes the simple kernels (`:a0` nearest, `:a1` linear), which evaluate directly,
 from the higher-order kernels, which evaluate as a convolution over a stencil of `2*eqs`
 coefficients around the point: each coefficient is weighted by a polynomial in the position
-within the cell, derived exactly from the kernel's pieces (see `_column_rows`), with boundary
-values supplied by ghost points.
+within the cell, derived exactly from the kernel's pieces (see `_column_rows`), with
+boundary values supplied by ghost points.
 
 # Type Parameters
 - `K`: The kernel symbol (`:a3`, `:a4`, `:a5`, `:a7`, `:b5`, `:b7`, `:b9`, `:b11`, `:b13`)
@@ -157,15 +157,16 @@ Construct a `GaussianConvolutionKernel{B}` type from a `Val{B}` for dispatch pur
 This is a convenience constructor that creates a `GaussianConvolutionKernel{B}` instance
 from a value type, used for implementing specialized Gaussian kernel methods.
 """
-GaussianConvolutionKernel(::Val{B}, ::Val{NT}) where {B,NT} = GaussianConvolutionKernel{B,NT}()
+GaussianConvolutionKernel(::Val{B}, ::Val{NT}) where {B,NT} =
+    GaussianConvolutionKernel{B,NT}()
 
 """
     IntegralOrders{DO}
 
 Dispatch type for antiderivatives of any order in any number of dimensions, mixed with
-derivatives. `DO` is the per-dimension order tuple: `DO[d] < 0` integrates along dimension `d`
-(order `-DO[d]`), and `DO[d] ≥ 0` interpolates (0) or differentiates along it. Stored in the
-derivative slot (position 11) of the interpolant type when any entry of `derivative` is
+derivatives. `DO` is the per-dimension order tuple: `DO[d] < 0` integrates along dimension
+`d` (order `-DO[d]`), and `DO[d] ≥ 0` interpolates (0) or differentiates along it. Stored in
+the derivative slot (position 11) of the interpolant type when any entry of `derivative` is
 negative at construction.
 
 See also: `DerivativeOrder`, `convolution_interpolation`.
@@ -191,17 +192,18 @@ DerivativeOrder(::Val{DO}) where DO = DerivativeOrder{DO}()
 """
     AbstractExtrapolation
 
-Supertype of the extrapolation rules `Throw`, `Flat`, `Line` and `Natural`, which decide what an
-interpolant returns outside its grid. Passed as `extrap` to `convolution_interpolation`, either
-as an instance (`Line()`) or as the matching symbol (`:line`).
+Supertype of the extrapolation rules `Throw`, `Flat`, `Line` and `Natural`, which decide
+what an interpolant returns outside its grid. Passed as `extrap` to
+`convolution_interpolation`, either as an instance (`Line()`) or as the matching symbol
+(`:line`).
 """
 abstract type AbstractExtrapolation end
 
 """
     Line()
 
-Linear extrapolation: outside the grid, the interpolant continues along the slope it has at the
-nearest boundary point, measured inward from that point. Symbol form `:line`.
+Linear extrapolation: outside the grid, the interpolant continues along the slope it has at
+the nearest boundary point, measured inward from that point. Symbol form `:line`.
 """
 struct Line <: AbstractExtrapolation end
 
@@ -216,16 +218,17 @@ struct Flat <: AbstractExtrapolation end
 """
     Throw()
 
-No extrapolation: evaluating outside the grid is an error. The default. Symbol form `:throw`.
+No extrapolation: evaluating outside the grid is an error. The default. Symbol form
+`:throw`.
 """
 struct Throw <: AbstractExtrapolation end
 
 """
     Natural()
 
-Natural extrapolation: the kernel's own polynomial boundary extension is applied twice, so that
-the interpolant is defined on a domain one ghost region wider than the grid and evaluated there
-as an ordinary interpolant. Smoothest of the rules, uniform grids only, and the one that costs
-most in many dimensions. Symbol form `:natural`.
+Natural extrapolation: the kernel's own polynomial boundary extension is applied twice, so
+that the interpolant is defined on a domain one ghost region wider than the grid and
+evaluated there as an ordinary interpolant. Smoothest of the rules, uniform grids only, and
+the one that costs most in many dimensions. Symbol form `:natural`.
 """
 struct Natural <: AbstractExtrapolation end

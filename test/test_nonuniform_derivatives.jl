@@ -35,7 +35,8 @@ end
 @testset "1D nonuniform derivative d2" begin
     for kernel in nu_deriv_kernels
         println("    - 1D nonuniform derivative d2: ", kernel)
-        x_nu = make_nonuniform_grid_derivatives(N_nu_deriv*2; a=0.0, b=2π) # double the number of points
+        # double the number of points
+        x_nu = make_nonuniform_grid_derivatives(N_nu_deriv*2; a=0.0, b=2π)
         vals = sin.(x_nu)
         itp_d2 = convolution_interpolation(x_nu, vals; kernel=kernel, derivative=2)
 

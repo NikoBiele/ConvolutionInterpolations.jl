@@ -1,11 +1,13 @@
 println("\n" * "-"^60)
-println("Testing uniform grid interpolations for direct and fast kernels for 1D, 2D, 3D, 4D...")
+println("Testing uniform grid interpolations for direct and fast kernels for 1D, 2D, 3D, " *
+        "4D...")
 println("-"^60)
 
 N = 5 # number of samples in each dimension
 tolerance = 1e-6 # tight tolerance
 # test all kernels
-kernels = [:a0, :a1, :a3, :b5] #, :a4, :a5, :a7, :b7, :b9, :b11 :b13] # only test kernels with separate dispatch
+kernels = [:a0, :a1, :a3, :b5]
+# , :a4, :a5, :a7, :b7, :b9, :b11 :b13] # only test kernels with separate dispatch
 bc = :linear # control kernel boundary conditions
 
 ### 1D
@@ -15,15 +17,21 @@ bc = :linear # control kernel boundary conditions
         # random uniformly spaced 1D data
         range_1d = range(0.0, stop=1.0, length=N)
         vals_1d_rand = stable_rand(1, N)
-        itp_1d_rand = convolution_interpolation(range_1d, vals_1d_rand; kernel=kernel, bc=bc)
+        itp_1d_rand = convolution_interpolation(range_1d, vals_1d_rand; kernel=kernel,
+                                                bc=bc)
         @test itp_1d_rand.itp.(range_1d) ≈ vals_1d_rand atol=tolerance
         
         if kernel != :a0
             # match mean of linear uniformly spaced 1D data
             vals_1d_linear = range(0.0, stop=1.0, length=N)
             vals_1d_linear_mean =[(vals_1d_linear[i]+vals_1d_linear[i+1])/2 for i in 1:N-1]
-            itp_1d_linear = convolution_interpolation(range_1d, vals_1d_linear; kernel=kernel, bc=bc, extrap=:line)
-            @test itp_1d_linear.itp.(range(vals_1d_linear_mean[1], stop=vals_1d_linear_mean[end], length=N-1)) ≈ vals_1d_linear_mean  atol=tolerance
+            itp_1d_linear = convolution_interpolation(range_1d,
+                                                      vals_1d_linear; kernel=kernel, bc=bc,
+                                                      extrap=:line)
+            @test itp_1d_linear.itp.(range(vals_1d_linear_mean[1],
+                                           stop=vals_1d_linear_mean[end],
+                                           length=N-1)) ≈
+                  vals_1d_linear_mean  atol=tolerance
         end
     end
 end
@@ -33,7 +41,8 @@ end
         # random uniformly spaced 1D data
         range_1d = range(0.0, stop=1.0, length=N)
         vals_1d_rand = stable_rand(1, N)
-        itp_1d_rand = convolution_interpolation(range_1d, vals_1d_rand; kernel=kernel, fast=true, bc=bc)
+        itp_1d_rand = convolution_interpolation(range_1d, vals_1d_rand; kernel=kernel,
+                                                fast=true, bc=bc)
         @test itp_1d_rand.itp.(range_1d) ≈ vals_1d_rand atol=tolerance
         itp_1d_rand.itp.coefs
 
@@ -41,8 +50,13 @@ end
             # match mean of linear uniformly spaced 1D data
             vals_1d_linear = range(0.0, stop=1.0, length=N)
             vals_1d_linear_mean =[(vals_1d_linear[i]+vals_1d_linear[i+1])/2 for i in 1:N-1]
-            itp_1d_linear = convolution_interpolation(range_1d, vals_1d_linear; kernel=kernel, fast=true, bc=bc, extrap=:line)
-            @test itp_1d_linear.itp.(range(vals_1d_linear_mean[1], stop=vals_1d_linear_mean[end], length=N-1)) ≈ vals_1d_linear_mean  atol=tolerance
+            itp_1d_linear = convolution_interpolation(range_1d,
+                                                      vals_1d_linear; kernel=kernel,
+                                                      fast=true, bc=bc, extrap=:line)
+            @test itp_1d_linear.itp.(range(vals_1d_linear_mean[1],
+                                           stop=vals_1d_linear_mean[end],
+                                           length=N-1)) ≈
+                  vals_1d_linear_mean  atol=tolerance
         end
     end
 end
@@ -54,16 +68,22 @@ end
         # random uniformly spaced 2D data
         range_2d = range(0.0, stop=1.0, length=N)
         vals_2d_rand = stable_rand(2, N, N)
-        itp_2d_rand = convolution_interpolation((range_2d, range_2d), vals_2d_rand; kernel=kernel, bc=bc)
-        @test [itp_2d_rand.itp(range_2d[i], range_2d[j]) for i in 1:N for j in 1:N] ≈ [vals_2d_rand[i,j] for i in 1:N for j in 1:N] atol=tolerance
+        itp_2d_rand = convolution_interpolation((range_2d, range_2d),
+                                                vals_2d_rand; kernel=kernel, bc=bc)
+        @test [itp_2d_rand.itp(range_2d[i], range_2d[j]) for i in 1:N for j in 1:N] ≈
+            [vals_2d_rand[i,j] for i in 1:N for j in 1:N] atol=tolerance
 
         if kernel != :a0
             # mean of linear uniformly spaced 2D data
             f_2d_linear(i,j) = (i-1)/(N-1)+(j-1)/(N-1)
             vals_2d_linear = [f_2d_linear(i,j) for i in 1:N, j in 1:N]
-            vals_2d_linear_mean = [(vals_2d_linear[i,j]+vals_2d_linear[i+1,j]+vals_2d_linear[i,j+1]+vals_2d_linear[i+1,j+1])/4 for i in 1:N-1, j in 1:N-1]
-            itp_2d_linear = convolution_interpolation((range_2d, range_2d), vals_2d_linear; kernel=kernel, bc=bc)
-            itp_2d_linear_mean =  [itp_2d_linear.itp((i-0.5)/(N-1),(j-0.5)/(N-1)) for i in 1:N-1, j in 1:N-1] 
+            vals_2d_linear_mean = [(vals_2d_linear[i,j]+vals_2d_linear[i+1,j]+
+                                    vals_2d_linear[i,j+1]+vals_2d_linear[i+1,j+1])/4
+                                   for i in 1:N-1, j in 1:N-1]
+            itp_2d_linear = convolution_interpolation((range_2d, range_2d),
+                                                      vals_2d_linear; kernel=kernel, bc=bc)
+            itp_2d_linear_mean =  [itp_2d_linear.itp((i-0.5)/(N-1),(j-0.5)/(N-1))
+                                   for i in 1:N-1, j in 1:N-1]
             @test itp_2d_linear_mean ≈ vals_2d_linear_mean atol=tolerance  atol=tolerance
         end
     end
@@ -74,16 +94,24 @@ end
         # random uniformly spaced 2D data
         range_2d = range(0.0, stop=1.0, length=N)
         vals_2d_rand = stable_rand(2, N, N)
-        itp_2d_rand = convolution_interpolation((range_2d, range_2d), vals_2d_rand; kernel=kernel, fast=true, bc=bc)
-        @test [itp_2d_rand.itp(range_2d[i], range_2d[j]) for i in 1:N for j in 1:N] ≈ [vals_2d_rand[i,j] for i in 1:N for j in 1:N] atol=tolerance
+        itp_2d_rand = convolution_interpolation((range_2d, range_2d),
+                                                vals_2d_rand; kernel=kernel, fast=true,
+                                                bc=bc)
+        @test [itp_2d_rand.itp(range_2d[i], range_2d[j]) for i in 1:N for j in 1:N] ≈
+            [vals_2d_rand[i,j] for i in 1:N for j in 1:N] atol=tolerance
 
         if kernel != :a0
             # mean of linear uniformly spaced 2D data
             f_2d_linear(i,j) = (i-1)/(N-1)+(j-1)/(N-1)
             vals_2d_linear = [f_2d_linear(i,j) for i in 1:N, j in 1:N]
-            vals_2d_linear_mean = [(vals_2d_linear[i,j]+vals_2d_linear[i+1,j]+vals_2d_linear[i,j+1]+vals_2d_linear[i+1,j+1])/4 for i in 1:N-1, j in 1:N-1]
-            itp_2d_linear = convolution_interpolation((range_2d, range_2d), vals_2d_linear; kernel=kernel, fast=true, bc=bc)
-            itp_2d_linear_mean =  [itp_2d_linear.itp((i-0.5)/(N-1),(j-0.5)/(N-1)) for i in 1:N-1, j in 1:N-1] 
+            vals_2d_linear_mean = [(vals_2d_linear[i,j]+vals_2d_linear[i+1,j]+
+                                    vals_2d_linear[i,j+1]+vals_2d_linear[i+1,j+1])/4
+                                   for i in 1:N-1, j in 1:N-1]
+            itp_2d_linear = convolution_interpolation((range_2d, range_2d),
+                                                      vals_2d_linear; kernel=kernel,
+                                                      fast=true, bc=bc)
+            itp_2d_linear_mean =  [itp_2d_linear.itp((i-0.5)/(N-1),(j-0.5)/(N-1))
+                                   for i in 1:N-1, j in 1:N-1]
             @test itp_2d_linear_mean ≈ vals_2d_linear_mean atol=tolerance  atol=tolerance
         end
     end
@@ -96,8 +124,10 @@ end
         # random uniformly spaced 3D data
         range_3d = range(0.0, stop=1.0, length=N)
         vals_3d_rand = stable_rand(3, N, N, N)
-        itp_3d_rand = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_rand; kernel=kernel, bc=bc)
-        interpolated_vals_3d_rand = [itp_3d_rand.itp(range_3d[i], range_3d[j], range_3d[k]) for i in 1:N for j in 1:N for k in 1:N]
+        itp_3d_rand = convolution_interpolation((range_3d, range_3d, range_3d),
+                                                vals_3d_rand; kernel=kernel, bc=bc)
+        interpolated_vals_3d_rand = [itp_3d_rand.itp(range_3d[i], range_3d[j], range_3d[k])
+                                     for i in 1:N for j in 1:N for k in 1:N]
         true_vals_3d_rand = [vals_3d_rand[i,j,k] for i in 1:N for j in 1:N for k in 1:N]
         @test interpolated_vals_3d_rand ≈ true_vals_3d_rand atol=tolerance
 
@@ -108,11 +138,16 @@ end
             for i in 1:N, j in 1:N, k in 1:N
                 vals_3d_linear[i,j,k] = f_3d_linear(i,j,k)
             end
-            vals_3d_linear_mean =[(f_3d_linear(i,j,k)+f_3d_linear(i+1,j,k)+f_3d_linear(i,j+1,k)+f_3d_linear(i,j,k+1)+
-                                    f_3d_linear(i+1,j+1,k+1)+f_3d_linear(i,j+1,k+1)+f_3d_linear(i+1,j,k+1)+f_3d_linear(i+1,j+1,k))/8 
+            vals_3d_linear_mean =[(f_3d_linear(i,j,k)+f_3d_linear(i+1,j,k)+
+                                    f_3d_linear(i,j+1,k)+f_3d_linear(i,j,k+1)+
+                                    f_3d_linear(i+1,j+1,k+1)+f_3d_linear(i,j+1,k+1)+
+                                    f_3d_linear(i+1,j,k+1)+f_3d_linear(i+1,j+1,k))/8 
                                     for i in 1:N-1 for j in 1:N-1 for k in 1:N-1]
-            itp_3d_linear = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_linear; kernel=kernel, bc=bc)
-            @test [itp_3d_linear.itp((i-1/2)/(N-1),(j-1/2)/(N-1),(k-1/2)/(N-1)) for i in 1:N-1 for j in 1:N-1 for k in 1:N-1][:] ≈ vals_3d_linear_mean  atol=tolerance
+            itp_3d_linear = convolution_interpolation((range_3d, range_3d, range_3d),
+                                                      vals_3d_linear; kernel=kernel, bc=bc)
+            @test [itp_3d_linear.itp((i-1/2)/(N-1),(j-1/2)/(N-1),(k-1/2)/(N-1))
+                   for i in 1:N-1 for j in 1:N-1 for k in 1:N-1][:] ≈
+                  vals_3d_linear_mean  atol=tolerance
         end
     end
 end
@@ -122,8 +157,11 @@ end
         # random uniformly spaced 3D data
         range_3d = range(0.0, stop=1.0, length=N)
         vals_3d_rand = stable_rand(3, N, N, N)
-        itp_3d_rand = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_rand; kernel=kernel, fast=true, bc=bc)
-        interpolated_vals_3d_rand = [itp_3d_rand.itp(range_3d[i], range_3d[j], range_3d[k]) for i in 1:N for j in 1:N for k in 1:N]
+        itp_3d_rand = convolution_interpolation((range_3d, range_3d, range_3d),
+                                                vals_3d_rand; kernel=kernel, fast=true,
+                                                bc=bc)
+        interpolated_vals_3d_rand = [itp_3d_rand.itp(range_3d[i], range_3d[j], range_3d[k])
+                                     for i in 1:N for j in 1:N for k in 1:N]
         true_vals_3d_rand = [vals_3d_rand[i,j,k] for i in 1:N for j in 1:N for k in 1:N]
         @test interpolated_vals_3d_rand ≈ true_vals_3d_rand atol=tolerance
 
@@ -134,11 +172,17 @@ end
             for i in 1:N, j in 1:N, k in 1:N
                 vals_3d_linear[i,j,k] = f_3d_linear(i,j,k)
             end
-            vals_3d_linear_mean =[(f_3d_linear(i,j,k)+f_3d_linear(i+1,j,k)+f_3d_linear(i,j+1,k)+f_3d_linear(i,j,k+1)+
-                                    f_3d_linear(i+1,j+1,k+1)+f_3d_linear(i,j+1,k+1)+f_3d_linear(i+1,j,k+1)+f_3d_linear(i+1,j+1,k))/8 
+            vals_3d_linear_mean =[(f_3d_linear(i,j,k)+f_3d_linear(i+1,j,k)+
+                                    f_3d_linear(i,j+1,k)+f_3d_linear(i,j,k+1)+
+                                    f_3d_linear(i+1,j+1,k+1)+f_3d_linear(i,j+1,k+1)+
+                                    f_3d_linear(i+1,j,k+1)+f_3d_linear(i+1,j+1,k))/8 
                                     for i in 1:N-1 for j in 1:N-1 for k in 1:N-1]
-            itp_3d_linear = convolution_interpolation((range_3d, range_3d, range_3d), vals_3d_linear; kernel=kernel, fast=true, bc=bc)
-            @test [itp_3d_linear.itp((i-1/2)/(N-1),(j-1/2)/(N-1),(k-1/2)/(N-1)) for i in 1:N-1 for j in 1:N-1 for k in 1:N-1][:] ≈ vals_3d_linear_mean  atol=tolerance
+            itp_3d_linear = convolution_interpolation((range_3d, range_3d, range_3d),
+                                                      vals_3d_linear; kernel=kernel,
+                                                      fast=true, bc=bc)
+            @test [itp_3d_linear.itp((i-1/2)/(N-1),(j-1/2)/(N-1),(k-1/2)/(N-1))
+                   for i in 1:N-1 for j in 1:N-1 for k in 1:N-1][:] ≈
+                  vals_3d_linear_mean  atol=tolerance
         end
     end
 end
@@ -150,9 +194,13 @@ end
         # random uniformly spaced 4D data
         range_4d = range(0.0, stop=1.0, length=N)
         vals_4d_rand = stable_rand(4, N, N, N, N)
-        itp_4d_rand = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_rand; kernel=kernel, bc=bc)
-        interpolated_vals_4d_rand = [itp_4d_rand.itp(range_4d[i], range_4d[j], range_4d[k], range_4d[l]) for i in 1:N for j in 1:N for k in 1:N for l in 1:N]
-        true_vals_4d_rand = [vals_4d_rand[i,j,k,l] for i in 1:N for j in 1:N for k in 1:N for l in 1:N]
+        itp_4d_rand = convolution_interpolation((range_4d, range_4d, range_4d, range_4d),
+                                                vals_4d_rand; kernel=kernel, bc=bc)
+        interpolated_vals_4d_rand = [
+            itp_4d_rand.itp(range_4d[i], range_4d[j], range_4d[k], range_4d[l])
+            for i in 1:N for j in 1:N for k in 1:N for l in 1:N]
+        true_vals_4d_rand = [vals_4d_rand[i,j,k,l] for i in 1:N for j in 1:N for k in 1:N
+                             for l in 1:N]
         @test interpolated_vals_4d_rand ≈ true_vals_4d_rand  atol=tolerance
 
         if kernel != :a0
@@ -183,9 +231,12 @@ end
                 ) / 16 for i in 1:N-1, j in 1:N-1, k in 1:N-1, l in 1:N-1]
             end
             vals_4d_linear_mean = hypercube_mean(f_4d_linear, N)
-            itp_4d_linear = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_linear; kernel=kernel, bc=bc)
-            interpolated_vals_4d_linear_mean = [itp_4d_linear.itp((i-1/2)/(N-1),(j-1/2)/(N-1),(k-1/2)/(N-1),(l-1/2)/(N-1)) for i in 1:N-1 
-                                                for j in 1:N-1 for k in 1:N-1 for l in 1:N-1]
+            itp_4d_linear = convolution_interpolation(
+                (range_4d, range_4d, range_4d, range_4d), vals_4d_linear;
+                kernel=kernel, bc=bc)
+            interpolated_vals_4d_linear_mean = [
+                itp_4d_linear.itp((i-1/2)/(N-1),(j-1/2)/(N-1),(k-1/2)/(N-1),(l-1/2)/(N-1))
+                for i in 1:N-1 for j in 1:N-1 for k in 1:N-1 for l in 1:N-1]
             @test interpolated_vals_4d_linear_mean ≈ vals_4d_linear_mean[:]  atol=tolerance
         end
     end
@@ -196,9 +247,14 @@ end
         # random uniformly spaced 4D data
         range_4d = range(0.0, stop=1.0, length=N)
         vals_4d_rand = stable_rand(4, N, N, N, N)
-        itp_4d_rand = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_rand; kernel=kernel, fast=true, bc=bc)
-        interpolated_vals_4d_rand = [itp_4d_rand.itp(range_4d[i], range_4d[j], range_4d[k], range_4d[l]) for i in 1:N for j in 1:N for k in 1:N for l in 1:N]
-        true_vals_4d_rand = [vals_4d_rand[i,j,k,l] for i in 1:N for j in 1:N for k in 1:N for l in 1:N]
+        itp_4d_rand = convolution_interpolation((range_4d, range_4d, range_4d, range_4d),
+                                                vals_4d_rand; kernel=kernel, fast=true,
+                                                bc=bc)
+        interpolated_vals_4d_rand = [
+            itp_4d_rand.itp(range_4d[i], range_4d[j], range_4d[k], range_4d[l])
+            for i in 1:N for j in 1:N for k in 1:N for l in 1:N]
+        true_vals_4d_rand = [vals_4d_rand[i,j,k,l] for i in 1:N for j in 1:N for k in 1:N
+                             for l in 1:N]
         @test interpolated_vals_4d_rand ≈ true_vals_4d_rand  atol=tolerance
 
         if kernel != :a0
@@ -229,9 +285,12 @@ end
                 ) / 16 for i in 1:N-1, j in 1:N-1, k in 1:N-1, l in 1:N-1]
             end
             vals_4d_linear_mean = hypercube_mean(f_4d_linear, N)
-            itp_4d_linear = convolution_interpolation((range_4d, range_4d, range_4d, range_4d), vals_4d_linear; kernel=kernel, fast=true, bc=bc)
-            interpolated_vals_4d_linear_mean = [itp_4d_linear.itp((i-1/2)/(N-1),(j-1/2)/(N-1),(k-1/2)/(N-1),(l-1/2)/(N-1)) for i in 1:N-1 
-                                                for j in 1:N-1 for k in 1:N-1 for l in 1:N-1]
+            itp_4d_linear = convolution_interpolation(
+                (range_4d, range_4d, range_4d, range_4d), vals_4d_linear;
+                kernel=kernel, fast=true, bc=bc)
+            interpolated_vals_4d_linear_mean = [
+                itp_4d_linear.itp((i-1/2)/(N-1),(j-1/2)/(N-1),(k-1/2)/(N-1),(l-1/2)/(N-1))
+                for i in 1:N-1 for j in 1:N-1 for k in 1:N-1 for l in 1:N-1]
             @test interpolated_vals_4d_linear_mean ≈ vals_4d_linear_mean[:]  atol=tolerance
         end
     end

@@ -1,9 +1,13 @@
-@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},LowerOrderKernel{(:a0,:a0,:a0)},
+@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
+                    LowerOrderKernel{(:a0,:a0,:a0)},
                     EQ,KBC,DerivativeOrder{DO},
-                    Val{true},Val{0}})(x::Vararg{Number,3}) where {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
+                    Val{true},
+                    Val{0}})(x::Vararg{Number,3}) where {T<:AbstractFloat,
+                    TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},EQ<:Tuple{Int,Int,Int},
-                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},
+                    <:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     # specialized dispatch for 3d nearest neighbor kernel
@@ -41,12 +45,15 @@
     end
 end
 
-@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},LowerOrderKernel{(:a1,:a1,:a1)},
+@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
+                    LowerOrderKernel{(:a1,:a1,:a1)},
                     EQ,KBC,DerivativeOrder{DO},
                     Val{true},Val{0}})(x::Vararg{Number,3}) where {T<:AbstractFloat,
-                    TCoefs<:AbstractArray{T,3},Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
+                    TCoefs<:AbstractArray{T,3},
+                    Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},EQ<:Tuple{Int,Int,Int},
-                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},
+                    <:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     # specialized dispatch for 3d linear kernel
@@ -66,7 +73,8 @@ end
     z_diff_left = (x[3] - itp.knots[3][k]) / itp.h[3]  # Recompute from actual knot
 
     # Trilinear interpolation formula
-    return @inbounds @fastmath ((1-x_diff_left)*(1-y_diff_left)*(1-z_diff_left)*itp.coefs[i, j, k] + 
+    return @inbounds @fastmath (
+                    (1-x_diff_left)*(1-y_diff_left)*(1-z_diff_left)*itp.coefs[i, j, k] + 
                     x_diff_left*(1-y_diff_left)*(1-z_diff_left)*itp.coefs[i+1, j, k] + 
                     (1-x_diff_left)*y_diff_left*(1-z_diff_left)*itp.coefs[i, j+1, k] + 
                     x_diff_left*y_diff_left*(1-z_diff_left)*itp.coefs[i+1, j+1, k] +
@@ -81,9 +89,11 @@ end
 
 @inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},K,
                 EQ,KBC,DerivativeOrder{DO},Val{true},Val{0}})(x::Vararg{Number,3}) where
-                {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},Axs<:NTuple{3,<:AbstractVector},
+                {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
+                Axs<:NTuple{3,<:AbstractVector},
                 KA<:NTuple{3,<:Nothing},K,EQ<:NTuple{3,Int},
-                KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
+                KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},
+                <:Tuple{Symbol,Symbol}},
                 DO}
 
     x = T.(x)
@@ -113,7 +123,8 @@ end
                                         (x_diff_right, y_diff_right, z_diff_right))
 
     result = if is_boundary_x || is_boundary_y || is_boundary_z
-        # the stencil reaches past the domain: ghosts formed on a local patch, as eager forms them
+        # the stencil reaches past the domain: ghosts formed on a local patch, as eager
+        # forms them
         _lazy_patch_sum(itp, (i, j, k), (wx, wy, wz))
     else
         # the whole stencil lies inside the domain: a plain tensor sum, as in eager mode
@@ -135,5 +146,6 @@ end
         acc
     end
 
-    return result * (-one(T)/itp.h[1])^DO[1] * (-one(T)/itp.h[2])^DO[2] * (-one(T)/itp.h[3])^DO[3]
+    return result * (-one(T)/itp.h[1])^DO[1] * (-one(T)/itp.h[2])^DO[2] *
+        (-one(T)/itp.h[3])^DO[3]
 end

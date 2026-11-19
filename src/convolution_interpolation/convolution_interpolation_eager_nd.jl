@@ -25,8 +25,11 @@ See also: `ConvolutionInterpolation`, `_column_weights_per_dim`.
 """
 @inline function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
                     LowerOrderKernel{K},EQ,KBC,DerivativeOrder{DO},
-                    Val{false},Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},
-                    KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},K,EQ<:NTuple{N,Int},
+                    Val{false},
+                    Val{0}})(x::Vararg{Number,N}) where {T<:AbstractFloat,N,
+                    TCoefs<:AbstractArray{T,N},
+                    KA<:NTuple{N,<:Nothing},Axs<:NTuple{N,<:AbstractVector},K,
+                    EQ<:NTuple{N,Int},
                     KBC<:NTuple{N,Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
@@ -37,7 +40,8 @@ See also: `ConvolutionInterpolation`, `_column_weights_per_dim`.
     end
 end
 
-@inline function _eval_a0_nd(itp::ConvolutionInterpolation{T,N}, x::NTuple{N,<:Number}) where {T,N}
+@inline function _eval_a0_nd(itp::ConvolutionInterpolation{T,N},
+                             x::NTuple{N,<:Number}) where {T,N}
 
     # specialized dispatch for N-dimensional nearest neighbor kernel
 
@@ -45,7 +49,8 @@ end
     i_floats = ntuple(d -> (x[d] - itp.x0[d]) / itp.h[d] + one(T), N)
     
     # Find knot indices for each dimension
-    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[1], length(itp.knots[d]) - itp.eqs[1]), N)
+    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[1],
+                                length(itp.knots[d]) - itp.eqs[1]), N)
     
     # Compute normalized left distances - recompute from actual knot positions
     diff_left = ntuple(d -> i_floats[d] - T(pos_ids[d]), N)
@@ -55,7 +60,8 @@ end
     return itp.coefs[nearest_ids...]
 end
 
-@inline function _eval_a1_nd(itp::ConvolutionInterpolation{T,N,0}, x::NTuple{N,<:Number}, ::Val{DO}) where {T,N,DO}
+@inline function _eval_a1_nd(itp::ConvolutionInterpolation{T,N,0}, x::NTuple{N,<:Number},
+                             ::Val{DO}) where {T,N,DO}
 
     # specialized dispatch for N-dimensional linear kernel
     
@@ -63,7 +69,8 @@ end
     i_floats = ntuple(d -> (x[d] - itp.x0[d]) / itp.h[d] + one(T), N)
     
     # Find knot indices for each dimension
-    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[1], length(itp.knots[d]) - itp.eqs[1]), N)
+    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[1],
+                                length(itp.knots[d]) - itp.eqs[1]), N)
     
     # Compute normalized left distances - recompute from actual knot positions
     weights = ntuple(d -> i_floats[d] - T(pos_ids[d]), N)
@@ -75,17 +82,20 @@ end
     # Iterate over all 2^(N-1) combinations of the last N-1 dimensions
     @inbounds for corner in 0:(2^(N-1) - 1)
         # Build indices for dimensions 2:N
-        tail_indices = ntuple(d -> (corner >> (d-1)) & 1 == 0 ? pos_ids[d+1] : pos_ids[d+1]+1, N-1)
+        tail_indices = ntuple(d -> (corner >> (d-1)) & 1 == 0 ? pos_ids[d+1] :
+                              pos_ids[d+1]+1, N-1)
         
         # Get the two values along dimension 1
         idx0 = (pos_ids[1], tail_indices...)
         idx1 = (pos_ids[1]+1, tail_indices...)
         
         # Interpolate along dimension 1
-        interp_val = (one(T) - weights[1]) * itp.coefs[idx0...] + weights[1] * itp.coefs[idx1...]
+        interp_val = (one(T) - weights[1]) * itp.coefs[idx0...] +
+                     weights[1] * itp.coefs[idx1...]
         
         # Weight by all the other dimensions
-        tail_weight = prod(ntuple(d -> (corner >> (d-1)) & 1 == 0 ? (one(T) - weights[d+1]) : weights[d+1], N-1))
+        tail_weight = prod(ntuple(d -> (corner >> (d-1)) & 1 == 0 ?
+                                  (one(T) - weights[d+1]) : weights[d+1], N-1))
         
         result += tail_weight * interp_val
     end
@@ -107,7 +117,8 @@ function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
     i_floats = ntuple(d -> (x[d] - itp.x0[d]) / itp.h[d] + one(T), N)
 
     # Find knot indices for each dimension
-    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[1], length(itp.knots[d]) - itp.eqs[1]), N)
+    pos_ids = ntuple(d -> clamp(floor(Int, i_floats[d]), itp.eqs[1],
+                                length(itp.knots[d]) - itp.eqs[1]), N)
 
     # Normalized distances within the cell
     diff_left = ntuple(d -> i_floats[d] - T(pos_ids[d]), N)
@@ -117,7 +128,9 @@ function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,HigherDimension{N},
     w = _column_weights_per_dim(Val(K), Val(DO), diff_right)
 
     result = zero(T)
-    @inbounds for offsets in Iterators.product(ntuple(d -> -(itp.eqs[1]-1):itp.eqs[1], N)...) # same kernel in all directions
+    # same kernel in all directions
+    @inbounds for offsets in Iterators.product(ntuple(d -> -(itp.eqs[1]-1):itp.eqs[1],
+                                                      N)...)
         coef = itp.coefs[(pos_ids .+ offsets)...]
 
         kernel_val = one(T)

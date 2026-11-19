@@ -40,7 +40,8 @@ z_smooth = convolution_smooth((x,y), z_noisy, 0.02)
 
 See also: [`convolution_gaussian`](@ref), [`convolution_interpolation`](@ref)
 """
-function convolution_smooth(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N}, B::P) where {T,N,P}
+function convolution_smooth(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N},
+                            B::P) where {T,N,P}
     B = T(B)
     eqs_d = ceil(Int, sqrt(-log(T(10_000)*eps(T)/T(2)) / B))
     NT    = eqs_d
@@ -50,22 +51,25 @@ function convolution_smooth(knots::NTuple{N,AbstractVector}, values::AbstractArr
     for d in 1:N
         n = length(knots[d])
         if n != size(values, d)
-            throw(ArgumentError("convolution_smooth: knots has $n knots along dimension $d, " *
-                                "but values has $(size(values, d)) entries there."))
+            throw(ArgumentError("convolution_smooth: knots has $n knots along dimension " *
+                                "$d, but values has $(size(values, d)) entries there."))
         end
         if n < 2 || !(last(knots[d]) > first(knots[d])) || !is_uniform_grid(knots[d])
-            throw(ArgumentError("convolution_smooth: knots must be increasing and uniformly " *
-                                "spaced along dimension $d. For noisy data that are scattered " *
-                                "or on a nonuniform grid, use the smoothing fit of " *
+            throw(ArgumentError("convolution_smooth: knots must be increasing and " *
+                                "uniformly spaced along dimension $d. For noisy data " *
+                                "that are scattered or on a nonuniform grid, use the " *
+                                "smoothing fit of " *
                                 "convolution_interpolation(points, values)."))
         end
         if eqs_d >= n
-            error("Gaussian stencil half-width ($eqs_d points) exceeds grid size (n=$n) in dimension $d. "*
-                  "Use a larger B (currently B=$B) or more grid points (need n > $eqs_d).")
+            throw(ArgumentError("Gaussian stencil half-width ($eqs_d points) exceeds " *
+                                "grid size (n=$n) in dimension $d. Use a larger B " *
+                                "(currently B=$B) or more grid points (need n > $eqs_d)."))
         end
     end
 
-    # precompute normalized kernel weights once — reused for all dims, all slices, all points
+    # precompute normalized kernel weights once — reused for all dims, all slices, all
+    # points
     norm  = θ(B, NT)
     kw    = zeros(T, 2*eqs_d+1)
     for l in -eqs_d:eqs_d
@@ -136,7 +140,8 @@ function convolution_smooth(knots::NTuple{N,AbstractVector}, values::AbstractArr
 end
 
 # 1D convenience wrapper
-function convolution_smooth(knots::AbstractVector, values::AbstractArray{T,1}, B::P) where {T,P}
+function convolution_smooth(knots::AbstractVector, values::AbstractArray{T,1},
+                            B::P) where {T,P}
     return convolution_smooth((knots,), values, T(B))
 end
 
@@ -161,7 +166,8 @@ by `B`. Useful for noisy data where exact interpolation is undesirable.
   choice. `convolution_smooth`, which evaluates on the knots only, takes any `B`.
 
 # Keyword Arguments
-- `extrap`: extrapolation behavior, default `Throw()`. See [`convolution_interpolation`](@ref).
+- `extrap`: extrapolation behavior, default `Throw()`. See
+  [`convolution_interpolation`](@ref).
 
 # Returns
 A `ConvolutionExtrapolation` interpolant supporting evaluation at arbitrary locations.
@@ -193,18 +199,19 @@ end
 
 # extrapolation keyword option
 function convolution_gaussian(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N},
-                                B::P; extrap::EXT=Throw()) where {T,N,P,EXT<:Union{Symbol,AbstractExtrapolation}}
+                              B::P; extrap::EXT=Throw()
+                              ) where {T,N,P,EXT<:Union{Symbol,AbstractExtrapolation}}
 
     itp = convolution_gaussian_itp(knots, values, T(B))
     return ConvolutionExtrapolation(itp, _extrap_type(extrap))
 end
 
 # internal function
-function convolution_gaussian_itp(knots::NTuple{N,AbstractVector}, values::AbstractArray{T,N},
-                                B::P) where {T,N,P}
+function convolution_gaussian_itp(knots::NTuple{N,AbstractVector},
+                                  values::AbstractArray{T,N}, B::P) where {T,N,P}
         uniform_dims = ntuple(d -> is_uniform_grid(knots[d]), N)
     if !all(uniform_dims)
-        error("Gaussian kernel not supported for non-uniform grids.")
+        throw(ArgumentError("Gaussian kernel not supported for non-uniform grids."))
     end
     B = T(B)
     # Between nodes a sampled Gaussian is not a partition of unity. Poisson
@@ -214,16 +221,17 @@ function convolution_gaussian_itp(knots::NTuple{N,AbstractVector}, values::Abstr
     # Requiring 4q <= 1e-12 gives B <= pi^2 / log(4e12) = 0.340.
     if B > T(0.340)
         ripple = 4 * exp(-pi^2 / B)
-        error("B = $B is too large for convolution_gaussian: the kernel is a " *
-              "partition of unity only at integer offsets, so evaluation " *
-              "between nodes carries a relative ripple of about " *
-              "$(round(ripple, sigdigits=3)). Use B <= 0.34 (B ~ 0.1 is the " *
-              "usual choice). If you only need values ON the grid nodes, " *
-              "convolution_smooth is exact at any B.")
+        throw(ArgumentError("B = $B is too large for convolution_gaussian: the kernel is " *
+                            "a partition of unity only at integer offsets, so evaluation " *
+                            "between nodes carries a relative ripple of about " *
+                            "$(round(ripple, sigdigits=3)). Use B <= 0.34 (B ~ 0.1 is " *
+                            "the usual choice). If you only need values ON the grid " *
+                            "nodes, convolution_smooth is exact at any B."))
     end
     eqs_for_gaussian = ceil(Int, sqrt(-log(T(10_000)*eps(T)/T(2)) / B))
     if eqs_for_gaussian > 50
-        @warn "Gaussian kernel stencil-width with B=$B yielded $(2*eqs_for_gaussian) points. Consider using a higher B."
+        @warn "Gaussian kernel stencil-width with B=$B yielded $(2*eqs_for_gaussian) " *
+              "points. Consider using a higher B."
     end
 
     h = ntuple(d -> knots[d][2] - knots[d][1], N)
@@ -246,11 +254,11 @@ function convolution_gaussian_itp(knots::NTuple{N,AbstractVector}, values::Abstr
     nonuniform = ntuple(_ -> nothing, N)
 
     return ConvolutionInterpolation{T,N,0,typeof(coefs),typeof(knots_new),
-                                        typeof(kernel_type),typeof(dimension),typeof(Val{KS}()),
-                                        typeof(eqs),
-                                        typeof(bc),typeof(do_type),
-                                        typeof(Val{false}()),typeof(integral_dimension),typeof(domain_size),
-                                        typeof(nonuniform)}(
+                                    typeof(kernel_type),typeof(dimension),
+                                    typeof(Val{KS}()),typeof(eqs),
+                                    typeof(bc),typeof(do_type),
+                                    typeof(Val{false}()),typeof(integral_dimension),
+                                    typeof(domain_size),typeof(nonuniform)}(
         coefs, domain_size, knots_new, h, x0, kernel_type, dimension, Val{KS}(), eqs,
         bc, do_type, Val{false}(), anchor, integral_dimension,
         integral_taylor, integral_entries, integral_tails, nonuniform,

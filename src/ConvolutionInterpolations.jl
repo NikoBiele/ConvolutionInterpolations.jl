@@ -17,6 +17,8 @@ export
     convolution_gaussian,
     convolution_smooth,
     convolution_resample,
+    convolution_refine,
+    convolution_suggest,
     fit_scattered,
 
     # Core interpolation type for advanced users

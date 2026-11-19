@@ -1,15 +1,16 @@
-# Evaluation of interpolants with nonuniform axes. Every axis contributes a stencil: the index of
-# the coefficient just before it, the kernel weights of its entries, and the factor that scales a
-# derivative to the spacing. The axis' kind, the entry of the `nonuniform` field of
-# `ConvolutionInterpolation`, decides where the weights come from:
+# Evaluation of interpolants with nonuniform axes. Every axis contributes a stencil: the
+# index of the coefficient just before it, the kernel weights of its entries, and the factor
+# that scales a derivative to the spacing. The axis' kind, the entry of the `nonuniform`
+# field of `ConvolutionInterpolation`, decides where the weights come from:
 #   nothing            uniform axis: the exact column polynomials (`_kernel_weights`)
 #   Vector{Matrix{T}}  nonuniform b kernel: per-interval polynomial weights (`_nb_dim`)
-#   Val(:nonuniform)   closed-form nonuniform kernel: :n3 (`_nonuniform_dim_ghost`), :a0 or :a1
+#   Val(:nonuniform)   closed-form nonuniform kernel: :n3 (`_nonuniform_dim_ghost`), :a0
+#                      or :a1
 # The stencils of all axes are then contracted with the coefficients in `_stencil_contract`.
 
-# ---------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 # Per-axis weights of the nonuniform kernels
-# ---------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 
 # Stencil half-width M_eqs of a nonuniform b kernel and the full stencil length as a Val, as
 # compile-time constants: b5 → 5, b7 → 6, b9 → 7, b11 → 8, b13 → 9
@@ -28,10 +29,10 @@
 """
     _nb_dim(knots_expanded, weight_coeffs, M_eqs, x_val, ::Val{NS})
 
-Interval and stencil weights of a nonuniform b kernel along one axis. Returns `(i, w, h0)`: the
-interval index in the expanded knots, the `NS` stencil weights (coefficients `i − M_eqs + 1` …
-`i + M_eqs`) by Horner's scheme from the per-interval polynomial table `weight_coeffs[k]` of
-the original interval `k = i − M_eqs`, and the interval's spacing.
+Interval and stencil weights of a nonuniform b kernel along one axis. Returns `(i, w, h0)`:
+the interval index in the expanded knots, the `NS` stencil weights (coefficients
+`i − M_eqs + 1` … `i + M_eqs`) by Horner's scheme from the per-interval polynomial table
+`weight_coeffs[k]` of the original interval `k = i − M_eqs`, and the interval's spacing.
 """
 @inline function _nb_dim(knots_expanded::AbstractVector{T},
                           weight_coeffs::Vector{<:AbstractMatrix{<:AbstractFloat}},
@@ -87,12 +88,13 @@ from the local spacings by `nonuniform_cubic_weights`.
     return i, w
 end
 
-# ---------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 # Per-axis stencils
-# ---------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 
 # Uniform axis: cell i, column coordinate τ = diff_right, weights of the 2·eqs columns
-@inline function _axis_stencil(::Nothing, ::Val{kernel}, ::Val{DO}, knots::AbstractVector{T},
+@inline function _axis_stencil(::Nothing, ::Val{kernel}, ::Val{DO},
+                               knots::AbstractVector{T},
                                h::T, eqs::Int, x::T) where {kernel,DO,T}
     i_float = (x - knots[1]) / h + one(T)
     i = clamp(floor(Int, i_float), eqs, length(knots) - eqs)
@@ -103,16 +105,18 @@ end
 
 # Nonuniform b kernel: the per-interval weight tables, eqs is the kernel's M_eqs
 @inline function _axis_stencil(tables::Vector{<:AbstractMatrix}, ::Val{kernel}, ::Val{DO},
-                               knots::AbstractVector{T}, h::T, eqs::Int, x::T) where {kernel,DO,T}
+                               knots::AbstractVector{T}, h::T, eqs::Int,
+                               x::T) where {kernel,DO,T}
     i, w, h0 = _nb_dim(knots, tables, eqs, x, _nb_n_stencil(Val(kernel)))
     return i - eqs, T.(w), (one(T) / h0)^DO
 end
 
-# Closed-form nonuniform kernels. :n3 reads the coefficients with one ghost per side (stencil
-# i−1 … i+2); :a0 and :a1 read the raw values, so the knots carry one ghost per side and the
-# coefficients none, and knot index i is coefficient i − 1.
+# Closed-form nonuniform kernels. :n3 reads the coefficients with one ghost per side
+# (stencil i−1 … i+2); :a0 and :a1 read the raw values, so the knots carry one ghost per
+# side and the coefficients none, and knot index i is coefficient i − 1.
 @inline function _axis_stencil(::Val{:nonuniform}, ::Val{kernel}, ::Val{DO},
-                               knots::AbstractVector{T}, h::T, eqs::Int, x::T) where {kernel,DO,T}
+                               knots::AbstractVector{T}, h::T, eqs::Int,
+                               x::T) where {kernel,DO,T}
     if kernel === :n3
         i, w = _nonuniform_dim_ghost(knots, x)
         return i - 2, w, one(T)
@@ -127,10 +131,10 @@ end
     return i - 2, w, one(T)
 end
 
-# The stencils of every axis: offsets, weights padded to one common length so that they can be
-# indexed with a runtime axis, the true stencil length per axis, and the product of the scales.
-# Generated so that each axis' kind and kernel are compile-time constants, which makes the
-# stencil lengths constants too.
+# The stencils of every axis: offsets, weights padded to one common length so that they can
+# be indexed with a runtime axis, the true stencil length per axis, and the product of the
+# scales. Generated so that each axis' kind and kernel are compile-time constants, which
+# makes the stencil lengths constants too.
 @generated function _axis_stencils(nonuniform::NU, ::Val{KS}, ::Val{DO}, knots::Tuple,
                                    h::NTuple{N,T}, eqs::NTuple{N,Int},
                                    x::NTuple{N,T}) where {NU,KS,DO,N,T}
@@ -164,7 +168,8 @@ Evaluate an interpolant with nonuniform axes: the stencil of every axis from its
 kernel (`_axis_stencils`), contracted with the coefficients one axis at a time
 (`_stencil_contract`), times the derivative scale. Any dimension, any kernel per axis.
 """
-function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,DT,NonUniformMixedOrderKernel{K},
+function (itp::ConvolutionInterpolation{T,N,0,TCoefs,Axs,KA,DT,
+            NonUniformMixedOrderKernel{K},
             EQ,KBC,DerivativeOrder{DO},LZ,Val{0}})(x::Vararg{Number,N}) where
             {T<:AbstractFloat,N,TCoefs<:AbstractArray{T,N},Axs,KA,DT,K,EQ,KBC,DO,LZ}
     x = T.(x)

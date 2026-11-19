@@ -3,8 +3,8 @@ println("Testing ND separable integrals...")
 println("-"^60)
 
 # A pure N-D integral (derivative = -1 in every dimension) of separable data must equal the
-# product of the 1D antiderivatives exactly: the eager ghost extension is linear and acts per
-# dimension, so the N-D interpolant is the product of the 1D interpolants, and so is its
+# product of the 1D antiderivatives exactly: the eager ghost extension is linear and acts
+# per dimension, so the N-D interpolant is the product of the 1D interpolants, and so is its
 # anchored N-fold antiderivative. Evaluation points include the last knots, where missing
 # coefficients in the N-D summation would show up first.
 @testset "4D integral of separable data equals product of 1D integrals" begin
@@ -21,7 +21,8 @@ println("-"^60)
 
     # Separable 4D data and its 4-fold antiderivative interpolant
     vs = [g1(a) * g2(b) * g3(c) * g4(d) for a in x1, b in x2, c in x3, d in x4]
-    itp4 = convolution_interpolation((x1, x2, x3, x4), vs; kernel=:b5, derivative=-1, bc=:poly)
+    itp4 = convolution_interpolation((x1, x2, x3, x4), vs; kernel=:b5, derivative=-1,
+                                     bc=:poly)
 
     # The four 1D antiderivative interpolants of the same kernel and boundary condition
     itp1 = convolution_interpolation(x1, g1.(x1); kernel=:b5, derivative=-1, bc=:poly)
@@ -37,7 +38,7 @@ println("-"^60)
                x3[end] - 0.3 * step(x3), x4[end] - 0.3 * step(x4)),
               (x1[end], x2[1], x3[end], x4[1]),
               (x1[1], x2[end], x3[1], x4[end])]
-    u = stable_rand(7, 4, 8)                              # eight points, the same on every Julia version
+    u = stable_rand(7, 4, 8)                 # eight points, the same on every Julia version
     for k in 1:8
         push!(points, (x1[1] + u[1, k] * (x1[end] - x1[1]),
                        x2[1] + u[2, k] * (x2[end] - x2[1]),

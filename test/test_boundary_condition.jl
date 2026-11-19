@@ -29,6 +29,7 @@ end
     zs_short = range(0.0, 2π, length=5)
     vs_short = [sin(x)*cos(y)*sin(z) for x in xs_short, y in ys_short, z in zs_short]
     
-    itp = convolution_interpolation((xs_short, ys_short, zs_short), vs_short; kernel=:b5, bc=:poly)
+    itp = convolution_interpolation((xs_short, ys_short, zs_short), vs_short; kernel=:b5,
+                                    bc=:poly)
     @test itp.itp.bc == ((:linear, :linear), (:linear, :linear), (:linear, :linear))
 end

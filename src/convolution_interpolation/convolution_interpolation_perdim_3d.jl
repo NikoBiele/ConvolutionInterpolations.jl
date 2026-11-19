@@ -5,8 +5,10 @@ function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},K,EQ,KBC,
             DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,3}) where
             {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
             Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
-            KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},K<:AbstractMixedConvolutionKernel,EQ<:Tuple{Int,Int,Int},
-            KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
+            KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},K<:AbstractMixedConvolutionKernel,
+            EQ<:Tuple{Int,Int,Int},
+            KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},
+            <:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     eqs_x, eqs_y, eqs_z = itp.eqs

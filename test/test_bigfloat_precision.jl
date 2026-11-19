@@ -8,7 +8,8 @@ println("-"^60)
         x1, x2 = BigFloat("1.0"), BigFloat("2.0")
 
         # ── type preservation only (coarse grid, all kernels) ─────────────
-        @testset "type preservation kernel $k" for k in [:b5, :b7, :b9, :b11, :b13, :a3, :a4, :a5, :a7]
+        @testset "type preservation kernel $k" for k in [:b5, :b7, :b9, :b11, :b13, :a3,
+                                                         :a4, :a5, :a7]
             println("    - 1D BigFloat type preservation for kernel $k")
             xs = LinRange(BigFloat("0.0"), BigFloat(2) * BigFloat(π), 50)
             vs = sin.(xs)

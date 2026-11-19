@@ -29,7 +29,8 @@ exact_intyz(x,y1,y2,z1,z2)      = sin(x) * (sin(y2)-sin(y1)) * 4*(exp(z2/4)-exp(
 exact_intx_dy(x1,x2,y,z)        = (-cos(x2)+cos(x1)) * (-sin(y)) * exp(z/4)
 exact_intx_dz(x1,x2,y,z)        = (-cos(x2)+cos(x1)) * cos(y) * exp(z/4)/4
 exact_dx_inty(x,y1,y2,z)        = cos(x) * (sin(y2)-sin(y1)) * exp(z/4)
-exact_intxyz(x1,x2,y1,y2,z1,z2) = (-cos(x2)+cos(x1)) * (sin(y2)-sin(y1)) * 4*(exp(z2/4)-exp(z1/4))
+exact_intxyz(x1,x2,y1,y2,z1,z2) = (-cos(x2)+cos(x1)) * (sin(y2)-sin(y1)) *
+                                  4*(exp(z2/4)-exp(z1/4))
 
 # fixed difference endpoints — well inside safe zone
 x1d, x2d = 2.0, 3.5

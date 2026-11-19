@@ -1,8 +1,9 @@
 # The highest derivative and integral orders each kernel supports.
 
-# Highest integral order per kernel: m − 1 must not exceed the degree up to which the kernel's
-# moments vanish, so that outside the support Kₘ is exactly the integrated step (the far field
-# used by the anchoring and the tails). Validated exactly for every kernel up to these orders.
+# Highest integral order per kernel: m − 1 must not exceed the degree up to which the
+# kernel's moments vanish, so that outside the support Kₘ is exactly the integrated step
+# (the far field used by the anchoring and the tails). Validated exactly for every kernel up
+# to these orders.
 const _max_integral_order = Dict(:a0 => 2, :a1 => 2,
                                  :a3 => 4, :a4 => 4, :a5 => 4, :a7 => 4,
                                  :b5 => 6,
@@ -14,8 +15,8 @@ const _max_integral_order = Dict(:a0 => 2, :a1 => 2,
 Highest derivative order a kernel supports on a uniform or a nonuniform grid: the smaller of
 the kernel's continuity order and `R - 1`, where `R` is the polynomial degree the kernel
 reproduces on that grid. Derivative `k` of the interpolant converges at order `R + 1 - k`,
-so `k <= R - 1` keeps at least second-order convergence, and `k` at most the continuity order
-keeps the derivative a continuous function. On uniform grids the `b` kernels reproduce
+so `k <= R - 1` keeps at least second-order convergence, and `k` at most the continuity
+order keeps the derivative a continuous function. On uniform grids the `b` kernels reproduce
 degree 6 (`R - 1 = 5`); on nonuniform grids they reproduce their full degree `p`, so their
 continuity `p - 2` is the binding limit. Rounding in the data is amplified by `h^-k`, which
 no cap can express: high orders on fine grids need extended precision.

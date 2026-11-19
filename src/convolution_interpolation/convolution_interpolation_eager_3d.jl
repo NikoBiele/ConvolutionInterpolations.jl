@@ -10,8 +10,8 @@ Dispatches on kernel type:
 - `:a1` — Trilinear interpolation, ~15ns
 
 **Higher-order kernels**: exact column polynomials. The kernel weights of each dimension are
-evaluated once from compile-time polynomial coefficients (see `_column_rows`), and the 3D kernel
-is their tensor product `K_3D(x,y,z) = K_1D(x) * K_1D(y) * K_1D(z)`: one product per
+evaluated once from compile-time polynomial coefficients (see `_column_rows`), and the 3D
+kernel is their tensor product `K_3D(x,y,z) = K_1D(x) * K_1D(y) * K_1D(z)`: one product per
 coefficient in the `(2*eqs)^3` support.
 
 O(1) evaluation time, allocation-free, exact to rounding for every derivative order.
@@ -20,12 +20,16 @@ Results scaled by `(-1/h_x)^derivative * (-1/h_y)^derivative * (-1/h_z)^derivati
 
 See also: `ConvolutionInterpolation`, `_column_weights_per_dim`.
 """
-@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},LowerOrderKernel{(:a0,:a0,:a0)},
+@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
+                    LowerOrderKernel{(:a0,:a0,:a0)},
                     EQ,KBC,DerivativeOrder{DO},
-                    Val{false},Val{0}})(x::Vararg{Number,3}) where {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
+                    Val{false},
+                    Val{0}})(x::Vararg{Number,3}) where {T<:AbstractFloat,
+                    TCoefs<:AbstractArray{T,3},
                     Axs<:Tuple{<:AbstractVector,<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing,<:Nothing},EQ<:Tuple{Int,Int,Int},
-                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},
+                    <:Tuple{Symbol,Symbol}},DO}
 
     x = T.(x)
     # specialized dispatch for 3d nearest neighbor kernel
@@ -63,11 +67,16 @@ See also: `ConvolutionInterpolation`, `_column_weights_per_dim`.
     end
 end
 
-@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},LowerOrderKernel{(:a1,:a1,:a1)},
+@inline function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},
+                    LowerOrderKernel{(:a1,:a1,:a1)},
                     EQ,KBC,DerivativeOrder{DO},
-                    Val{false},Val{0}})(x::Vararg{Number,3}) where {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
-                    Axs<:NTuple{3,<:AbstractVector},KA<:NTuple{3,<:Nothing},EQ<:NTuple{3,Int},
-                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
+                    Val{false},
+                    Val{0}})(x::Vararg{Number,3}) where {T<:AbstractFloat,
+                    TCoefs<:AbstractArray{T,3},
+                    Axs<:NTuple{3,<:AbstractVector},KA<:NTuple{3,<:Nothing},
+                    EQ<:NTuple{3,Int},
+                    KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},
+                    <:Tuple{Symbol,Symbol}},DO}
                     
     x = T.(x)
     # specialized dispatch for 3d linear kernel
@@ -87,7 +96,8 @@ end
     z_diff_left = k_float - T(k)
 
     # Trilinear interpolation formula
-    return @inbounds @fastmath ((1-x_diff_left)*(1-y_diff_left)*(1-z_diff_left)*itp.coefs[i, j, k] + 
+    return @inbounds @fastmath (
+                    (1-x_diff_left)*(1-y_diff_left)*(1-z_diff_left)*itp.coefs[i, j, k] + 
                     x_diff_left*(1-y_diff_left)*(1-z_diff_left)*itp.coefs[i+1, j, k] + 
                     (1-x_diff_left)*y_diff_left*(1-z_diff_left)*itp.coefs[i, j+1, k] + 
                     x_diff_left*y_diff_left*(1-z_diff_left)*itp.coefs[i+1, j+1, k] +
@@ -101,10 +111,11 @@ end
 end
 
 function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},HigherOrderKernel{K},
-                EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,3}) where 
+                EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,3}) where
                 {T<:AbstractFloat,TCoefs<:AbstractArray{T,3},
                 Axs<:NTuple{3,<:AbstractVector},KA<:NTuple{3,<:Nothing},K,EQ<:NTuple{3,Int},
-                KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},
+                KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol},
+                <:Tuple{Symbol,Symbol}},
                 DO}
 
     x = T.(x)
@@ -122,7 +133,8 @@ function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},HigherOrderKe
     z_diff_right = one(T) + T(k) - k_float
 
     # Kernel weights per dimension at τ = diff_right (column c ↔ coefficient offset + c)
-    wx, wy, wz = _column_weights_per_dim(Val(K), Val(DO), (x_diff_right, y_diff_right, z_diff_right))
+    wx, wy, wz = _column_weights_per_dim(Val(K), Val(DO),
+                                         (x_diff_right, y_diff_right, z_diff_right))
 
     # Tensor sum: one product per coefficient
     ox = i - itp.eqs[1]
@@ -141,5 +153,6 @@ function (itp::ConvolutionInterpolation{T,3,0,TCoefs,Axs,KA,Val{3},HigherOrderKe
         result += plane * wz[kz]
     end
 
-    return result * (-one(T)/itp.h[1])^DO[1] * (-one(T)/itp.h[2])^DO[2] * (-one(T)/itp.h[3])^DO[3]
+    return result * (-one(T)/itp.h[1])^DO[1] * (-one(T)/itp.h[2])^DO[2] *
+        (-one(T)/itp.h[3])^DO[3]
 end

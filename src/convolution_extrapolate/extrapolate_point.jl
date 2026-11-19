@@ -1,5 +1,6 @@
 """
-    extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET,O}, x::NTuple{N,Number}) where {T,N,ITPT,ET,O}
+    extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET,O},
+                      x::NTuple{N,Number}) where {T,N,ITPT,ET,O}
 
 Apply the appropriate extrapolation technique for a point outside the interpolation domain.
 
@@ -36,7 +37,8 @@ value = f(boundary_point)
 ```
 This creates a constant extension beyond the boundaries.
 """
-@inline function extrapolate_point(etp::ConvolutionExtrapolation{T,1,ITPT,ET}, x::Number) where 
+@inline function extrapolate_point(etp::ConvolutionExtrapolation{T,1,ITPT,ET},
+                                   x::Number) where
                         {T<:AbstractFloat,ITPT,ET<:AbstractExtrapolation}
     itp = etp.itp
     knots = itp.knots
@@ -87,13 +89,14 @@ This creates a constant extension beyond the boundaries.
         return itp(clamped_x)
         
     else # if etp.et == :throw
-        error("Unsupported extrapolation type: $(etp.et).
-        Please set 'extrap =' Line(), Flat() or Natural() to enable extrapolation.")
+        throw(DomainError(x, "the point lies outside the grid; set extrap = :line, :flat " *
+                             "or :natural to extrapolate."))
     end
 end
 
 # >1d case
-@inline function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET}, x::NTuple{N,Number}) where 
+@inline function extrapolate_point(etp::ConvolutionExtrapolation{T,N,ITPT,ET},
+                                   x::NTuple{N,Number}) where
                         {T<:AbstractFloat,N,ITPT,ET<:AbstractExtrapolation}
     itp = etp.itp
     knots = itp.knots
@@ -153,8 +156,8 @@ end
         return itp(clamped_x...)
         
     else # if etp.et == :throw
-        error("Unsupported extrapolation type: $(etp.et).
-        Please set 'extrap =' Line(), Flat() or Natural() to enable extrapolation.")
+        throw(DomainError(x, "the point lies outside the grid; set extrap = :line, :flat " *
+                             "or :natural to extrapolate."))
     end
 end
 
@@ -166,16 +169,18 @@ first and last data knot. In eager mode these are found inside the extended knot
 ghost knots; in lazy mode the knots carry no ghosts, so they are the ends of the knots.
 """
 @inline function _domain_bounds(itp::ConvolutionInterpolation{T,N,NI,TCoefs,
-                    Axs,KA,DT,K,EQ,KBC,DO,Val{false},DI,SZ,NU}, d) where {T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DO,DI,SZ,NU}
+                    Axs,KA,DT,K,EQ,KBC,DO,Val{false},DI,SZ,NU},
+                    d) where {T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DO,DI,SZ,NU}
     eqs_d = itp.eqs isa Tuple ? itp.eqs[d] : itp.eqs
     return itp.knots[d][eqs_d], itp.knots[d][end-(eqs_d-1)]
 end
 
 @inline function _domain_bounds(itp::ConvolutionInterpolation{T,N,NI,TCoefs,
-                    Axs,KA,DT,K,EQ,KBC,DO,Val{true},DI,SZ,NU}, d) where {T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DO,DI,SZ,NU}
+                    Axs,KA,DT,K,EQ,KBC,DO,Val{true},DI,SZ,NU},
+                    d) where {T,N,NI,TCoefs,Axs,KA,DT,K,EQ,KBC,DO,DI,SZ,NU}
     k = itp.knots[d]
     n_k = length(k)
     n_d = size(itp.coefs, d)
-    ng = (n_k - n_d) ÷ 2
+    ng = div(n_k - n_d, 2)
     return k[1 + ng], k[end - ng]
 end

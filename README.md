@@ -71,6 +71,8 @@ itp_a4 = convolution_interpolation((xs, ys), z; kernel = :a4)          # a narro
 
 xn = sort(rand(30))                                       # nonuniform knots are detected automatically
 itp_n = convolution_interpolation(xn, sin.(2π .* xn))     # the nonuniform :b7 kernel
+x_add = convolution_suggest(itp_n)                        # where the interpolant would benefit most from refinement
+itp_r = convolution_refine(itp_n, x_add, sin.(2π .* x_add))   # add knots there: only the weights near them are recomputed
 itp_e = convolution_interpolation(xs, sin.(xs); extrap = :line)   # linear extrapolation outside the grid
 
 xl = range(0, 1, length = 400)                            # a large grid is built lazily by default:

@@ -17,16 +17,17 @@ therefore follows the type: a `Float32` vector is judged by `Float32` rounding a
 A vector with fewer than two knots, or whose first two knots coincide, is not uniform.
 """
 function is_uniform_grid(knots::AbstractVector)
-    knots isa AbstractRange && return true               # ranges are uniform by construction
+    knots isa AbstractRange && return true    # ranges are uniform by construction
     n = length(knots)
-    n < 2 && return false                                # no spacing to compare
-    F = typeof(float(first(knots)))                      # floating-point type of the knots
-    scale = max(abs(F(first(knots))), abs(F(last(knots))))   # magnitude that sets the rounding
-    tol = 16 * eps(F) * scale                            # largest spacing difference rounding explains
-    h0 = F(knots[2]) - F(knots[1])                       # the first spacing, the reference
-    abs(h0) <= tol && return false                       # coinciding knots
+    n < 2 && return false                     # no spacing to compare
+    F = typeof(float(first(knots)))           # floating-point type of the knots
+    # magnitude that sets the rounding
+    scale = max(abs(F(first(knots))), abs(F(last(knots))))
+    tol = 16 * eps(F) * scale                 # largest spacing difference rounding explains
+    h0 = F(knots[2]) - F(knots[1])            # the first spacing, the reference
+    abs(h0) <= tol && return false            # coinciding knots
     for i in 2:n-1
-        h_i = F(knots[i+1]) - F(knots[i])                # spacing i
+        h_i = F(knots[i+1]) - F(knots[i])     # spacing i
         if abs(h_i - h0) > tol
             return false
         end
@@ -43,7 +44,8 @@ every dimension when all grids are uniform; leave the kernels untouched
 otherwise (the nonuniform evaluator handles mixed uniform/nonuniform
 dimensions).
 """
-function n3_to_a3_on_uniform(kernels::NTuple{N,Symbol}, knots::NTuple{N,AbstractVector}) where N
+function n3_to_a3_on_uniform(kernels::NTuple{N,Symbol},
+                             knots::NTuple{N,AbstractVector}) where N
     any(==(:n3), kernels) || return kernels
     all(d -> is_uniform_grid(knots[d]), 1:N) || return kernels
     return ntuple(d -> kernels[d] == :n3 ? :a3 : kernels[d], N)

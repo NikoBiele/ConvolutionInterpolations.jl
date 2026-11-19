@@ -63,7 +63,8 @@ Uses `ntuple` with `Val(N)` for compile-time specialization — zero allocations
 """
 function get_boundary_indices(c_size::NTuple{N,Int}, dim::Int, eqs::Int) where N
     left_ranges = ntuple(d -> d == dim ? ((eqs):(eqs)) : (1:c_size[d]), Val(N))
-    right_ranges = ntuple(d -> d == dim ? ((c_size[d] - (eqs-1)):(c_size[d] - (eqs-1))) : (1:c_size[d]), Val(N))
+    right_ranges = ntuple(d -> d == dim ? ((c_size[d] - (eqs-1)):(c_size[d] - (eqs-1))) :
+                                          (1:c_size[d]), Val(N))
     return CartesianIndices(left_ranges), CartesianIndices(right_ranges)
 end
 
@@ -86,9 +87,9 @@ Create coefficient array with ghost points computed from boundary conditions.
 # Returns
 For `:a0` and `:a1` kernels: Returns `vs` unchanged (no ghost points needed)
 
-For higher-order kernels: Expanded coefficient array with dimensions `size(vs) .+ 2*(eqs-1)`,
-where ghost points outside the original domain have been filled according to the specified
-boundary conditions.
+For higher-order kernels: Expanded coefficient array with dimensions
+`size(vs) .+ 2*(eqs-1)`, where ghost points outside the original domain have been filled
+according to the specified boundary conditions.
 
 # Details
 This is the main entry point for boundary condition application.
@@ -140,12 +141,14 @@ function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T},
 
     for fixed_dim in 1:N
         apply_boundary_conditions_for_dim!(c, vs, fixed_dim, h, eqs[fixed_dim], kernel_bc, 
-                                           kernel_types[fixed_dim], workspace, size(vs), Val(UG))
+                                           kernel_types[fixed_dim], workspace, size(vs),
+                                           Val(UG))
     end
     return c
 end
 function create_convolutional_coefs(vs::AbstractArray{T,N}, h::NTuple{N,T}, eqs::Int,
-                                    kernel_bc, kernel_type::Symbol, ::Val{UG}) where {T,N,UG}
+                                    kernel_bc, kernel_type::Symbol,
+                                    ::Val{UG}) where {T,N,UG}
     create_convolutional_coefs(vs, h, ntuple(_ -> eqs, N), kernel_bc,
                                ntuple(_ -> kernel_type, N), Val(UG))
 end
@@ -288,12 +291,13 @@ Ghost matrix rows sum to 1, so the choice of offset is mathematically
 irrelevant and affects only roundoff; a local mean also removes the local
 trend, which is marginally better conditioned.
 """
-function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractArray, dim::Int,
-                                            h::NTuple{N,T}, eqs::Int,
+function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractArray,
+                                            dim::Int, h::NTuple{N,T}, eqs::Int,
                                             kernel_bc::NTuple{N,Tuple{Symbol,Symbol}},
                                             kernel_type::Symbol,
                                             workspace::BoundaryWorkspace{T,N},
-                                            vs_size::NTuple{N,Int}, ::Val{UG}) where {T,N,UG}
+                                            vs_size::NTuple{N,Int},
+                                            ::Val{UG}) where {T,N,UG}
 
     if eqs == 1
         return  # :a0 and :a1 need no ghost points
@@ -358,17 +362,21 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
         end
 
         if use_polynomial_left
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :left, eqs, workspace)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean,
+                                          slice_view, :left, eqs, workspace)
         elseif UG
-            fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mean, eqs, workspace, :left)
+            fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mean, eqs,
+                                        workspace, :left)
         elseif bcL === :linear || bcL === :quadratic
             bc_matrix = get_polynomial_ghost_coeffs(bcL, kernel_type)
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :left, eqs, workspace)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean,
+                                          slice_view, :left, eqs, workspace)
         elseif few_points || bcL === :poly || bcL === :detect
             bc_matrix = get_polynomial_ghost_coeffs(:linear, kernel_type)
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :left, eqs, workspace)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean,
+                                          slice_view, :left, eqs, workspace)
         else
-            error("Unsupported boundary condition: $(bcL)")
+            throw(ArgumentError("Unsupported boundary condition: $(bcL)"))
         end
     end
 
@@ -408,17 +416,21 @@ function apply_boundary_conditions_for_dim!(c::AbstractArray{T,N}, vs::AbstractA
         end
 
         if use_polynomial_right
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean, slice_view, :right, eqs, workspace)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, ghost_matrix, y_mean,
+                                          slice_view, :right, eqs, workspace)
         elseif UG
-            fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mean, eqs, workspace, :right)
+            fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mean, eqs,
+                                        workspace, :right)
         elseif bcR === :linear || bcR === :quadratic
             bc_matrix = get_polynomial_ghost_coeffs(bcR, kernel_type)
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :right, eqs, workspace)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean,
+                                          slice_view, :right, eqs, workspace)
         elseif few_points || bcR === :poly || bcR === :detect
             bc_matrix = get_polynomial_ghost_coeffs(:linear, kernel_type)
-            fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean, slice_view, :right, eqs, workspace)
+            fill_ghost_points_polynomial!(c, idx, c_offset_view, bc_matrix, y_mean,
+                                          slice_view, :right, eqs, workspace)
         else
-            error("Unsupported boundary condition: $(bcR)")
+            throw(ArgumentError("Unsupported boundary condition: $(bcR)"))
         end
     end
 end
@@ -433,15 +445,20 @@ end
 Fill ghost points using polynomial boundary conditions (non-recursive, direct computation).
 
 # Arguments
-- `c::AbstractArray{T}`: Coefficient array to modify; the interior values along the line are read from it
-- `idx::CartesianIndex`: Index of the boundary point (interior grid point nearest to boundary)
-- `c_offset::AbstractVector{CartesianIndex{N}}`: Precomputed offsets for ghost point positions
+- `c::AbstractArray{T}`: Coefficient array to modify; the interior values along the line are
+  read from it
+- `idx::CartesianIndex`: Index of the boundary point (interior grid point nearest to
+  boundary)
+- `c_offset::AbstractVector{CartesianIndex{N}}`: Precomputed offsets for ghost point
+  positions
 - `coef::Matrix`: Coefficient matrix where row j gives coefficients for ghost point g_{-j}
 - `y_offset::T`: Mean offset of the signal (not used, see Details)
-- `y_centered::AbstractVector{T}`: Mean-centered signal values (only its length is used, see Details)
+- `y_centered::AbstractVector{T}`: Mean-centered signal values (only its length is used, see
+  Details)
 - `side::Symbol`: `:left` or `:right` boundary
 - `eqs::Int`: Number of equations (determines number of ghost points: eqs-1)
-- `workspace::BoundaryWorkspace{T,N}`: Workspace; `workspace.slice_offset` locates the interior values
+- `workspace::BoundaryWorkspace{T,N}`: Workspace; `workspace.slice_offset` locates the
+  interior values
 
 # Details
 Polynomial boundary conditions compute ghost points directly from interior values using
@@ -452,11 +469,11 @@ optimal kernel-specific coefficient matrices:
 where `y[1], y[2], …` are the interior values along the line, nearest to the boundary first.
 
 The sum is computed from the values themselves, not the mean-centered ones, by a compensated
-dot product (Dot2, Ogita, Rump & Oishi 2005): as accurate as if computed in twice the working
-precision and then rounded, and the same on every machine (no BLAS). Mean-centering would round
-every value before the sum, an error the matrix amplifies by its row sums (up to ~1e6 for `:b13`);
-the rows sum to 1, so no offset is needed. The accuracy matters most on N-D edges and in corners,
-where ghost values are extrapolated again from ghost values.
+dot product (Dot2, Ogita, Rump & Oishi 2005): as accurate as if computed in twice the
+working precision and then rounded, and the same on every machine (no BLAS). Mean-centering
+would round every value before the sum, an error the matrix amplifies by its row sums (up to
+~1e6 for `:b13`); the rows sum to 1, so no offset is needed. The accuracy matters most on
+N-D edges and in corners, where ghost values are extrapolated again from ghost values.
 
 This is the recommended boundary condition method for most use cases.
 
@@ -464,19 +481,21 @@ See also: `fill_ghost_points_recursive!`, `get_polynomial_ghost_coeffs`.
 """
 function fill_ghost_points_polynomial!(c::AbstractArray{T}, idx::CartesianIndex, 
                                       c_offset::AbstractVector{CartesianIndex{N}},
-                                      coef::Matrix, y_offset::T, y_centered::AbstractVector{T},
+                                      coef::Matrix, y_offset::T,
+                                      y_centered::AbstractVector{T},
                                       side::Symbol, eqs::Int,
                                       workspace::BoundaryWorkspace{T,N}) where {T,N}
     num_interior = size(coef, 2)
     num_ghost = eqs - 1  # Always use exactly eqs-1, not the full matrix
     # workspace.slice_offset is set for the length(y_centered) values read along this line
     num_interior <= length(y_centered) ||
-        throw(ArgumentError("boundary condition needs $num_interior values along the line, " *
-                            "got $(length(y_centered))"))
+        throw(ArgumentError("boundary condition needs $num_interior values along the " *
+                            "line, got $(length(y_centered))"))
 
     @inbounds for j in 1:num_ghost
         if side == :left
-            # interior value d lies d-1 steps inward (to the right) of the boundary point idx
+            # interior value d lies d-1 steps inward (to the right) of the boundary point
+            # idx
             ghost = _compensated_row_dot(coef, j, d -> c[idx + workspace.slice_offset[d]],
                                          num_interior, T)
             c[idx - c_offset[j]] = ghost
@@ -502,10 +521,12 @@ end
     return s, (a - (s - z)) + (b - z)
 end
 
-# Σ_{d=1}^{n} coef[j, d] · y(d) in type T, by the compensated dot product Dot2 (Ogita, Rump &
-# Oishi 2005): as accurate as twice the working precision, then rounded. The terms are added in
-# the fixed order d = 1, 2, …, n, so the result is reproducible (the Rust port uses the same sequence).
-@inline function _compensated_row_dot(coef::AbstractMatrix, j::Int, y, n::Int, ::Type{T}) where {T}
+# Σ_{d=1}^{n} coef[j, d] · y(d) in type T, by the compensated dot product Dot2 (Ogita, Rump
+# & Oishi 2005): as accurate as twice the working precision, then rounded. The terms are
+# added in the fixed order d = 1, 2, …, n, so the result is reproducible (the Rust port uses
+# the same sequence).
+@inline function _compensated_row_dot(coef::AbstractMatrix, j::Int, y, n::Int,
+                                      ::Type{T}) where {T}
     s = zero(T)   # running sum of the products
     e = zero(T)   # running sum of the rounding errors of the products and additions
     @inbounds for d in 1:n
@@ -516,9 +537,10 @@ end
     return s + e
 end
 
-function fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mean, eqs, workspace, vs_side)
+function fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mean, eqs,
+                                     workspace, vs_side)
     if vs_side == :left
-        n_fit = min(max(6, eqs÷3), length(slice_view))
+        n_fit = min(max(6, div(eqs, 3)), length(slice_view))
         # accumulate sums for normal equations
         sx = zero(T); sy = zero(T); sxx = zero(T); sxy = zero(T)
         for k in 1:n_fit
@@ -545,7 +567,7 @@ function fill_ghost_points_gaussian!(T, c, idx, c_offset_view, slice_view, y_mea
             c[idx - c_offset_view[j]] = y_mean + workspace.y_temp[j]
         end
     else # vs_side == :right
-        n_fit = min(max(6, eqs÷3), length(slice_view))
+        n_fit = min(max(6, div(eqs, 3)), length(slice_view))
         sx = zero(T); sy = zero(T); sxx = zero(T); sxy = zero(T)
         for k in 1:n_fit
             xk = T(k)

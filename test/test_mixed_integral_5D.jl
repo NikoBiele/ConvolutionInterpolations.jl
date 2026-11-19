@@ -15,7 +15,8 @@ println("-"^60)
     zs = range(0.0, 2π, length=n)
     ws = range(0.0, 2π, length=n)
     us = range(0.0, 2π, length=n)
-    vs = [sin(x)*cos(y)*exp(z/4)*sin(w)*cos(u) for x in xs, y in ys, z in zs, w in ws, u in us]
+    vs = [sin(x)*cos(y)*exp(z/4)*sin(w)*cos(u)
+          for x in xs, y in ys, z in zs, w in ws, u in us]
     for deriv in [(-1,-1,-1,-1,0), (-1,-1,-1,0,-1), (-1,-1,0,-1,-1)]
         itp = convolution_interpolation((xs,ys,zs,ws,us), vs;
                   kernel=:b5, derivative=deriv, fast=true, bc=:poly, lazy=false)
@@ -34,7 +35,8 @@ end
     zs = range(0.0, 2π, length=n)
     ws = range(0.0, 2π, length=n)
     us = range(0.0, 2π, length=n)
-    vs = [sin(x)*cos(y)*exp(z/4)*sin(w)*cos(u) for x in xs, y in ys, z in zs, w in ws, u in us]
+    vs = [sin(x)*cos(y)*exp(z/4)*sin(w)*cos(u)
+          for x in xs, y in ys, z in zs, w in ws, u in us]
     itp = convolution_interpolation((xs,ys,zs,ws,us), vs;
               kernel=:b5, derivative=(-1,-1,-1,-1,0), fast=true, bc=:poly, lazy=false)
     # Use differences to cancel anchors:
@@ -69,9 +71,11 @@ end
     zs = range(0.0, 2π, length=n)
     ws = range(0.0, 2π, length=n)
     us = range(0.0, 2π, length=n)
-    vs = [sin(x)*cos(y)*exp(z/4)*sin(w)*cos(u) for x in xs, y in ys, z in zs, w in ws, u in us]
+    vs = [sin(x)*cos(y)*exp(z/4)*sin(w)*cos(u)
+          for x in xs, y in ys, z in zs, w in ws, u in us]
     itp_fast   = convolution_interpolation((xs,ys,zs,ws,us), vs;
-                     kernel=:b5, derivative=(-1,-1,-1,-1,0), fast=true, bc=:poly, lazy=false)
+                     kernel=:b5, derivative=(-1,-1,-1,-1,0), fast=true, bc=:poly,
+                     lazy=false)
     itp_direct = convolution_interpolation((xs,ys,zs,ws,us), vs;
                      kernel=:b5, derivative=(-1,-1,-1,-1,0), bc=:poly, lazy=false)
     for (x,y,z,w,u) in [(2.0,2.1,2.2,2.3,2.4), (3.0,3.1,3.2,2.8,2.5)]
@@ -87,7 +91,8 @@ end
     zs = range(0.0, 2π, length=n)
     ws = range(0.0, 2π, length=n)
     us = range(0.0, 2π, length=n)
-    vs = [sin(x)*cos(y)*exp(z/4)*sin(w)*cos(u) for x in xs, y in ys, z in zs, w in ws, u in us]
+    vs = [sin(x)*cos(y)*exp(z/4)*sin(w)*cos(u)
+          for x in xs, y in ys, z in zs, w in ws, u in us]
     itp = convolution_interpolation((xs,ys,zs,ws,us), vs;
               kernel=:b5, derivative=(-1,-1,-1,-1,0), fast=true, bc=:poly, lazy=false)
     anchor = itp.itp.anchor

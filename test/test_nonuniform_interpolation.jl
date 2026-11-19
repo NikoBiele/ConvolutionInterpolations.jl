@@ -3,7 +3,8 @@ println("Testing nonuniform kernel interpolation in 1D, 2D, 3D, 4D...")
 println("-"^60)
 
 ### Nonuniform b-kernel interpolation
-nu_kernels = [:n3, :b5] #, :b7, :b9, :b11] # :a3 kernel triggers nonuniform lower order kernel
+nu_kernels = [:n3, :b5]
+# , :b7, :b9, :b11] # :a3 kernel triggers nonuniform lower order kernel
 N_nu = 40 # 1d and 2d
 N_nu_3d = 10
 N_nu_4d = 6
@@ -70,8 +71,10 @@ end
         # grid point reproduction with random data
         vals_rand = stable_rand(3, N_nu_3d, N_nu_3d, N_nu_3d)
         itp_rand = convolution_interpolation((x_nu, y_nu, z_nu), vals_rand; kernel=kernel)
-        interpolated = [itp_rand.itp(x_nu[i], y_nu[j], z_nu[k]) for i in 1:N_nu_3d for j in 1:N_nu_3d for k in 1:N_nu_3d]
-        true_vals = [vals_rand[i,j,k] for i in 1:N_nu_3d for j in 1:N_nu_3d for k in 1:N_nu_3d]
+        interpolated = [itp_rand.itp(x_nu[i], y_nu[j], z_nu[k]) for i in 1:N_nu_3d
+                        for j in 1:N_nu_3d for k in 1:N_nu_3d]
+        true_vals = [vals_rand[i,j,k] for i in 1:N_nu_3d for j in 1:N_nu_3d
+                     for k in 1:N_nu_3d]
         @test interpolated ≈ true_vals atol=tolerance_nu
     end
 end
@@ -86,9 +89,12 @@ end
 
         # grid point reproduction with random data
         vals_rand = stable_rand(4, N_nu_4d, N_nu_4d, N_nu_4d, N_nu_4d)
-        itp_rand = convolution_interpolation((x_nu, y_nu, z_nu, w_nu), vals_rand; kernel=kernel)
-        interpolated = [itp_rand.itp(x_nu[i], y_nu[j], z_nu[k], w_nu[l]) for i in 1:N_nu_4d for j in 1:N_nu_4d for k in 1:N_nu_4d for l in 1:N_nu_4d]
-        true_vals = [vals_rand[i,j,k,l] for i in 1:N_nu_4d for j in 1:N_nu_4d for k in 1:N_nu_4d for l in 1:N_nu_4d]
+        itp_rand = convolution_interpolation((x_nu, y_nu, z_nu, w_nu),
+                                             vals_rand; kernel=kernel)
+        interpolated = [itp_rand.itp(x_nu[i], y_nu[j], z_nu[k], w_nu[l]) for i in 1:N_nu_4d
+                        for j in 1:N_nu_4d for k in 1:N_nu_4d for l in 1:N_nu_4d]
+        true_vals = [vals_rand[i,j,k,l] for i in 1:N_nu_4d for j in 1:N_nu_4d
+                     for k in 1:N_nu_4d for l in 1:N_nu_4d]
         @test interpolated ≈ true_vals atol=tolerance_nu
     end
 end
@@ -132,7 +138,7 @@ end
     x[21] += 1e-6
     f = sin.(2π .* x)
     for k in (:a4, :a5, :a7)
-        @test_throws ErrorException convolution_interpolation(x, f, kernel = k)
+        @test_throws ArgumentError convolution_interpolation(x, f, kernel = k)
     end
     itp = convolution_interpolation(x, f, kernel = :a3)   # falls back to :n3
     @test isapprox(itp(0.3), sin(2π * 0.3), atol = 5e-3)

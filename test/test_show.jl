@@ -18,7 +18,8 @@ function check_show(obj; inner=true)
     @test sprint(show, MIME("text/plain"), [obj, obj]) isa String
     @test sprint(show, obj; context = :compact => true) isa String
     if inner && hasproperty(obj, :itp)
-        @test occursin(INNER_MARKER_direct, sprint(show, obj.itp)) || occursin(INNER_MARKER_fast, sprint(show, obj.itp))
+        @test occursin(INNER_MARKER_direct, sprint(show, obj.itp)) ||
+            occursin(INNER_MARKER_fast, sprint(show, obj.itp))
         @test sprint(show, MIME("text/plain"), obj.itp) isa String
     end
 end
@@ -51,11 +52,13 @@ xg4 = range(0, 1, 8);  z4 = [a+b+c+d for a in xg4, b in xg4, c in xg4, d in xg4]
     end
 
     @testset "1D uniform derivatives" begin
-        @testset "antideriv kernel=$k" for k in (:a0, :a1, :a3, :b5)   # -1 valid for all uniform
+        # -1 valid for all uniform
+        @testset "antideriv kernel=$k" for k in (:a0, :a1, :a3, :b5)
             println("    - 1D uniform antiderivative: ", k)
             check_show(ci(x1u, y1u; kernel=k, derivative=-1))
         end
-        @testset "d1 kernel=$k" for k in (:a3, :a4, :a5, :a7, :b5)     # a0/a1 don't reach order 1
+        # a0/a1 don't reach order 1
+        @testset "d1 kernel=$k" for k in (:a3, :a4, :a5, :a7, :b5)
             println("    - 1D uniform first derivative: ", k)
             check_show(ci(x1u, y1u; kernel=k, derivative=1))
         end
@@ -65,7 +68,7 @@ xg4 = range(0, 1, 8);  z4 = [a+b+c+d for a in xg4, b in xg4, c in xg4, d in xg4]
         end
     end
 
-    @testset "1D nonuniform derivatives" begin   # antiderivative not supported on nonuniform
+    @testset "1D nonuniform derivatives" begin  # antiderivative not supported on nonuniform
         @testset "d$d b5" for d in (1, 2, 3)
             println("    - 1D nonuniform b5 kernel, derivative order: ", d)
             check_show(ci(x1n, y1n; kernel=:b5, derivative=d))
@@ -89,7 +92,8 @@ xg4 = range(0, 1, 8);  z4 = [a+b+c+d for a in xg4, b in xg4, c in xg4, d in xg4]
             check_show(ci(x1u, y1u; kernel=:b5, bc=bc))
         end
         check_show(ci((xg, yg), z2; kernel=:b5,
-                      bc=((:linear, :quadratic), (:detect, :poly))))   # per-dim/per-direction
+                      # per-dim/per-direction
+                      bc=((:linear, :quadratic), (:detect, :poly))))
     end
 
     @testset "dimensions" begin
@@ -110,14 +114,16 @@ xg4 = range(0, 1, 8);  z4 = [a+b+c+d for a in xg4, b in xg4, c in xg4, d in xg4]
         println("    - Per-dimension mixed derivatives")
         check_show(ci((xg, yg), z2; kernel=:b5, derivative=(1, 0)))
         check_show(ci((xg, yg), z2; kernel=:b5, derivative=(2, 1)))
-        check_show(ci((xg, yg), z2; kernel=:b5, derivative=(-1, 1)))       # mixed integral/deriv
+        check_show(ci((xg, yg), z2; kernel=:b5, derivative=(-1, 1)))  # mixed integral/deriv
         check_show(ci((xg, yg, zg), z3; kernel=:b5, derivative=(-1, 1, 0)))
     end
 
     @testset "lazy" begin
         println("    - Lazy mode")
-        check_show(ci((xg, yg, zg), z3; kernel=:b5, lazy=true))                       # N≤3 full
-        check_show(ci((xg, yg, zg), z3; kernel=:b5, lazy=true, derivative=(1, 0, 2))) # N≤3 + deriv
+        # N≤3 full
+        check_show(ci((xg, yg, zg), z3; kernel=:b5, lazy=true))
+        # N≤3 + deriv
+        check_show(ci((xg, yg, zg), z3; kernel=:b5, lazy=true, derivative=(1, 0, 2)))
         check_show(ci((xg4, xg4, xg4, xg4), z4; kernel=(:b5, :b5, :b5, :b5), lazy=true))
     end
 

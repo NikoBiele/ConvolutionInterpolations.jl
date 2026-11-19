@@ -3,9 +3,9 @@
 
 Evaluate a Gaussian smoothing kernel at position `s`.
 
-Unlike the polynomial convolution kernels which interpolate (pass exactly through data points),
-this kernel smooths: it produces a weighted average of nearby values, controlled by the
-parameter `B`. Larger `B` gives a narrower Gaussian (less smoothing), smaller `B` gives
+Unlike the polynomial convolution kernels which interpolate (pass exactly through data
+points), this kernel smooths: it produces a weighted average of nearby values, controlled by
+the parameter `B`. Larger `B` gives a narrower Gaussian (less smoothing), smaller `B` gives
 a wider one (more smoothing).
 
 The kernel is defined as `K(s) = exp(-B s²) / θ(B)`, where `θ(B)` is a normalization
@@ -15,7 +15,8 @@ This kernel has infinite support (truncated in practice) and C∞ continuity, bu
 not reproduce polynomials — it blurs the signal by design. Useful for noisy data where
 exact interpolation is undesirable.
 """
-@inline function (::GaussianConvolutionKernel{B,NT})(s) where {B,NT} # Gaussian style smoothing kernel
+@inline function (::GaussianConvolutionKernel{B,NT})(s) where {B,NT}
+    # Gaussian style smoothing kernel
     return f(s, B, NT)
 end
 

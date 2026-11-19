@@ -1,9 +1,9 @@
 """
     POLYNOMIAL_GHOST_COEFFS
 
-Dictionary mapping kernel symbols to `Float64` coefficient matrices for polynomial-reproduction
-boundary conditions. Each row contains coefficients for computing one ghost point from
-interior values.
+Dictionary mapping kernel symbols to integer coefficient matrices for
+polynomial-reproduction boundary conditions. Each row contains coefficients for computing
+one ghost point from interior values.
 
 For a kernel `:k`, `POLYNOMIAL_GHOST_COEFFS[:k][j, :]` gives the coefficients to compute
 ghost point `g_{-j}` (left boundary) from consecutive interior points.
@@ -20,12 +20,12 @@ ghost point `g_{-j}` (left boundary) from consecutive interior points.
 - `:b13`: 7th-order, 9 ghost points, 8 interior points
 
 Coefficients are derived from Vandermonde systems ensuring exact polynomial reproduction
-up to the kernel's polynomial degree. Stored as `Float64` to avoid type promotion
-allocations during `mul!` in the boundary condition computation.
+up to the kernel's polynomial degree. They are integers and are stored as `Int`, which is
+exact: each one is converted to the element type of the data where a ghost value is
+computed, so the same table serves every precision, `BigFloat` included.
 
 See also: `get_polynomial_ghost_coeffs`, `fill_ghost_points_polynomial!`.
 """
-
 const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
     
     # a3: Reproduces polynomials up to degree 3
@@ -39,7 +39,7 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
     # dummy entry
     :n3 => Matrix{Int}(undef, 2, 2),
 
-    # b3: Reproduces polynomials up to degree 3
+    # a4: Reproduces polynomials up to degree 3
     # Support: [-3, 3], needs 3 ghost points
     # Uses 4 interior points (degree + 1)
     :a4 => [
@@ -134,10 +134,12 @@ const POLYNOMIAL_GHOST_COEFFS = Dict{Symbol, Matrix{Int}}(
 )
 
 """
-    get_polynomial_ghost_coeffs(kernel_type::Symbol)
+    get_polynomial_ghost_coeffs(kernel_bc::Symbol, kernel_type::Symbol)
 
-Retrieve the polynomial ghost point coefficient matrix for a given kernel.
-Returns a `Matrix{Float64}` from `POLYNOMIAL_GHOST_COEFFS`.
+Retrieve the ghost point coefficient matrix for a boundary condition and kernel: the linear
+or quadratic rule for `kernel_bc = :linear` or `:quadratic`, and otherwise the kernel's
+polynomial matrix. Returns a `Matrix{Int}`, from `POLYNOMIAL_GHOST_COEFFS` for the
+polynomial rule.
 
 See also: `POLYNOMIAL_GHOST_COEFFS`.
 """

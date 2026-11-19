@@ -1,16 +1,17 @@
 """
     ConvolutionExtrapolation(itp::ConvolutionInterpolation, et::AbstractExtrapolation)
 
-Wrap an interpolant with an extrapolation rule, so that it can be evaluated outside its grid.
+Wrap an interpolant with an extrapolation rule, so that it can be evaluated outside its
+grid.
 
 # Arguments
 - `itp`: The `ConvolutionInterpolation` to extend
 - `et`: The rule applied outside the grid: `Throw()`, `Flat()`, `Line()` or `Natural()`
 
 # Returns
-- `ConvolutionExtrapolation`: The interpolant with the rule; inside the grid it evaluates `itp`
-  unchanged, and the domain bounds are stored with a tolerance of a few `eps` so that points on
-  the boundary count as inside
+- `ConvolutionExtrapolation`: The interpolant with the rule; inside the grid it evaluates
+  `itp` unchanged, and the domain bounds are stored with a tolerance of a few `eps` so that
+  points on the boundary count as inside
 
 `convolution_interpolation` builds this wrapper from its `extrap` keyword, which is the
 recommended way to get one.

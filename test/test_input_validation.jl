@@ -40,11 +40,14 @@ println("-"^60)
         @test_throws ArgumentError convolution_resample(x_bad, x_out, y)
         @test_throws ArgumentError convolution_resample((x_bad,), (x_out,), y; kernel=:b5)
         # decreasing input knots
-        @test_throws ArgumentError convolution_resample(range(1.0, 0.0, length=41), x_out, y)
+        @test_throws ArgumentError convolution_resample(range(1.0, 0.0, length=41), x_out,
+                                                        y)
         # knots that do not match the data
-        @test_throws ArgumentError convolution_resample(range(0.0, 1.0, length=40), x_out, y)
+        @test_throws ArgumentError convolution_resample(range(0.0, 1.0, length=40), x_out,
+                                                        y)
         # output points outside the input range, on either side
-        @test_throws ArgumentError convolution_resample(x_in, range(-0.1, 1.0, length=81), y)
+        @test_throws ArgumentError convolution_resample(x_in, range(-0.1, 1.0, length=81),
+                                                        y)
         @test_throws ArgumentError convolution_resample(x_in, range(0.0, 1.1, length=81), y)
         # a nonuniform second axis in 2D
         y_in = range(0.0, 1.0, length=41)

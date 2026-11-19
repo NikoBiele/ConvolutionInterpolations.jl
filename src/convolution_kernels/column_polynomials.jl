@@ -62,7 +62,8 @@ function _kernel_pieces_exact(kernel::Symbol, m::Int)
             q = _poly_integrate(pieces[i])                  # integrate the previous level
             q[1] += start - _poly_eval(q, big(i - 1) // 1)  # continuity at the left break
             integrated[i] = q
-            start = _poly_eval(q, big(i) // 1)              # value carried to the next piece
+            # value carried to the next piece
+            start = _poly_eval(q, big(i) // 1)
         end
         pieces = integrated
     end
@@ -79,7 +80,8 @@ multiplies t^(k−1)).
 """
 function _column_polynomials_exact(kernel::Symbol, derivative::Int)
     kernel == :a0 &&
-        throw(ArgumentError("column polynomials are not defined for :a0 (pieces break at half-integers)"))
+        throw(ArgumentError("column polynomials are not defined for :a0 (pieces break at " *
+                            "half-integers)"))
     eqs = get_equations_for_degree(kernel)
     m = max(-derivative, 0)
     pieces = _kernel_pieces_exact(kernel, m)
@@ -104,9 +106,10 @@ end
     _kernel_value_exact(kernel, q, σ)
 
 Exact value of K_q(σ), the q-fold antiderivative (q ≥ 1) of `kernel` in the symmetric Cauchy
-convention, at an integer offset σ. Inside the support it is the exact integrated kernel piece;
-outside (|σ| ≥ eqs) it is the far field sgn(σ)·σ^(q−1)/(2(q−1)!), which holds for q up to
-`_max_integral_order[kernel]`. `:a0`, whose support has half-width ½, is given in closed form.
+convention, at an integer offset σ. Inside the support it is the exact integrated kernel
+piece; outside (|σ| ≥ eqs) it is the far field sgn(σ)·σ^(q−1)/(2(q−1)!), which holds for q
+up to `_max_integral_order[kernel]`. `:a0`, whose support has half-width ½, is given in
+closed form.
 """
 function _kernel_value_exact(kernel::Symbol, q::Int, σ::Integer)
     s = big(σ)
@@ -114,7 +117,8 @@ function _kernel_value_exact(kernel::Symbol, q::Int, σ::Integer)
     far_field() = sign(s) * s^(q - 1) // (2 * factorial(big(q - 1)))
     if kernel == :a0
         # K_q(0): zero for odd q, the half moment (½)^q / q! for even q
-        σ == 0 && return isodd(q) ? zero(Rational{BigInt}) : (big(1)//2)^q // factorial(big(q))
+        σ == 0 && return isodd(q) ? zero(Rational{BigInt}) :
+                                    (big(1)//2)^q // factorial(big(q))
         return far_field()
     end
     eqs = get_equations_for_degree(kernel)
@@ -125,35 +129,39 @@ function _kernel_value_exact(kernel::Symbol, q::Int, σ::Integer)
     return (σ < 0 && isodd(q)) ? -value : value
 end
 
-# ---------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 # Evaluation
-# ---------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------
 
 """
     _column_rows(Val(kernel), Val(derivative), T)
 
 The column polynomials of `kernel` at `derivative` order, rounded once to type `T`, as
-`rows[d][k]` = coefficient of τ^(d−1) for column k. Generated once per (kernel, derivative, T)
-from the exact derivation, so the coefficients are compile-time constants in the calling code.
+`rows[d][k]` = coefficient of τ^(d−1) for column k. Generated once per (kernel, derivative,
+T) from the exact derivation, so the coefficients are compile-time constants in the calling
+code.
 """
-@generated function _column_rows(::Val{kernel}, ::Val{derivative}, ::Type{T}) where {kernel,derivative,T}
+@generated function _column_rows(::Val{kernel}, ::Val{derivative},
+                                 ::Type{T}) where {kernel,derivative,T}
     columns = _column_polynomials_exact(kernel, derivative)
     K = length(columns)
     D = maximum(length, columns)
-    rows = ntuple(d -> ntuple(k -> d <= length(columns[k]) ? T(columns[k][d]) : zero(T), K), D)
+    rows = ntuple(d -> ntuple(k -> d <= length(columns[k]) ? T(columns[k][d]) : zero(T), K),
+                  D)
     return :($rows)
 end
 
-# One Horner step for all K columns at once: w ← w·τ + row. Kept as a separate function so the
-# closure captures only unchanging arguments (capturing a reassigned variable would box it).
+# One Horner step for all K columns at once: w ← w·τ + row. Kept as a separate function so
+# the closure captures only unchanging arguments (capturing a reassigned variable would box
+# it).
 @inline _horner_step(w::NTuple{K,T}, τ::T, row::NTuple{K,T}) where {K,T} =
     ntuple(k -> muladd(w[k], τ, row[k]), Val(K))
 
 """
     _column_weights(rows, τ)
 
-Kernel weights of all K columns at position τ: Horner's scheme run across the columns at once,
-one vector step per polynomial degree.
+Kernel weights of all K columns at position τ: Horner's scheme run across the columns at
+once, one vector step per polynomial degree.
 """
 @inline function _column_weights(rows::NTuple{D,NTuple{K,T}}, τ::T) where {D,K,T}
     w = rows[D]
@@ -166,11 +174,12 @@ end
 """
     _kernel_weights(Val(kernel), Val(derivative), τ)
 
-Kernel weights of all 2·eqs columns of one dimension at τ = diff_right (column k ↔ coefficient
-offset + k): exact column polynomials for every kernel except `:a0`, whose nearest-neighbour
-weights are given directly.
+Kernel weights of all 2·eqs columns of one dimension at τ = diff_right (column
+k ↔ coefficient offset + k): exact column polynomials for every kernel except `:a0`, whose
+nearest-neighbour weights are given directly.
 """
-@inline _kernel_weights(::Val{kernel}, ::Val{derivative}, τ::T) where {kernel,derivative,T} =
+@inline _kernel_weights(::Val{kernel}, ::Val{derivative},
+                        τ::T) where {kernel,derivative,T} =
     _column_weights(_column_rows(Val(kernel), Val(derivative), T), τ)
 
 # :a0 (nearest neighbour) is not a polynomial on a column, but its weights are trivial. With
@@ -203,7 +212,9 @@ Kernel weights of every dimension, `(_kernel_weights(kernels[1], derivatives[1],
 Generated so that each dimension's kernel and derivative order are literal constants, which
 keeps the result type-stable even when kernels differ between dimensions.
 """
-@generated function _column_weights_per_dim(::Val{KS}, ::Val{DO}, τ::NTuple{N,T}) where {KS,DO,N,T}
-    calls = [:(_kernel_weights(Val($(QuoteNode(KS[d]))), Val($(DO[d])), τ[$d])) for d in 1:N]
+@generated function _column_weights_per_dim(::Val{KS}, ::Val{DO},
+                                            τ::NTuple{N,T}) where {KS,DO,N,T}
+    calls = [:(_kernel_weights(Val($(QuoteNode(KS[d]))), Val($(DO[d])), τ[$d]))
+             for d in 1:N]
     return :(tuple($(calls...)))
 end

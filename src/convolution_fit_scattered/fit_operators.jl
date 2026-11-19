@@ -8,10 +8,12 @@ tables, as the uniform path has always built them. Vectors mean a nonuniform gri
 nonuniform kernels (`:n3` or the b-kernels) through the per-axis bases of `_nu_axis`, with
 divided-difference roughness in plain-difference units; `_smooth_system` applies the same
 `rowscale` to both grid types. `isotropic = true` selects the isotropic `H^q` seminorm
-(`_scattered_roughness_iso`, one order for all axes) instead of the axis-wise differences."""
+(`_scattered_roughness_iso`, one order for all axes) instead of the axis-wise
+differences."""
 function _scattered_operators(pts::AbstractMatrix{F}, kernels::NTuple{D,Symbol},
                               axes::NTuple{D,<:AbstractRange}, qv::NTuple{D,Int};
-                              bc::NTuple{D,Tuple{Symbol,Symbol}} = ntuple(_ -> (:poly, :poly), D),
+                              bc::NTuple{D,Tuple{Symbol,Symbol}} =
+                                  ntuple(_ -> (:poly, :poly), D),
                               isotropic::Bool = false) where {F,D}
     A, S, n_full = _scattered_uniform_parts(pts, kernels, axes; bc)
     if isotropic
@@ -22,17 +24,20 @@ function _scattered_operators(pts::AbstractMatrix{F}, kernels::NTuple{D,Symbol},
     return A * S, R * S
 end
 
-"""Collocation matrix `A` on the full (ghost-extended) uniform grid, the extension `S` from the
-interior unknowns to the full grid, and the full grid size. `A * S` is the collocation matrix
-of the fit on the interior unknowns; `_scattered_operators` adds the roughness operator, which
-the `:dual` solver does not need."""
+"""Collocation matrix `A` on the full (ghost-extended) uniform grid, the extension `S` from
+the interior unknowns to the full grid, and the full grid size. `A * S` is the collocation
+matrix of the fit on the interior unknowns; `_scattered_operators` adds the roughness
+operator, which the `:dual` solver does not need."""
 function _scattered_uniform_parts(pts::AbstractMatrix{F}, kernels::NTuple{D,Symbol},
                                   axes::NTuple{D,<:AbstractRange};
-                                  bc::NTuple{D,Tuple{Symbol,Symbol}} = ntuple(_ -> (:poly, :poly), D)) where {F,D}
+                                  bc::NTuple{D,Tuple{Symbol,Symbol}} =
+                                      ntuple(_ -> (:poly, :poly), D)) where {F,D}
     eqs = ntuple(d -> get_equations_for_degree(kernels[d]), D)
     ng  = ntuple(d -> eqs[d] - 1, D)                       # ghosts per side
-    Gl  = ntuple(d -> get_polynomial_ghost_coeffs(bc[d][1], kernels[d]), D)   # left ghost rule per axis
-    Gr  = ntuple(d -> get_polynomial_ghost_coeffs(bc[d][2], kernels[d]), D)   # right ghost rule per axis
+    # left ghost rule per axis
+    Gl  = ntuple(d -> get_polynomial_ghost_coeffs(bc[d][1], kernels[d]), D)
+    # right ghost rule per axis
+    Gr  = ntuple(d -> get_polynomial_ghost_coeffs(bc[d][2], kernels[d]), D)
     n_int   = ntuple(d -> length(axes[d]), D)
     h       = ntuple(d -> F(step(axes[d])), D)
     n_full  = ntuple(d -> n_int[d] + 2ng[d], D)
@@ -62,27 +67,29 @@ end
 """The single roughness order of an isotropic seminorm: the per-axis orders must agree."""
 function _isotropic_order(qv::NTuple{D,Int}) where {D}
     all(==(qv[1]), qv) ||
-        throw(ArgumentError("the isotropic roughness seminorm needs one order on every axis, got $qv."))
+        throw(ArgumentError("the isotropic roughness seminorm needs one order on every " *
+                            "axis, got $qv."))
     return qv[1]
 end
 
 """Nonuniform basis of one axis for the scattered fit: everything the collocation, extension
-and roughness operators need, built once from the kernel and the knots. Fields: `M` ghosts per
-side; `ns`, `Gl`, `Gr` the ghost extrapolation (each ghost is a combination of the `ns`
-nearest interior knots, `Gl[g, :]` for the g-th left ghost from knots `1:ns`, `Gr[g, :]` for the
-g-th right ghost from knots `n-ns+1:n`), exactly as the interpolant constructor fills them;
-`stencil` the number of weights per point; and `eval(x)`, returning `(col0, w)` such that point
-`x` has weight `w[j]` at full-grid column `col0 + j`, `j = 1:stencil`."""
+and roughness operators need, built once from the kernel and the knots. Fields: `M` ghosts
+per side; `ns`, `Gl`, `Gr` the ghost extrapolation (each ghost is a combination of the `ns`
+nearest interior knots, `Gl[g, :]` for the g-th left ghost from knots `1:ns`, `Gr[g, :]` for
+the g-th right ghost from knots `n-ns+1:n`), exactly as the interpolant constructor fills
+them; `stencil` the number of weights per point; and `eval(x)`, returning `(col0, w)` such
+that point `x` has weight `w[j]` at full-grid column `col0 + j`, `j = 1:stencil`."""
 function _nu_axis(kernel::Symbol, ax::AbstractVector, ::Type{F}) where {F}
     n_int = length(ax)
     if kernel === :n3
-        # nonuniform Catmull-Rom: one ghost per side from a three-knot quadratic extrapolation,
-        # four closed-form weights per point from the local spacings (`_nonuniform_dim_ghost`)
+        # nonuniform Catmull-Rom: one ghost per side from a three-knot quadratic
+        # extrapolation, four closed-form weights per point from the local spacings
+        # (`_nonuniform_dim_ghost`)
         kexp = vcat(ax[1] - (ax[2] - ax[1]), ax, ax[end] + (ax[end] - ax[end - 1]))
         Gl = F.(nonuniform_ghost_coefficients(ax, 1, 2, :left))
         Gr = F.(nonuniform_ghost_coefficients(ax, 1, 2, :right))
         eval = function (x)
-            i, w = _nonuniform_dim_ghost(kexp, x)          # expanded index i, weights at i-1 … i+2
+            i, w = _nonuniform_dim_ghost(kexp, x)   # expanded index i, weights at i-1 … i+2
             return i - 2, F[w[1], w[2], w[3], w[4]]
         end
         return (M = 1, ns = 3, Gl = Gl, Gr = Gr, stencil = 4, eval = eval)
@@ -94,7 +101,8 @@ function _nu_axis(kernel::Symbol, ax::AbstractVector, ::Type{F}) where {F}
         Gl = F.(nonuniform_b_ghost_coefficients(ax, M, p, :left))
         Gr = F.(nonuniform_b_ghost_coefficients(ax, M, p, :right))
         eval = function (x)
-            k  = clamp(searchsortedlast(ax, x), 1, n_int - 1)    # interval in the interior axis
+            # interval in the interior axis
+            k  = clamp(searchsortedlast(ax, x), 1, n_int - 1)
             s  = (x - ax[k]) / (ax[k + 1] - ax[k])
             coeffs = weights[k]
             n_poly = size(coeffs, 2)
@@ -106,7 +114,7 @@ function _nu_axis(kernel::Symbol, ax::AbstractVector, ::Type{F}) where {F}
                 end
                 w[j] = val
             end
-            return k, w                                           # columns k+1 … k+2M, as in `_nb_dim`
+            return k, w                                # columns k+1 … k+2M, as in `_nb_dim`
         end
         return (M = M, ns = p + 1, Gl = Gl, Gr = Gr, stencil = 2M, eval = eval)
     end
@@ -152,8 +160,8 @@ end
 
 """Sparse collocation matrix over the full (ghost-extended) nonuniform grid: row i holds the
 tensor-product weights of data point i at the grid knots, from the per-axis bases of
-`_nu_axis` (`basis.eval(x)` gives the first column minus one and the weights of a point along
-that axis)."""
+`_nu_axis` (`basis.eval(x)` gives the first column minus one and the weights of a point
+along that axis)."""
 function _scattered_collocation(pts::AbstractMatrix{F}, axes::NTuple{D,<:AbstractVector},
                                 bases::NTuple{D,<:NamedTuple}) where {F,D}
     Np      = size(pts, 2)
@@ -189,7 +197,8 @@ function _scattered_extension(n_full::NTuple{D,Int}, n_int::NTuple{D,Int},
                               ng::NTuple{D,Int}, Gl::NTuple{D,Matrix{Int}},
                               Gr::NTuple{D,Matrix{Int}}, ::Type{F}) where {F,D}
     Es = ntuple(D) do d
-        nl, nr = size(Gl[d], 2), size(Gr[d], 2)      # stencil widths of the two ends' ghost rules
+        # stencil widths of the two ends' ghost rules
+        nl, nr = size(Gl[d], 2), size(Gr[d], 2)
         I_ = Int[]; J_ = Int[]; V_ = F[]
         for j in 1:n_int[d]                          # interior identity
             push!(I_, ng[d] + j); push!(J_, j); push!(V_, one(F))
@@ -207,12 +216,13 @@ function _scattered_extension(n_full::NTuple{D,Int}, n_int::NTuple{D,Int},
     return reduce(kron, reverse(Es))
 end
 
-"""Per-dimension extension operators on a nonuniform grid (interior -> full grid via the ghost
-extrapolation of the kernel, from the per-axis bases of `_nu_axis`), combined column-major:
-S = kron(E_D, ..., E_1). Ghost g (g = 1 nearest the boundary) sits at full index M+1-g on the
-left and M+n+g on the right, and combines the `ns` nearest interior knots, exactly as the
-interpolant constructor fills them."""
-function _scattered_extension(axes::NTuple{D,<:AbstractVector}, bases::NTuple{D,<:NamedTuple},
+"""Per-dimension extension operators on a nonuniform grid (interior -> full grid via the
+ghost extrapolation of the kernel, from the per-axis bases of `_nu_axis`), combined
+column-major: S = kron(E_D, ..., E_1). Ghost g (g = 1 nearest the boundary) sits at full
+index M+1-g on the left and M+n+g on the right, and combines the `ns` nearest interior
+knots, exactly as the interpolant constructor fills them."""
+function _scattered_extension(axes::NTuple{D,<:AbstractVector},
+                              bases::NTuple{D,<:NamedTuple},
                               ::Type{F}) where {F,D}
     Es = ntuple(D) do d
         n_int  = length(axes[d])
@@ -220,13 +230,13 @@ function _scattered_extension(axes::NTuple{D,<:AbstractVector}, bases::NTuple{D,
         Gl, Gr = bases[d].Gl, bases[d].Gr
         n_full = n_int + 2M
         I_ = Int[]; J_ = Int[]; V_ = F[]
-        for j in 1:n_int                                         # interior identity
+        for j in 1:n_int                        # interior identity
             push!(I_, M + j); push!(J_, j); push!(V_, one(F))
         end
-        for g in 1:M, k in 1:ns                                  # left ghosts from knots 1 … ns
+        for g in 1:M, k in 1:ns                 # left ghosts from knots 1 … ns
             push!(I_, M + 1 - g); push!(J_, k); push!(V_, F(Gl[g, k]))
         end
-        for g in 1:M, k in 1:ns                                  # right ghosts from knots n_int-ns+1 … n_int
+        for g in 1:M, k in 1:ns                 # right ghosts from knots n_int-ns+1 … n_int
             push!(I_, M + n_int + g)
             push!(J_, n_int - ns + k)
             push!(V_, F(Gr[g, k]))
@@ -286,9 +296,9 @@ function _scattered_roughness_iso(n_full::NTuple{D,Int}, q::Int, ::Type{F}) wher
     return reduce(vcat, blocks)
 end
 
-"""Full knot vectors of a nonuniform grid for the roughness operators: each axis normalised to
-[0, 1] over the interior, with `M[d]` ghost knots per side mirroring the end spacings, as the
-interpolant constructor places them."""
+"""Full knot vectors of a nonuniform grid for the roughness operators: each axis normalised
+to [0, 1] over the interior, with `M[d]` ghost knots per side mirroring the end spacings, as
+the interpolant constructor places them."""
 function _roughness_knots(axes::NTuple{D,<:AbstractVector}, M::NTuple{D,Int},
                           ::Type{F}) where {F,D}
     return ntuple(D) do d
@@ -302,9 +312,9 @@ function _roughness_knots(axes::NTuple{D,<:AbstractVector}, M::NTuple{D,Int},
     end
 end
 
-"""q-th divided differences along one nonuniform axis with knots `x`, each row times ℓ^q with
-ℓ its support length over q: a plain q-th difference on the local scale, O(1) on any grid and
-equal to the uniform operator's binomial differences on a uniform grid."""
+"""q-th divided differences along one nonuniform axis with knots `x`, each row times ℓ^q
+with ℓ its support length over q: a plain q-th difference on the local scale, O(1) on any
+grid and equal to the uniform operator's binomial differences on a uniform grid."""
 function _divided_difference_rows(x::Vector{F}, q::Int) where {F}
     n = length(x)
     I_ = Int[]; J_ = Int[]; V_ = F[]
@@ -343,8 +353,8 @@ end
 
 """Isotropic roughness operator on the full nonuniform grid: the discrete `H^q` seminorm of
 the uniform `_scattered_roughness_iso`, with the divided differences of
-`_divided_difference_rows` along each axis in place of the binomial differences. Column-major
-kron ordering to match `_scattered_extension`."""
+`_divided_difference_rows` along each axis in place of the binomial differences.
+Column-major kron ordering to match `_scattered_extension`."""
 function _scattered_roughness_iso(axes::NTuple{D,<:AbstractVector}, M::NTuple{D,Int},
                                   q::Int, ::Type{F}) where {F,D}
     xs = _roughness_knots(axes, M, F)

@@ -1,7 +1,8 @@
 """
     ConvolutionExtrapolation{T,N,ITPT<:ConvolutionInterpolation,ET<:AbstractExtrapolation}
 
-A structure that combines a convolution interpolation with boundary condition extrapolation techniques.
+A structure that combines a convolution interpolation with boundary condition extrapolation
+techniques.
 
 # Type Parameters
 - `T`: The data type of the interpolated values
@@ -22,9 +23,11 @@ When called as a function, the object automatically determines whether the reque
 is within the interpolation domain. If so, it uses direct interpolation; if not, it applies
 the specified boundary condition to handle the extrapolation.
 
-# This struct is not simple to use manually, so it is recommended to use the `convolution_interpolation` function.
+This struct is not simple to use manually, so it is recommended to use the
+`convolution_interpolation` function.
 """
-struct ConvolutionExtrapolation{T,N,ITPT<:ConvolutionInterpolation,ET<:AbstractExtrapolation}
+struct ConvolutionExtrapolation{T,N,ITPT<:ConvolutionInterpolation,
+                                ET<:AbstractExtrapolation}
     itp::ITPT
     et::ET
     lo::NTuple{N,T}

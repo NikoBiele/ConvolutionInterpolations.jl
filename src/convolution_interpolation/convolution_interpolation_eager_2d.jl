@@ -10,9 +10,9 @@ Dispatches on kernel type:
 - `:a1` — Bilinear interpolation, ~8ns
 
 **Higher-order kernels**: exact column polynomials. The kernel weights of each dimension are
-evaluated once from compile-time polynomial coefficients (see `_column_rows`), and the 2D kernel
-is their tensor product `K_2D(x,y) = K_1D(x) * K_1D(y)`: one product per coefficient in the
-`(2*eqs)^2` support.
+evaluated once from compile-time polynomial coefficients (see `_column_rows`), and the 2D
+kernel is their tensor product `K_2D(x,y) = K_1D(x) * K_1D(y)`: one product per coefficient
+in the `(2*eqs)^2` support.
 
 O(1) evaluation time, allocation-free, exact to rounding for every derivative order.
 
@@ -20,9 +20,12 @@ Results scaled by `(-1/h_x)^derivative * (-1/h_y)^derivative`.
 
 See also: `ConvolutionInterpolation`, `_column_weights_per_dim`.
 """
-@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a0, :a0)},
-                    EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,2}) where 
-                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
+                    LowerOrderKernel{(:a0, :a0)},
+                    EQ,KBC,DerivativeOrder{DO},Val{false},
+                    Val{0}})(x::Vararg{Number,2}) where
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
+                    Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
@@ -49,9 +52,12 @@ See also: `ConvolutionInterpolation`, `_column_weights_per_dim`.
     end
 end
 
-@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},LowerOrderKernel{(:a1, :a1)},
-                    EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,2}) where 
-                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+@inline function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
+                    LowerOrderKernel{(:a1, :a1)},
+                    EQ,KBC,DerivativeOrder{DO},Val{false},
+                    Val{0}})(x::Vararg{Number,2}) where
+                    {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
+                    Axs<:Tuple{<:AbstractVector,<:AbstractVector},
                     KA<:Tuple{<:Nothing,<:Nothing},EQ<:Tuple{Int,Int},
                     KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 
@@ -76,8 +82,10 @@ end
 end
 
 function (itp::ConvolutionInterpolation{T,2,0,TCoefs,Axs,KA,Val{2},
-            HigherOrderKernel{K},EQ,KBC,DerivativeOrder{DO},Val{false},Val{0}})(x::Vararg{Number,2}) where 
-            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},Axs<:Tuple{<:AbstractVector,<:AbstractVector},
+            HigherOrderKernel{K},EQ,KBC,DerivativeOrder{DO},Val{false},
+            Val{0}})(x::Vararg{Number,2}) where
+            {T<:AbstractFloat,TCoefs<:AbstractArray{T,2},
+            Axs<:Tuple{<:AbstractVector,<:AbstractVector},
             KA<:Tuple{<:Nothing,<:Nothing},K,EQ<:Tuple{Int,Int},
             KBC<:Tuple{<:Tuple{Symbol,Symbol},<:Tuple{Symbol,Symbol}},DO}
 

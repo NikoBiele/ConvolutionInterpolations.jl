@@ -2,13 +2,13 @@
     ConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
                                  Axs<:Tuple,KA,DT,K,EQ,KBC,DOT,LZ,DI,SZ,NU}
 
-Convolution interpolation on uniform and nonuniform grids. On uniform axes the kernel weights
-are computed exactly from each kernel's polynomial pieces (see `_column_rows`), so evaluation
-is exact to rounding for every kernel, derivative and integral order, and independent of the
-grid size. On nonuniform axes the cell is found by a binary search in the knots; the weights
-of the `b` kernels come from per-interval polynomial tables computed at construction (see
-`precompute_nonuniform_b_all`), and the closed-form kernels (`:n3`, `:a0`, `:a1`) adapt their
-weights to the local spacing at evaluation.
+Convolution interpolation on uniform and nonuniform grids. On uniform axes the kernel
+weights are computed exactly from each kernel's polynomial pieces (see `_column_rows`), so
+evaluation is exact to rounding for every kernel, derivative and integral order, and
+independent of the grid size. On nonuniform axes the cell is found by a binary search in the
+knots; the weights of the `b` kernels come from per-interval polynomial tables computed at
+construction (see `precompute_nonuniform_b_all`), and the closed-form kernels (`:n3`, `:a0`,
+`:a1`) adapt their weights to the local spacing at evaluation.
 
 # Type Parameters
 - `T`: Element type of the interpolated values
@@ -28,7 +28,8 @@ weights to the local spacing at evaluation.
 - `NU`: Type of the per-axis nonuniform data (a tuple of `Nothing` on a uniform grid)
 
 # Fields
-- `coefs::TCoefs`: Coefficients, extended with ghost points (eager mode) or raw values (lazy mode)
+- `coefs::TCoefs`: Coefficients, extended with ghost points (eager mode) or raw values (lazy
+  mode)
 - `domain_size::SZ`: Size of the original data array
 - `knots::Axs`: Knots of each dimension, extended with ghost knots in eager mode
 - `h::NTuple{N,T}`: Grid spacing per dimension (one on nonuniform dimensions)
@@ -42,16 +43,18 @@ weights to the local spacing at evaluation.
 - `lazy::LZ`: If `Val(true)`, ghost points are computed on the fly near the boundaries
 - `anchor::NTuple{N,T}`: Point where antiderivatives are zero, per integral dimension
 - `dim_integral::DI`: Integral dimension type for dispatch
-- `integral_taylor::NTuple{N,Matrix{T}}`: For each integral dimension of order m, the exact values
-  K_{m-r}(eqs - j) of the coefficients near the anchor (see `_anchor_taylor_table`)
-- `integral_entries::NTuple{N,Matrix{T}}`: For each integral dimension, the exact polynomials
-  (in the position within the cell) that near-anchor coefficients contribute left of the stencil
-- `integral_tails::Vector{Vector{Array{T,N}}}`: For at most 3 integral dimensions, the left tails
-  of every region: entry `mask` holds one array per combination of powers of the positions within
-  the cell (see `_build_region_tails`)
-- `nonuniform::NU`: Per axis, `nothing` on a uniform axis; on a nonuniform axis the per-interval
-  weight tables of a `b` kernel (`Vector{Matrix{T}}`), or `Val(:nonuniform)` for a kernel whose
-  weights are computed from the local spacing at evaluation (`:n3`, `:a0`, `:a1`)
+- `integral_taylor::NTuple{N,Matrix{T}}`: For each integral dimension of order m, the exact
+  values K_{m-r}(eqs - j) of the coefficients near the anchor (see `_anchor_taylor_table`)
+- `integral_entries::NTuple{N,Matrix{T}}`: For each integral dimension, the exact
+  polynomials (in the position within the cell) that near-anchor coefficients contribute
+  left of the stencil
+- `integral_tails::Vector{Vector{Array{T,N}}}`: For at most 3 integral dimensions, the left
+  tails of every region: entry `mask` holds one array per combination of powers of the
+  positions within the cell (see `_build_region_tails`)
+- `nonuniform::NU`: Per axis, `nothing` on a uniform axis; on a nonuniform axis the
+  per-interval weight tables of a `b` kernel (`Vector{Matrix{T}}`), or `Val(:nonuniform)`
+  for a kernel whose weights are computed from the local spacing at evaluation (`:n3`,
+  `:a0`, `:a1`)
 """
 struct ConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
                                 Axs<:Tuple,KA,DT,K,EQ,KBC,DOT,LZ,DI,SZ,NU}
@@ -70,9 +73,12 @@ struct ConvolutionInterpolation{T,N,NI,TCoefs<:AbstractArray{T,N},
     anchor::NTuple{N, T}
     dim_integral::DI
     # integrals of any order in any dimension (see IntegralOrders)
-    integral_taylor::NTuple{N, Matrix{T}}      # per integral dimension: exact anchoring table
-    integral_entries::NTuple{N, Matrix{T}}     # per integral dimension: near-anchor entry polynomials
-    integral_tails::Vector{Vector{Array{T,N}}} # left tails of every region (≤ 3 integral dimensions)
+    # per integral dimension: exact anchoring table
+    integral_taylor::NTuple{N, Matrix{T}}
+    # per integral dimension: near-anchor entry polynomials
+    integral_entries::NTuple{N, Matrix{T}}
+    # left tails of every region (≤ 3 integral dimensions)
+    integral_tails::Vector{Vector{Array{T,N}}}
     # nonuniform axes (see the docstring): nothing on a uniform axis
     nonuniform::NU
 end

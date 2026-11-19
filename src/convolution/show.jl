@@ -6,7 +6,8 @@ function Base.show(io::IO, itp::ConvolutionInterpolation)
     grid = all(a -> a === nothing, itp.nonuniform) ? "uniform" : "nonuniform"
     sz   = join(size(itp.coefs), "×")
     kbc = _show_kbc(itp.bc)
-    print(io, "ConvolutionInterpolation($T, $(N)D, coefs=$(sz), kernel=$deg, $dord, $grid, bc=$kbc)")
+    print(io, "ConvolutionInterpolation($T, $(N)D, coefs=$(sz), kernel=$deg, $dord, " *
+              "$grid, bc=$kbc)")
 end
 
 function Base.show(io::IO, etp::ConvolutionExtrapolation)
@@ -20,7 +21,9 @@ end
 
 # --- Helpers ---
 
-_show_S(S) = S isa Symbol ? ":$(S)" : allequal(S) ? ":$(S[1])" : "(" * join((":$s" for s in S), ", ") * ")"
+_show_S(S) = S isa Symbol ? ":$(S)" :
+             allequal(S) ? ":$(S[1])" :
+             "(" * join((":$s" for s in S), ", ") * ")"
 _show_deg(::Val{S}) where S = _show_S(S)
 _show_deg(::HigherOrderKernel{S}) where S = _show_S(S)
 _show_deg(::HigherOrderMixedKernel{S}) where S = _show_S(S)
@@ -31,8 +34,12 @@ _show_deg(::NonUniformMixedOrderKernel{S}) where S = _show_S(S)
 
 _show_deg(other) = other
 
-_show_do(::DerivativeOrder{DO}) where DO = DO isa Tuple && length(DO) == 1 ? "derivative=$(DO[1])" : allequal(DO) ? "derivative=$(DO[1])" : "derivative=$DO"
-_show_do(::IntegralOrders{DO}) where DO = length(DO) == 1 ? "derivative=$(DO[1])" : "derivative=$DO"
+_show_do(::DerivativeOrder{DO}) where DO =
+    DO isa Tuple && length(DO) == 1 ? "derivative=$(DO[1])" :
+    allequal(DO) ? "derivative=$(DO[1])" :
+    "derivative=$DO"
+_show_do(::IntegralOrders{DO}) where DO =
+    length(DO) == 1 ? "derivative=$(DO[1])" : "derivative=$DO"
 
 function _show_kbc(kbc)
     kbc isa Tuple || return "$kbc"
